@@ -1,6 +1,6 @@
 """Plan B: descarga Online Shoppers Purchasing Intention (UCI #468, CC BY 4.0).
 
-Se activa solo si la cátedra no habilita el uso de Expedia (ver docs/plan_b.md). Licencia
+Disponible pero NO activo: Verónica decidió (12/11) seguir con Expedia (ver docs/plan_b.md). Licencia
 abierta: los datos se podrían versionar, pero por consistencia seguimos la misma política que con
 Expedia (crudo fuera del repo, muestra ignorada por git, manifiesto versionado).
 

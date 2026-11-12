@@ -23,7 +23,8 @@
    - Ningún dato en el repo; lo garantiza `tests/test_confidencialidad.py`.
    - El crudo queda fuera del repo y de OneDrive.
    - La app muestra solo agregados.
-   - Consultamos a la cátedra.
+   - Decisión mía (12/11): no consultar a la cátedra y asumir el riesgo residual, documentado en
+     la BITÁCORA (Entradas 1 y 4).
 5. **Plan B:** Online Shoppers (UCI #468, CC BY 4.0) con tratamiento semisintético. Se activa con
    una variable de entorno porque el pipeline depende de un contrato genérico, no de Expedia. Con
    los datos reales, el ATE verdadero es 0,0646 y el estimador ingenuo da 0,2906
@@ -119,11 +120,23 @@
    - MAR vs. MNAR no se puede contrastar: se argumenta por el mecanismo.
    - Lo MAR se imputa por grupo con indicador; lo MNAR estructural (historial del usuario) no se
      imputa.
-6. **$Z_c$:**
-   - `comp_n_info` y `comp_saldo` son confusores: el ranker las usa (ρ con R = 0 por encima de
-     R = 1) y afectan la reserva con orden aleatorio (OR 1,118 y 1,137).
-   - `comp_diff_max` se descarta.
-7. **Escala del precio:** gasto / (precio·noches·habitaciones) ≈ 1,13. El 87,5 % de las reservas
+6. **$Z_c$ (competidores):** confusor exige **dos** flechas, y se contrastaron por separado.
+   - **Z → T:** interacción $Z_c \times R$ en el logit de T, condicional a la calidad. Si el ranker
+     usa $Z_c$, su efecto sobre T cambia cuando el orden es aleatorio.
+     `comp_saldo`: razón de OR 0,842, p = 2,7·10⁻¹⁸. `comp_n_info`: 1,019, p = 2,8·10⁻⁵ (chico).
+   - **Z → Y:** con R = 1, la reserva tiene OR 1,137 (`comp_saldo`) y 1,118 (`comp_n_info`).
+   - Las dos son confusoras; `comp_diff_max` se excluye (ninguna flecha significativa).
+   - **Signo (fuente: Kaggle):** `compN_rate` = +1 si Expedia es **más barata**. `comp_saldo` > 0
+     significa precio competitivo: el algoritmo lo sube al top-5 y además aumenta la reserva por su
+     cuenta. Por eso omitirla sesgaría el efecto del top-5 hacia arriba.
+   - El DAG suma Zc → T y Zc → M; un test demuestra que sin $Z_c$ no se cumple Backdoor.
+7. **Slots fijos y T de sensibilidad:** las posiciones 5, 11, 17 y 23 son listados que no están
+   en el dataset. T principal = top-5 en pantalla; sensibilidad = top-4 del dataset (coinciden en
+   el 99,89 % de las filas).
+8. **Limitación declarada:** con orden aleatorio queda una asociación residual posición–estrellas
+   (ρ̄ −0,074) sin explicación verificable. No forzamos una hipótesis: ajustamos por Z y mostramos
+   el efecto con y sin ajuste.
+9. **Escala del precio:** gasto / (precio·noches·habitaciones) ≈ 1,13. El 87,5 % de las reservas
    de ≥ 2 noches es "por noche" y el 3,2 % "por estadía". Por eso usamos el precio relativo a la
    búsqueda.
 

@@ -11,7 +11,11 @@ DoWhy en la Fase 4):
     Zp  popularidad previa del hotel (observada, proxy parcial de U)
     Zb  contexto de la búsqueda
     Zu  historial del usuario (usuario recurrente)
-    Zc  precios de competidores
+    Zc  competidores: comp_n_info (cuántos tienen dato) y comp_saldo (saldo de compN_rate; +1 =
+        Expedia más barata que el competidor, definición de Kaggle). Confusor: el ranker la usa
+        (interacción Zc × R sobre T) y afecta clic y reserva (Fase 1, sección 1.4)
+    S   filtro de inclusión del dataset (≥ 1 clic por búsqueda; en R = 0, además, sobremuestreo de
+        compras). Está condicionado en TODOS los datos: es el colisionador natural (Entrada 4)
     U   (latente) desempeño histórico del hotel en Expedia que usa el ranker y no vemos
     I   (latente) intención de compra del usuario en esa sesión
     C   (simulado en la Fase 4) "destacado en el reporte de hoteles más vendidos": T -> C <- Y
@@ -28,7 +32,8 @@ RESULTADO = "Y"
 MEDIADOR = "M"
 COLISIONADOR = "C"
 LATENTES = ("U", "I")
-CONFUSORES = ("Zh", "Zp", "Zb", "Zu")
+CONFUSORES = ("Zh", "Zp", "Zb", "Zu", "Zc")
+SELECCION = "S"
 
 ARCOS: list[tuple[str, str]] = [
     # Mecanismo de asignación del tratamiento
@@ -37,6 +42,7 @@ ARCOS: list[tuple[str, str]] = [
     ("Zp", "T"),
     ("Zb", "T"),
     ("Zu", "T"),
+    ("Zc", "T"),  # Fase 1: interacción Zc × R sobre T significativa (comp_saldo p = 2,7e-18)
     ("U", "T"),
     # Efecto de la exposición: solo a través del clic (no hay reserva sin clic)
     ("T", "M"),
@@ -50,6 +56,7 @@ ARCOS: list[tuple[str, str]] = [
     ("Zb", "Y"),
     ("Zu", "M"),
     ("Zu", "Y"),
+    ("Zc", "M"),  # comp_saldo afecta el clic con orden aleatorio (OR 1,147)
     ("Zc", "Y"),
     ("U", "M"),
     ("U", "Y"),
@@ -62,6 +69,9 @@ ARCOS: list[tuple[str, str]] = [
     # Colisionador (simulado)
     ("T", "C"),
     ("Y", "C"),
+    # Selección del dataset (colisionador natural): S depende del clic y, en R = 0, de la reserva
+    ("M", "S"),
+    ("Y", "S"),
 ]
 
 EXPANSION: dict[str, list[str]] = {
@@ -90,10 +100,11 @@ EXPANSION: dict[str, list[str]] = {
         "site_id",
     ],
     "Zu": ["visitor_hist_starrating", "visitor_hist_adr_usd", "usuario_recurrente := notna(...)"],
-    "Zc": ["comp1..8_rate", "comp1..8_inv", "comp1..8_rate_percent_diff"],
+    "Zc": ["comp_n_info", "comp_saldo"],
     "U": ["(no observado)"],
     "I": ["(no observado)"],
     "C": ["(simulado) destacado := f(T, Y, ruido)"],
+    "S": ["(implícito) la búsqueda está en el dataset: >= 1 clic"],
 }
 
 
@@ -135,12 +146,13 @@ POSICIONES = {
     "Zp": (2.0, 3.1),
     "Zb": (3.7, 2.3),
     "Zu": (-2.9, 2.0),
-    "Zc": (4.4, 1.0),
+    "Zc": (4.7, 1.7),
     "T": (-1.0, 0.0),
     "M": (1.0, 0.0),
     "Y": (3.0, 0.0),
     "I": (3.5, -1.5),
     "C": (0.6, -2.3),
+    "S": (2.2, -2.3),
 }
 ETIQUETAS = {
     "R": "R\nrandom_bool",
@@ -155,6 +167,7 @@ ETIQUETAS = {
     "U": "U (latente)\ndesempeño hist.",
     "I": "I (latente)\nintención",
     "C": "C (simulado)\ndestacado",
+    "S": "S (implícito)\nselección",
 }
 COLORES = {"T": "#4C72B0", "Y": "#55A868", "M": "#DD8452", "C": "#C44E52", "R": "#8172B3"}
 

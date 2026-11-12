@@ -191,14 +191,19 @@ COMPETIDORES_UTILES = (2, 3, 5, 8)  # los demás tienen > 93 % de faltantes en l
 
 
 def agregar_competidores(df: pd.DataFrame, umbral_diff: float = 100.0) -> pd.DataFrame:
-    """Resume los 8 competidores en pocas variables, sin asumir el signo de `compN_rate` más allá
-    de lo que verifica la Fase 1:
+    """Resume los 8 competidores en pocas variables.
+
+    Semántica (fuente primaria, pestaña Data de Kaggle, transcripta por Verónica el 12/11):
+    `compN_rate` = +1 si Expedia tiene **menor** precio que el competidor N, 0 si igual, −1 si
+    mayor; `compN_rate_percent_diff` es la diferencia porcentual **absoluta** (sin signo).
 
     * `comp_n_info`: competidores con dato de precio.
-    * `comp_n_pos`, `comp_n_neg`: competidores con `rate = +1` y `rate = -1`.
-    * `comp_saldo`: (n_pos − n_neg) / n_info (NaN si no hay competidores con dato).
+    * `comp_n_pos`, `comp_n_neg`: competidores con `rate = +1` (Expedia más barata) y `rate = -1`
+      (Expedia más cara).
+    * `comp_saldo`: (n_pos − n_neg) / n_info ∈ [−1, 1]; **positivo = Expedia más barata que la
+      mayoría de los competidores con dato** (NaN si no hay competidores con dato).
     * `comp_diff_max`: máxima `rate_percent_diff` válida (≤ `umbral_diff` %, el resto se trata
-      como error de captura).
+      como error de captura). Es absoluta: no indica quién es más barato.
     """
     out = df.copy()
     rates = out[[f"comp{i}_rate" for i in range(1, 9)]]

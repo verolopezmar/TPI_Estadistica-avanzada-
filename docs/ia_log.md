@@ -331,3 +331,49 @@ competidores); `src/tpi/graficos.py` (paleta validada); notebook
     barata que el competidor) proviene de la memoria del asistente, no de la fuente primaria.
     **Mitigación:** la clasificación de $Z_c$ usa agregados que no dependen del signo.
     **Pendiente:** Verónica transcribe la definición textual de la pestaña Data de Kaggle.
+
+### Revisión de Verónica del cierre de la Fase 1 (12/11/2026)
+
+**Prompt (Verónica, resumen).** Confirma T; aprueba la auditoría; pide contrastar $Z_c \to T$ antes
+de llamar confusor a $Z_c$ y actualizar el DAG; transcribe las definiciones de `compN_*` de Kaggle;
+decide no consultar a la cátedra; pide PRs por fase y seguir con la Fase 2.
+
+**Qué se decidió y quién.**
+- T = `position ≤ 5` en pantalla: **confirmado por Verónica**. Sensibilidad `top4_dataset`
+  (top-4 del ranking entre los hoteles del dataset): **pedida por Verónica**, implementada por
+  Claude Code en `tpi.contrato` (coincide con `top5` en el 99,89 % de las filas).
+- Slots fijos 5/11/17/23 como característica del DGP y la asociación residual con R = 1 como
+  **limitación declarada sin hipótesis forzada**: decisión de Verónica (BITÁCORA, Entrada 4, B y C).
+  Se retira la hipótesis de "remoción no aleatoria de filas" que el asistente había sugerido en el
+  error 10 (refutada por el error 16).
+- Precio relativo a la búsqueda, dos reglas de outliers con su test e imputación (MAR por grupo con
+  indicador, MNAR estructural sin imputar): **propuestos por Claude Code, aprobados por Verónica
+  el 12/11**.
+- $Z_c$: Verónica señaló que la primera clasificación mostraba solo $Z_c \to Y$. Claude Code agregó
+  el contraste de $Z_c \to T$ (diferencia pareada top-5 vs. resto por estrato e interacción
+  $Z_c \times R$ en el logit de T, condicional a $Z_h$). Resultado: `comp_saldo` y `comp_n_info`
+  siguen siendo confusoras (interacción p = 2,7·10⁻¹⁸ y 2,8·10⁻⁵); `comp_diff_max` se excluye. DAG
+  actualizado (Zc → T, Zc → M, nodo de selección S) con tests de d-separación nuevos.
+  **Pendiente de revisión por Verónica.**
+- Confidencialidad: **Verónica decide no consultar a la cátedra** y seguir con Expedia con las
+  mitigaciones implementadas; el plan B queda disponible y no se activa. Se retira el hito del
+  14/11 del calendario de riesgos.
+
+**Errores / alucinaciones detectados.**
+20. *(Resuelto) Semántica de memoria.* La versión anterior del texto y de los docstrings no fijaba
+    el signo de `compN_rate`, y la única noción de signo que tenía el asistente venía de su memoria,
+    no de la fuente. Verónica transcribió la definición de Kaggle: +1 = Expedia **más barata** que
+    el competidor N; `rate_percent_diff` es **absoluta**. La agregación `comp_saldo` ya usaba
+    (+1) − (−1), así que el cálculo no cambia; se corrigieron la documentación y la lectura
+    (`comp_saldo` > 0 = Expedia más barata). **Test:** `test_agregado_de_competidores_ignora_diferencias_imposibles`
+    fija la aritmética del saldo.
+21. *Dominio de `compN_inv` tomado de memoria.* El contrato admitía {−1, 0, 1} para `compN_inv`; la
+    definición de Kaggle solo documenta {+1, 0, NULL}. En los datos hay −1 en el 1,27 % de los
+    valores no nulos, y el contrato lo aceptaba sin avisar. **Corrección:** se documenta como valor
+    no documentado y no se interpreta (`comp_inv` no entra en $Z_c$). **Test:**
+    `test_comp_inv_tiene_un_valor_no_documentado`. Además, `rate_percent_diff` nunca baja de 2 %:
+    probable umbral de registro, no documentado.
+22. *Afirmación de aprobación no ocurrida (detectada por el asistente antes de commitear).* Al
+    redactar la nueva clasificación de $Z_c$, el asistente escribió "revisada y aprobada por
+    Verónica", cuando Verónica todavía no la había revisado. Se corrigió a "pendiente de revisión".
+    **Prevención:** una aprobación solo se registra si consta en un mensaje de Verónica.

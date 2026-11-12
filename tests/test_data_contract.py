@@ -247,3 +247,13 @@ def test_slots_estructurales_cada_seis_posiciones(muestra):
     pres = muestra[muestra["position"] <= 30].groupby(["random_bool", "position"]).size() / n
     raros = sorted(pres[pres < 0.2].index.get_level_values("position").unique())
     assert raros == [5, 11, 17, 23]
+
+
+@pytest.mark.data
+@requiere_datos
+def test_comp_inv_tiene_un_valor_no_documentado(muestra):
+    """Kaggle define compN_inv en {+1, 0, NULL}; los datos traen también −1 (ia_log, error 21).
+    Fija el hallazgo: si la proporción cambia, hay que revisar la auditoría."""
+    vals = pd.concat([muestra[f"comp{i}_inv"].dropna() for i in range(1, 9)])
+    assert set(vals.unique()) == {-1.0, 0.0, 1.0}
+    assert 0.005 < (vals == -1).mean() < 0.05

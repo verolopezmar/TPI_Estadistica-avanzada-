@@ -111,3 +111,18 @@ def test_roles_no_chocan_con_atributos_de_dataframe(nombre):
     c = CONTRATOS[nombre]
     roles = [c.tratamiento, c.resultado, c.mediador, *c.columnas_z]
     assert not [r for r in roles if r and hasattr(pd.DataFrame, r)]
+
+
+def test_expedia_deriva_t_de_sensibilidad_top4_del_dataset():
+    """Con el slot 5 ausente (listado no publicado), top-5 en pantalla y top-4 del dataset
+    coinciden; si el slot 5 está, top-4 del dataset lo excluye."""
+    df = pd.DataFrame(
+        {
+            "srch_id": [1] * 6 + [2] * 6,
+            "position": [1, 2, 3, 4, 6, 7, 1, 2, 3, 4, 5, 6],
+            "visitor_hist_starrating": np.nan,
+        }
+    )
+    out = EXPEDIA.derivar(df)
+    assert out["top5"].tolist() == [1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 1, 0]
+    assert out["top4_dataset"].tolist() == [1, 1, 1, 1, 0, 0, 1, 1, 1, 1, 0, 0]

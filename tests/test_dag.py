@@ -62,3 +62,22 @@ def test_condicionar_en_colisionador_induce_berkson(g_rand):
 def test_dot_contiene_todos_los_arcos(g_alg):
     dot = a_dot(g_alg)
     assert all(f"{a} -> {b};" in dot for a, b in g_alg.edges)
+
+
+def test_sin_zc_el_ajuste_no_alcanza_aunque_se_observara_u(g_alg):
+    """Fase 1: Zc es confusor (Zc -> T y Zc -> Y). Omitirla deja abierto T <- Zc -> Y."""
+    assert not cumple_backdoor(g_alg, "T", "Y", (Z - {"Zc"}) | {"U"})
+    assert cumple_backdoor(g_alg, "T", "Y", Z | {"U"})
+
+
+def test_con_orden_aleatorio_zc_no_confunde(g_rand):
+    assert not g_rand.has_edge("Zc", "T")
+    assert cumple_backdoor(g_rand, "T", "Y", set())
+
+
+def test_la_seleccion_del_dataset_es_colisionador_que_abre_t_con_i(g_rand):
+    """S desciende de M (colisionador T -> M <- I): condicionar en S (lo hace todo el dataset)
+    asocia T con la intención I aun con orden aleatorio. Es la amenaza A de la Entrada 4."""
+    assert nx.is_d_separator(g_rand, {"T"}, {"I"}, set())
+    assert not nx.is_d_separator(g_rand, {"T"}, {"I"}, {"S"})
+    assert not cumple_backdoor(g_rand, "T", "Y", {"S"})

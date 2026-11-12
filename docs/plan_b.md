@@ -1,7 +1,7 @@
 # Plan B: Online Shoppers semisintético (evaluado el 12/11/2026)
 
-> Para: el equipo. Se activa si la cátedra no habilita el uso de Expedia con repo y app públicos
-> (reglas de Kaggle: datos y "resulting model parameters" confidenciales).
+> Para: el equipo. **Estado: disponible, NO activado.** Verónica decidió el 12/11 seguir con Expedia
+> con las mitigaciones de confidencialidad, sin consultar a la cátedra (BITÁCORA, Entrada 1).
 
 ## Fuente verificada
 
@@ -38,4 +38,4 @@ didáctico para la Fase 4.
 - **Gana:** sin restricción de licencia; N = 12.330 (≥ 1.500) y 17 variables explicativas que
   combinan continuas, discretas y categóricas, como pide el enunciado.
 - **Fases 1 a 3:** se rehacen sobre las variables reales (`Revenue` como Y para el torneo
-  predictivo). Estimamos 1 día de trabajo si se activa antes del 14/11.
+  predictivo). Activarlo costaría ≈ 1 día de trabajo.

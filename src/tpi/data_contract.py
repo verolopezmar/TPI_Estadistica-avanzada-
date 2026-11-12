@@ -130,6 +130,9 @@ DOMINIOS: dict[str, Rango] = {
     "prop_log_historical_price": Rango(minimo=0),
     "srch_query_affinity_score": Rango(maximo=0),  # log-probabilidad
     **{f"comp{i}_rate": Rango(valores=frozenset({-1, 0, 1})) for i in range(1, 9)},
+    # Kaggle documenta solo {+1, 0, NULL} para compN_inv; en los datos aparece también −1 (1,27 % de
+    # los no nulos). Se admite para no detener el pipeline, pero no se interpreta: lo reporta
+    # test_comp_inv_tiene_un_valor_no_documentado (ia_log, error 21).
     **{f"comp{i}_inv": Rango(valores=frozenset({-1, 0, 1})) for i in range(1, 9)},
 }
 

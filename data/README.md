@@ -10,7 +10,8 @@ de benchmarks que no usamos. `test.csv` no trae `position`, `click_bool`, `booki
 > "The data set and resulting model parameters are considered confidential information that cannot
 > be shared with people who are not participating in the contest."
 
-Mitigaciones mientras la cátedra confirma el alcance permitido:
+Mitigaciones (decisión de Verónica, 12/11/2026: seguir con Expedia sin consultar a la cátedra;
+riesgo residual documentado en la BITÁCORA, Entradas 1 y 4):
 
 | Qué | Dónde | ¿Se versiona? |
 |---|---|---|

@@ -129,6 +129,9 @@ presencia = (
 ).rename(columns={0: "R = 0", 1: "R = 1"})
 SLOTS_ESPECIALES = presencia.index[presencia.max(axis=1) < 0.2].tolist()
 print("Posiciones presentes en < 20 % de las búsquedas:", SLOTS_ESPECIALES)
+print(
+    f"Acuerdo top5 (pantalla) vs. top4_dataset (sensibilidad): {100 * (crudo.top5 == crudo.top4_dataset).mean():.2f} % de las filas"
+)
 presencia.loc[[p for p in range(1, 13)]].T.round(3)
 
 # %% [markdown]
@@ -144,7 +147,10 @@ presencia.loc[[p for p in range(1, 13)]].T.round(3)
 #   define Kaggle), pero en la práctica el top-5 contiene casi siempre 4 hoteles del dataset
 #   (posiciones 1-4): el quinto slot lo ocupa otro listado.
 # * Las filas que sí ocupan esos slots son pocas y atípicas (tasa de clic muy baja, ver 1.5). Se
-#   conservan, pero se señalan con un indicador.
+#   conservan, pero se señalan con un indicador (`slot_especial`).
+# * **T de sensibilidad** (decisión de Verónica, 12/11): `top4_dataset` = los 4 primeros hoteles
+#   del dataset en el ranking de la búsqueda. Coincide con `top5` en el 99,89 % de las filas (output
+#   de `tpi.contrato`); la Fase 4 reporta ambas.
 
 # %% [markdown]
 # ## 1.2 Auditoría forense de datos
@@ -375,36 +381,74 @@ print(
 # %% [markdown]
 # ## 1.4 Variables de competidores ($Z_c$): ¿confusor o predictor?
 #
-# **Criterio (fijado por el equipo antes del análisis):** $Z_c$ es **confusor** si el ranking la usa
-# ($Z_c \to T$) **y** además afecta la reserva ($Z_c \to Y$); si solo afecta $Y$, es
-# **predictor** (no hace falta para bloquear caminos de puerta trasera, aunque reduce varianza).
+# **Definiciones (fuente primaria: pestaña Data de la competencia, transcriptas y verificadas por
+# Verónica el 12/11):**
 #
-# * **$Z_c \to T$:** el orden aleatorio (R = 1) corta los arcos que entran a T, así que la
-#   asociación intra-búsqueda entre posición y $Z_c$ con R = 0 *por encima* de la de R = 1 es la
-#   parte que aporta el ranker.
-# * **$Z_c \to Y$:** con R = 1 la posición es (casi) aleatoria; una regresión logística de la
-#   reserva (y del clic, su mediador obligado) sobre $Z_c$, controlando por $\log(\text{posición})$
-#   y por calidad y precio del hotel, con errores robustos por clúster de búsqueda, mide el efecto
-#   de $Z_c$ sobre $Y$.
+# * `compN_rate`: "+1 if Expedia has a lower price than competitor N for the hotel; 0 if the same;
+#   -1 if Expedia's price is higher than competitor N; NULL signifies there is no competitive data".
+#   **+1 = Expedia más barata.**
+# * `compN_inv`: "+1 if competitor N does not have availability in the hotel; 0 if both Expedia and
+#   competitor N have availability; NULL signifies there is no competitive data". En los datos
+#   aparece también **−1**, un valor no documentado (ver la tabla siguiente); no lo interpretamos.
+# * `compN_rate_percent_diff`: diferencia porcentual **absoluta** (sin signo; la dirección sale de
+#   `compN_rate`), con el precio de Expedia como denominador.
 #
-# Los 8 competidores tienen entre 56 % y 98 % de faltantes. Los resumimos en variables que no
-# dependen del signo de `compN_rate`: competidores con dato (`comp_n_info`), saldo de
-# comparaciones (`comp_saldo`) y máxima diferencia porcentual válida (`comp_diff_max`).
+# **Criterio de clasificación (fijado por Verónica antes del análisis):** $Z_c$ es **confusor** si el
+# ranking la usa ($Z_c \to T$) **y** además afecta la reserva ($Z_c \to Y$). Si solo afecta $Y$, es
+# **predictor**: puede incluirse por precisión, pero no integra el conjunto de ajuste mínimo de
+# Backdoor. Las dos flechas se contrastan por separado:
+#
+# * **$Z_c \to T$:** el orden aleatorio (R = 1) corta los arcos que entran a T. Si el ranker usa
+#   $Z_c$, la asociación entre $Z_c$ y T con R = 0 debe **debilitarse** con R = 1. Se mide de tres
+#   formas: (a) $\rho$ de Spearman intra-búsqueda posición–$Z_c$; (b) diferencia pareada por
+#   búsqueda $D_s = \bar Z_{c,\text{top-5}} - \bar Z_{c,\text{resto}}$, en cada estrato; (c) logit de
+#   T sobre $Z_c$ y $Z_h$ con interacción $Z_c \times R$ (errores por clúster de búsqueda). (c) es
+#   el contraste formal: $H_0$: el efecto de $Z_c$ sobre T, condicional a $Z_h$, es igual con y sin
+#   el ranker.
+# * **$Z_c \to Y$:** con R = 1, logit de la reserva (y del clic, su mediador obligado) sobre $Z_c$,
+#   controlando por $\log(\text{posición})$ y por calidad y precio, con errores por clúster.
+#
+# Resumen de los 8 competidores (entre 56 % y 98 % de faltantes): `comp_n_info` = competidores con
+# dato de precio; `comp_saldo` = (n con rate = +1 − n con rate = −1) / n con dato, en $[-1, 1]$:
+# **positivo = Expedia más barata que la mayoría de los competidores con dato**; `comp_diff_max` =
+# máxima diferencia porcentual absoluta válida (≤ 100 %).
+
+# %%
+inv = pd.concat([df[f"comp{i}_inv"].value_counts() for i in range(1, 9)], axis=1).sum(axis=1)
+print(
+    "compN_inv (8 competidores, valores no nulos):",
+    inv.astype(int).to_dict(),
+    f"| −1 no documentado: {100 * inv.get(-1.0, 0) / inv.sum():.2f} %",
+)
+diff_min = min(df[f"comp{i}_rate_percent_diff"].min() for i in range(1, 9))
+print(f"Mínimo de compN_rate_percent_diff en los 8 competidores: {diff_min}")
 
 # %%
 df = agregar_competidores(df)
 df["log_pos"] = np.log(df["position"])
+ZH = "prop_starrating + prop_review_score + prop_location_score2 + log_precio_rel + promotion_flag"
 filas_zc = []
 for v in ["comp_n_info", "comp_saldo", "comp_diff_max"]:
-    r0 = resumir_rho(rho_intra_busqueda(df[df.random_bool == 0], v), v)
-    r1 = resumir_rho(rho_intra_busqueda(df[df.random_bool == 1], v), v)
+    fila = {"variable": v}
+    # (a) rho intra-búsqueda posición–Zc, por estrato
+    for r in (0, 1):
+        fila[f"rho_R{r}"] = resumir_rho(rho_intra_busqueda(df[df.random_bool == r], v), v).rho_medio
+    # (b) diferencia pareada top-5 − resto, por estrato
+    for r in (0, 1):
+        d = df[df.random_bool == r].dropna(subset=[v])
+        g = d.groupby(["srch_id", "top5"])[v].mean().unstack().dropna()
+        c = contraste_pareado(g[1] - g[0])
+        fila[f"D_R{r}"], fila[f"p_D_R{r}"] = c.diferencia, c.p_valor
+    # (c) interacción Zc × R en el logit de T, condicional a Zh
+    d = df.dropna(subset=[v])
+    f = smf.logit(f"top5 ~ {v}*random_bool + ({ZH})*random_bool", d).fit(
+        disp=0, cov_type="cluster", cov_kwds={"groups": d["srch_id"]}
+    )
+    fila["OR_T_R0"] = float(np.exp(f.params[v]))
+    fila["razon_OR_T_R1/R0"] = float(np.exp(f.params[f"{v}:random_bool"]))
+    fila["p_interaccion"] = float(f.pvalues[f"{v}:random_bool"])
+    # Zc -> Y (y -> M) con R = 1
     d1 = df[df.random_bool == 1].dropna(subset=[v])
-    fila = {
-        "variable": v,
-        "rho_R0": r0.rho_medio,
-        "rho_R1": r1.rho_medio,
-        "rho_R0_menos_R1": r0.rho_medio - r1.rho_medio,
-    }
     for y in ["click_bool", "booking_bool"]:
         f = smf.logit(
             f"{y} ~ {v} + log_pos + prop_starrating + prop_review_score + log_precio_rel", d1
@@ -413,25 +457,33 @@ for v in ["comp_n_info", "comp_saldo", "comp_diff_max"]:
         fila[f"p_{y}"] = float(f.pvalues[v])
     filas_zc.append(fila)
 tabla_zc = pd.DataFrame(filas_zc).set_index("variable")
-tabla_zc
+tabla_zc.T
 
 # %% [markdown]
-# **Clasificación (criterio fijado por Verónica; aplicación de Claude Code, a revisar):**
+# **Clasificación** (criterio de Verónica; aplicación de Claude Code; **pendiente de revisión por
+# Verónica**; incluye el contraste explícito de $Z_c \to T$ que ella pidió el 12/11):
 #
-# * `comp_n_info` (cuántos competidores tienen dato): **confusor**. El ranker la usa (ρ̄ intra-búsqueda
-#   −0,099 con R = 0 vs. −0,033 con R = 1) y afecta la reserva con la posición aleatoria (OR = 1,118
-#   por competidor adicional, p = 2,9·10⁻¹⁷).
-# * `comp_saldo` (saldo de comparaciones de precio): **confusor**. El ranker la usa (−0,037 vs.
-#   +0,007) y afecta la reserva (OR = 1,137 por unidad de saldo, p = 0,041) y el clic (OR = 1,147,
-#   p = 2,1·10⁻⁸).
-# * `comp_diff_max` (máxima diferencia porcentual): **ni confusor ni predictor útil**. Su
-#   asociación con la posición es menor que el margen de ±0,03 (−0,016 vs. −0,001) y no se rechaza
-#   H0 de efecto sobre la reserva (p = 0,53) ni sobre el clic (p = 0,79).
+# | Variable | $Z_c \to T$ (ranker) | $Z_c \to Y$ (R = 1) | Clase |
+# |---|---|---|---|
+# | `comp_saldo` | Con R = 0 el top-5 tiene más saldo (D = +0,049, p = 1,1·10⁻⁵⁹); con R = 1 desaparece (D = −0,006, p = 0,073). Interacción: razón de OR 0,842, p = 2,7·10⁻¹⁸ | Reserva OR = 1,137 (p = 0,041); clic OR = 1,147 (p = 2,1·10⁻⁸) | **Confusor** |
+# | `comp_n_info` | D = +0,100 con R = 0 vs. +0,027 con R = 1 (cae 73 %). Condicional a $Z_h$, OR(T) = 0,948 con R = 0; interacción: razón 1,019, p = 2,8·10⁻⁵ | Reserva OR = 1,118 (p = 2,9·10⁻¹⁷); clic sin efecto (p = 0,20) | **Confusor (débil en T)** |
+# | `comp_diff_max` | Interacción p = 0,054: no se rechaza H0 | Reserva p = 0,53; clic p = 0,79 | **Ni confusor ni predictor**: se excluye |
 #
-# $Z_c = \{$`comp_n_info`, `comp_saldo`$\}$ entra al conjunto de ajuste de Backdoor en la Fase 4.
-# Esta clasificación no depende del signo de `compN_rate`; su **interpretación** (si "+1" significa
-# que Expedia es más barata) requiere la definición textual de Kaggle, pendiente de transcribir de la
-# pestaña Data.
+# **Lectura con el signo correcto.** `comp_saldo` > 0 significa que Expedia es más barata que la
+# mayoría de los competidores con dato. Bajo el orden del algoritmo, los hoteles con precio
+# competitivo suben al top-5 (OR(T) = 1,173 por unidad de saldo, condicional a calidad y precio
+# relativo). Con la posición aleatoria, ese mismo precio competitivo aumenta el clic (+14,7 % en las
+# chances) y la reserva (+13,7 %). Como el ranker usa una variable que también causa la reserva por
+# su cuenta, omitirla sesgaría el efecto del top-5 hacia arriba.
+#
+# **`comp_n_info`** pasa el criterio, pero su arco a T es chico (≈ 2 % en las chances, condicional a
+# $Z_h$), y la asociación residual con R = 1 (D = +0,027, p = 1,9·10⁻⁹) es del mismo tipo que la
+# aleatorización imperfecta de `prop_starrating` (limitación declarada, Entrada 4). Incluirla en el
+# ajuste es seguro: es pre-tratamiento, no es mediador ni colisionador.
+#
+# **DAG actualizado** (`src/tpi/dag.py`): se agregan $Z_c \to T$ y $Z_c \to M$, y $Z_c$ pasa al conjunto de
+# confusores. `tests/test_dag.py::test_sin_zc_el_ajuste_no_alcanza_aunque_se_observara_u` demuestra que
+# omitir $Z_c$ deja abierto $T \leftarrow Z_c \to Y$.
 
 # %% [markdown]
 # ## 1.5 Análisis exploratorio univariado y bivariado
