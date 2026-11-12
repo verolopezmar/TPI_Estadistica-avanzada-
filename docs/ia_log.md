@@ -264,7 +264,7 @@ el plan B listo para activar sin rehacer la estructura.
 
 ## Fase 1 — Inferencia clásica (inicio, 12/11/2026)
 
-**Prompt (resumen).** Arrancar la Fase 1 en una rama nueva mientras el QA revisa la Fase 0.
+**Prompt (Verónica, resumen).** Arrancar la Fase 1 en una rama nueva mientras se revisa la Fase 0.
 
 **Qué produjo la IA.** `src/tpi/inferencia.py` (Welch, Mann-Whitney con r biserial y
 Hodges-Lehmann, t pareado con Wilcoxon de resguardo, potencia y efecto mínimo detectable, ANOVA
@@ -272,7 +272,7 @@ clásico + Levene/Brown-Forsythe + Welch + Kruskal-Wallis, post-hoc Tukey vs. Ga
 Bonferroni) y `tests/test_inferencia.py`. `Contraste.texto()` aplica las reglas de reporte del TPI
 (estadístico, gl, p exacto, IC 95 %, tamaño de efecto, "no se rechaza H0").
 
-**Diseño propuesto por la IA (a validar por Lucía).** Contrastes sobre unidades independientes:
+**Diseño propuesto por Claude Code, aprobado por Verónica el 12/11.** Contrastes sobre unidades independientes:
 (1) pareado dentro de la búsqueda con R = 1, CTR del top-5 vs. del resto (sesgo de posición, arco
 T → M del DAG); (2) gasto por reserva, usuarios recurrentes vs. nuevos (Welch + Mann-Whitney);
 ANOVA: log del precio por noche del hotel reservado según categoría de estrellas.
@@ -283,3 +283,51 @@ ANOVA: log del precio por noche del hotel reservado según categoría de estrell
     tests con `KeyError`. **Corrección:** se inspeccionaron las columnas reales antes de
     corregir. **Test:** `tests/test_inferencia.py` compara cada resultado contra pingouin, así que
     un cambio de API rompe el test en lugar de producir un número equivocado.
+
+### Fase 1 (continuación) — Auditoría, faltantes, competidores, contrastes y ANOVA (12/11/2026)
+
+**Prompt (Verónica, resumen).** Reorganización: Verónica hace y valida todo. Aprueba los tres
+contrastes propuestos y pide seguir con la auditoría de datos, los faltantes, las variables de
+competidores, el notebook y la Entrada 2.
+
+**Qué produjo la IA.** `src/tpi/auditoria.py` + `tests/test_auditoria.py` (centinelas, diagnóstico
+de escala del precio, outliers, contraste de MCAR, imputación con indicador, agregados de
+competidores); `src/tpi/graficos.py` (paleta validada); notebook
+`notebooks/TP_Integrador_Final.ipynb`, Fase 1, ejecutado de punta a punta (fuente jupytext:
+`TP_Integrador_Final.py`); figuras en `report/figures/f1_*.png`; Entrada 2 de la BITÁCORA.
+
+**Qué se decidió y quién.**
+- Los tres contrastes y el ANOVA: propuestos por Claude Code, **aprobados por Verónica el 12/11**.
+- Clasificación de $Z_c$: criterio de Verónica; aplicación de Claude Code (`comp_n_info` y
+  `comp_saldo` confusores, `comp_diff_max` descartada). **Pendiente de revisión por Verónica.**
+- Precio relativo, reglas de outliers, tratamiento de centinelas y estrategia de imputación por
+  mecanismo: propuestos por Claude Code. **Pendientes de revisión por Verónica.**
+- T se mantiene como `position ≤ 5` **en pantalla** (definición aprobada), documentando que en
+  general contiene 4 hoteles del dataset (error 16). Interpretación de Claude Code, **a confirmar
+  por Verónica**.
+
+**Errores / alucinaciones / hallazgos.**
+16. *Hallazgo que corrige una hipótesis del asistente.* En el error 10 el asistente sugirió que el
+    ~13 % de posiciones faltantes podía deberse a una remoción no aleatoria de filas. El análisis
+    por posición muestra otra cosa: las posiciones 5, 11, 17 y 23 aparecen en solo 6,2-7,6 % de
+    las búsquedas con R = 0 y 1,4-1,7 % con R = 1, contra ≈ 99 % de sus vecinas. Son slots fijos
+    ocupados por listados que no están en el dataset. Un hueco estructural **no** explica la
+    asociación residual con R = 1, que queda sin explicación. **Test:**
+    `test_slots_estructurales_cada_seis_posiciones`.
+17. *Regla de outliers incompleta (error del asistente).* La primera regla (precio > 10× la mediana
+    de la búsqueda) no marcó el máximo de 4.121.713 USD, porque toda esa búsqueda tenía precios
+    absurdos y su mediana también. Lo detectó el propio asistente al comparar el máximo antes y
+    después. **Corrección:** se agregaron cercas extremas de Tukey sobre log(precio). **Test:**
+    `test_outlier_absoluto_detecta_busquedas_enteras_imposibles`.
+18. *Formato que violaba la regla del "p-valor exacto".* `Contraste.texto()` imprimía
+    `t(1.498e+04)` y `p = 0`. Un p = 0 es un subdesborde de doble precisión, no un p-valor nulo.
+    **Corrección:** gl sin notación científica y "p < 1e-300 (subdesborde de doble precisión)".
+    **Test:** `test_texto_formatea_gl_y_p_sin_notacion_engañosa`.
+19. *Omisión en un texto interpretativo (error del asistente).* La primera redacción del EDA decía
+    que, fuera del clic, las asociaciones con la reserva eran débiles, y omitía la posición
+    (ρ = −0,14 en la matriz). Se detectó al revisar la figura contra el texto. **Prevención:**
+    cada número del texto se coteja con un output del notebook antes de commitear.
+20. *Semántica no verificada.* El signo de `compN_rate` (si "+1" significa que Expedia es más
+    barata que el competidor) proviene de la memoria del asistente, no de la fuente primaria.
+    **Mitigación:** la clasificación de $Z_c$ usa agregados que no dependen del signo.
+    **Pendiente:** Verónica transcribe la definición textual de la pestaña Data de Kaggle.

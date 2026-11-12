@@ -48,15 +48,25 @@ class Contraste:
         if self.gl is None:
             est = f"{self.estadistico} = {self.valor:.4g}"
         elif isinstance(self.gl, tuple):
-            est = f"{self.estadistico}({self.gl[0]:.4g}; {self.gl[1]:.4g}) = {self.valor:.4g}"
+            est = f"{self.estadistico}({_gl(self.gl[0])}; {_gl(self.gl[1])}) = {self.valor:.4g}"
         else:
-            est = f"{self.estadistico}({self.gl:.4g}) = {self.valor:.4g}"
-        partes = [est, f"p = {self.p_valor:.3g}"]
+            est = f"{self.estadistico}({_gl(self.gl)}) = {self.valor:.4g}"
+        partes = [est, _p(self.p_valor)]
         if self.ic95 is not None:
             partes.append(f"IC 95 % [{self.ic95[0]:.4g}; {self.ic95[1]:.4g}]")
         partes.append(f"{self.efecto_nombre} = {self.efecto:.3f}")
         decision = "se rechaza H0" if self.rechaza_h0 else "no se rechaza H0"
         return f"{self.nombre}: " + ", ".join(partes) + f" (α = {self.alpha}) → {decision}"
+
+
+def _gl(gl: float) -> str:
+    """Grados de libertad sin notación científica: enteros tal cual, Welch con un decimal."""
+    return f"{gl:.0f}" if float(gl).is_integer() else f"{gl:.1f}"
+
+
+def _p(p: float) -> str:
+    """p-valor exacto; si el cálculo en doble precisión subdesborda a 0, se informa la cota."""
+    return "p < 1e-300 (subdesborde de doble precisión)" if p == 0 else f"p = {p:.3g}"
 
 
 # ------------------------------------------------------------------------- dos muestras

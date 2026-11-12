@@ -81,3 +81,68 @@
    el manifiesto guarda el SHA-256.
 7. **App (Fase 5):** por las reglas de confidencialidad, solo mostrará agregados y distribuciones,
    nunca registros individuales.
+
+---
+
+## Fase 1 — Inferencia clásica, auditoría y ANOVA (12/11/2026; pendiente de revisión de Verónica)
+
+### Verónica — Project Lead & Scrum Master
+
+1. **Diseño muestral:** la unidad de muestreo es la búsqueda (15.000 por estrato); los contrastes
+   se hacen sobre unidades independientes (búsquedas o reservas), nunca sobre filas.
+2. **α = 0,05 a priori + efecto mínimo detectable:** con n grande todo da "significativo". El MDE
+   dice qué no puede ver la muestra. Ejemplo: en el contraste 2 no detectamos diferencias menores
+   que g ≈ 0,09.
+3. **Valor de negocio del contraste 1:** con orden aleatorio, estar en el top-5 **duplica** la
+   tasa de clic (cociente 2,16; +5,6 p.p., IC 95 % [5,31; 5,90]). Es el valor bruto del slot sobre
+   la atención.
+4. **Slots estructurales:** las posiciones 5, 11, 17 y 23 casi nunca están en el dataset (las ocupa
+   otro tipo de listado). El top-5 en pantalla suele tener 4 hoteles nuestros.
+5. **Recurrentes vs. nuevos:** no hay evidencia de distinto gasto por reserva (cociente de medias
+   geométricas 1,039, IC [0,981; 1,101]). "No se rechaza H0" no es "son iguales".
+
+### Lucía — Backend & ML / Causal Engineer
+
+1. **Contraste 1:** t pareado sobre $D_s$ = CTR top-5 − CTR resto, por búsqueda con R = 1.
+   t(14982) = 37,47, p = 7,74·10⁻²⁹⁴, $d_z$ = 0,306. Es pareado porque comparte la búsqueda y eso
+   elimina los confusores de búsqueda. Wilcoxon de resguardo.
+2. **Contraste 2:** Welch sobre log gasto: t(1158,6) = 1,303, p = 0,193. Usamos Welch aunque
+   Levene no rechazó (p = 0,074), porque los grupos están muy desbalanceados (1.025 vs. 15.039).
+3. **ANOVA:** Levene rechaza (p = 2,27·10⁻³⁶), así que el principal es **Welch** (F(3; 4432,0) =
+   1807). Kruskal-Wallis y Games-Howell como resguardo; η² = 0,254. Un hotel de 5 estrellas cuesta
+   2,65 veces uno de 1-2.
+4. **Por qué no Shapiro:** con n grande rechaza ante desvíos irrelevantes. Mirar asimetría
+   (en [−1, 1]), curtosis y Q-Q.
+5. **Faltantes:**
+   - MCAR se contrasta (indicador de faltante vs. variables observadas) y se rechaza en las 5
+     variables contrastadas.
+   - MAR vs. MNAR no se puede contrastar: se argumenta por el mecanismo.
+   - Lo MAR se imputa por grupo con indicador; lo MNAR estructural (historial del usuario) no se
+     imputa.
+6. **$Z_c$:**
+   - `comp_n_info` y `comp_saldo` son confusores: el ranker las usa (ρ con R = 0 por encima de
+     R = 1) y afectan la reserva con orden aleatorio (OR 1,118 y 1,137).
+   - `comp_diff_max` se descarta.
+7. **Escala del precio:** gasto / (precio·noches·habitaciones) ≈ 1,13. El 87,5 % de las reservas
+   de ≥ 2 noches es "por noche" y el 3,2 % "por estadía". Por eso usamos el precio relativo a la
+   búsqueda.
+
+### Antonella — Frontend & UI/UX + QA & Validation Engineer
+
+1. **Tests de la auditoría:** cada regla se prueba con datos sintéticos de verdad conocida.
+   - El precio relativo es invariante a la escala.
+   - El outlier absoluto detecta búsquedas enteras imposibles.
+   - El contraste de MCAR no da falsos positivos con faltantes aleatorios y detecta los MAR.
+2. **Error de la IA atrapado:** la primera regla de outliers no marcaba un precio de 4,1 millones
+   (error 17). La corrección quedó fijada por un test.
+3. **Reglas de reporte automatizadas:**
+   - `Contraste.texto()` nunca dice "se acepta H0".
+   - Informa los gl sin notación científica.
+   - Ante un subdesborde a 0, escribe "p < 1e-300" en lugar de "p = 0".
+4. **Reproducibilidad:** el notebook se ejecuta de punta a punta con `jupyter nbconvert --execute`
+   (equivalente a Restart & Run All), con rutas relativas y semilla 42.
+5. **Visualización:**
+   - Paleta categórica validada en orden fijo y una sola escala Y por panel.
+   - IC 95 % sombreados, cercas de Tukey anotadas, Q-Q por grupo.
+   - Figuras en `report/figures/f1_*.png`.
+6. **Confidencialidad en el notebook:** solo tablas agregadas y figuras; ningún registro individual.

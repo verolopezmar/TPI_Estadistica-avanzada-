@@ -235,3 +235,15 @@ def test_mecanismo_de_seleccion_del_dataset(muestra):
     assert (g["booking_bool"] <= 1).all()
     con_reserva = (g["booking_bool"] == 1).groupby(level="random_bool").mean()
     assert con_reserva[0] > 0.9 and con_reserva[1] < 0.2, con_reserva.to_dict()
+
+
+@pytest.mark.data
+@requiere_datos
+def test_slots_estructurales_cada_seis_posiciones(muestra):
+    """Hallazgo de la Fase 1 (ia_log, error 16): las posiciones 5, 11, 17 y 23 casi nunca están en
+    el dataset (las ocupan listados que Kaggle no publica). Explica el ~13 % de posiciones
+    faltantes y hace que T = top-5 en pantalla contenga en general 4 hoteles del dataset."""
+    n = muestra.groupby("random_bool")["srch_id"].nunique()
+    pres = muestra[muestra["position"] <= 30].groupby(["random_bool", "position"]).size() / n
+    raros = sorted(pres[pres < 0.2].index.get_level_values("position").unique())
+    assert raros == [5, 11, 17, 23]

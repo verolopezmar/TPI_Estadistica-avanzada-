@@ -56,6 +56,14 @@ def test_texto_nunca_acepta_h0():
         assert "p = " in t and "IC 95 %" in t
 
 
+def test_texto_formatea_gl_y_p_sin_notacion_engañosa():
+    r = welch_dos_grupos(np.r_[A, A + 50], np.r_[B, B])
+    assert "e+" not in r.texto().split(")")[0]  # gl legibles
+    from tpi.inferencia import _p
+
+    assert _p(0.0).startswith("p < 1e-300") and _p(0.0123) == "p = 0.0123"
+
+
 def test_potencia_valores_clasicos():
     """Cohen (1988): d = 0,5 con n = 64 por grupo da potencia ≈ 0,80 a α = 0,05."""
     assert potencia(0.5, 64, 64) == pytest.approx(0.80, abs=0.01)
