@@ -231,3 +231,27 @@ el plan B listo para activar sin rehacer la estructura.
     399.344 búsquedas tiene 0 clics, y ninguna tiene más de una reserva. El dataset está
     seleccionado sobre el mediador (≥ 1 clic) en ambos estratos y, en R = 0, sobre el resultado.
     Análisis en la Entrada 4 de la BITÁCORA. **Test:** `test_mecanismo_de_seleccion_del_dataset`.
+
+---
+
+## Fase 1 — Inferencia clásica (inicio, 12/11/2026)
+
+**Prompt (resumen).** Arrancar la Fase 1 en una rama nueva mientras el QA revisa la Fase 0.
+
+**Qué produjo la IA.** `src/tpi/inferencia.py` (Welch, Mann-Whitney con r biserial y
+Hodges-Lehmann, t pareado con Wilcoxon de resguardo, potencia y efecto mínimo detectable, ANOVA
+clásico + Levene/Brown-Forsythe + Welch + Kruskal-Wallis, post-hoc Tukey vs. Games-Howell vs.
+Bonferroni) y `tests/test_inferencia.py`. `Contraste.texto()` aplica las reglas de reporte del TPI
+(estadístico, gl, p exacto, IC 95 %, tamaño de efecto, "no se rechaza H0").
+
+**Diseño propuesto por la IA (a validar por Lucía).** Contrastes sobre unidades independientes:
+(1) pareado dentro de la búsqueda con R = 1, CTR del top-5 vs. del resto (sesgo de posición, arco
+T → M del DAG); (2) gasto por reserva, usuarios recurrentes vs. nuevos (Welch + Mann-Whitney);
+ANOVA: log del precio por noche del hotel reservado según categoría de estrellas.
+
+**Errores / alucinaciones detectados.**
+15. *API recordada de una versión vieja.* El asistente usó los nombres de columnas de pingouin
+    `p-unc`, `p-val` y `CI95%`; en `pingouin==0.6.1` son `p_unc`, `p_val` y `CI95`. Fallaron 3
+    tests con `KeyError`. **Corrección:** se inspeccionaron las columnas reales antes de
+    corregir. **Test:** `tests/test_inferencia.py` compara cada resultado contra pingouin, así que
+    un cambio de API rompe el test en lugar de producir un número equivocado.
