@@ -46,3 +46,47 @@ aprobación del equipo.
    importancia), lo que confirma el punto 1.
    **Test previsto:** `test_data_contract.py` registra N y número de `srch_id` del archivo real y
    los compara con esas cifras.
+
+---
+
+## Fase 0 (continuación) — Render, contrato de datos y DAG borrador (11/11/2026)
+
+**Prompt (resumen).** Dataset aprobado: Expedia (plan B: Online Shoppers semi-sintético). Roles
+confirmados. Sin datos todavía: render de prueba de Quarto (¿rompe la ruta de OneDrive con
+tilde?), script de descarga, contrato de datos, test de `random_bool` y DAG borrador. Sin
+commits hasta tener `gh`.
+
+**Qué produjo.** `report/informe.qmd` + `referencias.bib` (render HTML y PDF OK);
+`src/tpi/data_contract.py`, `sampling.py`, `aleatorizacion.py`, `dag.py`;
+`data/download_data.py`; `tests/test_environment.py`, `test_data_contract.py`, `test_dag.py`;
+`docs/dag_borrador.md` + figura.
+
+**Qué decidimos.** Dataset A (Expedia), roles según la propuesta, informe Quarto independiente
+con el notebook como anexo. _(DAG: pendiente de revisión con Lucía.)_
+
+**Errores / alucinaciones detectados.**
+3. *Instrucción desactualizada del asistente (autenticación de Kaggle).* En la Fase 0 el
+   asistente indicó guardar el token en `%USERPROFILE%\.kaggle\kaggle.json`. Al inspeccionar el
+   paquete instalado (`kaggle==2.2.5`), su propio mensaje indica el esquema nuevo:
+   `kaggle auth login` (OAuth), un token en `~/.kaggle/access_token` o la variable
+   `KAGGLE_API_TOKEN`. **Corrección:** el docstring de `data/download_data.py` documenta el
+   esquema vigente. **Prevención:** antes de escribir llamadas a la API inspeccionamos las
+   firmas reales (`inspect.signature`) en lugar de confiar en la memoria del asistente.
+4. *Incompatibilidad silenciosa de dependencias.* pip instaló `pyarrow==26.0.1` sobre
+   `numpy==1.26.4` sin advertir; `import pyarrow` falla con "pyarrow requires NumPy 2.0 or
+   newer". El asistente había fijado el `requirements.txt` a partir de `pip freeze` sin probar
+   los imports. **Corrección:** `pyarrow==19.0.1`. **Test:** `tests/test_environment.py`
+   (importa cada dependencia compilada y hace un parquet ida y vuelta).
+5. *Bloqueo del sistema operativo.* Smart App Control (Windows 11) bloqueó la DLL de
+   `pyzmq==27.3.0`, así que no arrancaba ningún kernel de Jupyter (notebook ni Quarto).
+   Diagnóstico con el log de CodeIntegrity (eventos 3033/3077). **Corrección:** `pyzmq==26.4.0`,
+   que carga sin desactivar la protección. **Test:** `test_modulo_importa[zmq]`.
+6. *Test de equivalencia sin potencia (error de diseño del asistente).* El test sintético de
+   "orden aleatorio" falló con 200 búsquedas: ρ̄ = 0,0044, pero el IC 95 % [−0,027; 0,036] no
+   cabe en el margen ±0,03. No era un error de la lógica: un test de equivalencia necesita N
+   suficiente para que el IC sea más angosto que el margen. **Corrección:** 2.000 búsquedas en la
+   fixture. Con las 15.000 búsquedas reales por estrato, el IC esperado es ≈ 9 veces más angosto.
+7. *Figura engañosa.* En la primera versión del DAG la flecha Zu → T pasaba por detrás del nodo
+   R y parecía un arco Zu → R inexistente (y Y → C parecía salir de I). Se detectó al revisar
+   la imagen y se corrigieron las posiciones. **Prevención:** la fuente de verdad del DAG es la
+   lista `ARCOS` y los tests de d-separación, no la figura.
