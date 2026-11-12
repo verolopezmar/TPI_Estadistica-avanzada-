@@ -15,7 +15,9 @@ pyarrow==19.0.1
 # Inferencia causal
 dowhy==0.12
 econml==0.15.1
-networkx==3.6.1
+# dowhy 0.12 llama a networkx.algorithms.d_separated, eliminada en networkx 3.5 (ia_log, error 26):
+# 3.4.2 tiene esa función y también is_d_separator (la que usan tpi.dag y sus tests)
+networkx==3.4.2
 pydot==4.0.1
 
 # Visualización
