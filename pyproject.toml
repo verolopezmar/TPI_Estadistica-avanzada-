@@ -1,0 +1,33 @@
+[project]
+name = "tpi-eaymr"
+version = "0.1.0"
+description = "TPI Decision Intelligence Capstone (EAyMR 2026, UCA): retorno causal de un algoritmo de recomendación"
+requires-python = ">=3.11,<3.12"
+authors = [
+    { name = "Lucía Báez" },
+    { name = "Antonella Robiollio" },
+    { name = "Verónica López Marsico" },
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
+src = ["src", "app", "tests"]
+extend-include = ["*.ipynb"]
+
+[tool.ruff.lint]
+# E/W: pycodestyle (PEP8), F: pyflakes, I: isort, B: bugbear, UP: pyupgrade, NPY: numpy
+select = ["E", "W", "F", "I", "B", "UP", "NPY"]
+ignore = ["E501"]  # el largo de línea lo resuelve el formateador
+
+[tool.ruff.lint.per-file-ignores]
+"*.ipynb" = ["E402", "B018"]  # imports por sección y expresiones de display en notebooks
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["src", "."]
+addopts = "-ra --strict-markers"
+markers = [
+    "data: requiere los datos descargados en data/ (se saltea si no están)",
+    "slow: tests que entrenan modelos",
+]

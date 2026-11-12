@@ -1,0 +1,25 @@
+name: Quality Gate
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+jobs:
+  quality-gate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+      - name: Instalar dependencias fijadas
+        run: pip install -r requirements.txt
+      - name: Lint (ruff, PEP8)
+        run: ruff check .
+      - name: Formato (ruff format)
+        run: ruff format --check .
+      - name: Tests (pytest)
+        run: pytest

@@ -1,0 +1,31 @@
+# Entornos y cachés
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.ipynb_checkpoints/
+
+# Datos: nunca se versionan (se regeneran con data/download_data.py)
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+
+# Credenciales
+kaggle.json
+.env
+.streamlit/secrets.toml
+
+# Salidas de Quarto
+report/_freeze/
+report/*_files/
+report/.quarto/
+/.quarto/
+
+# SO / editores
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/settings.json
