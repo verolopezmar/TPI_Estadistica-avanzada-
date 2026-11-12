@@ -8,9 +8,25 @@ centinelas. Separamos dos niveles:
 * **Centinelas** (`reporte_centinelas`): códigos que no son el valor real (0 = "sin reseñas",
   NaN = "usuario sin historial"). No son errores: se cuantifican y se tratan en la Fase 1.
 
-Las semánticas marcadas como HIPÓTESIS provienen de la descripción de la competencia tal como
-la recordaba el asistente de IA y **no están verificadas en fuente primaria** (docs/ia_log.md,
-Fase 0). Las verifican los tests de `tests/test_data_contract.py` sobre el archivo real.
+Fuente primaria verificada (pestaña "Data" de la competencia en Kaggle, consultada con sesión
+iniciada el 12/11/2026; citas textuales):
+
+* `random_bool`: "+1 when the displayed sort was random, 0 when the normal sort order was
+  displayed".
+* `position`: "Hotel position on Expedia's search results page. This is only provided for the
+  training data, but not the test data." -> test.csv no trae position, click_bool,
+  gross_bookings_usd ni booking_bool: usamos solo train.csv.
+* "Most of the data are for searches that resulted in a purchase, but a small proportion are for
+  searches not leading to a purchase." -> el dataset está condicionado (parcialmente) en Y
+  (ver BITACORA, Entrada 4).
+
+Verificación empírica (tests/test_data_contract.py, 12/11/2026): la definición se cumple en
+cuanto a mecanismo (con R = 1 la asociación posición-atributo cae entre 71 % y 87 %), pero el
+orden "aleatorio" NO es independiente de prop_starrating ni de prop_location_score2
+(rho medio intra-búsqueda ≈ -0,07). Lo tratamos como cuasi-experimento ajustado (ia_log, error 10).
+
+Las semánticas que siguen marcadas como HIPÓTESIS (centinelas, mecanismos de faltantes) no están
+definidas en la fuente primaria; se auditan en la Fase 1.
 """
 
 from __future__ import annotations
@@ -21,6 +37,7 @@ import numpy as np
 import pandas as pd
 
 COMPETICION = "expedia-personalized-sort"
+ARCHIVO_ZIP = "data.zip"  # contiene train.csv y test.csv
 ARCHIVO_TRAIN = "train.csv"
 N_FILAS_TRAIN_REPORTADO = 9_917_530  # Liu et al. (2013), arXiv:1311.7679 (verificado en el texto)
 N_BUSQUEDAS_TRAIN_REPORTADO = 399_344  # ídem

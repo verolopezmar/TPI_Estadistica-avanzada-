@@ -16,7 +16,7 @@ import pandas as pd
 import pytest
 
 from tpi.aleatorizacion import MARGEN_EQUIVALENCIA, resumir_rho, rho_intra_busqueda
-from tpi.config import PROCESSED_DIR, SEED
+from tpi.config import MANIFEST_PATH, PROCESSED_DIR, SEED
 from tpi.data_contract import (
     COLUMNAS_ESPERADAS,
     N_BUSQUEDAS_TRAIN_REPORTADO,
@@ -27,7 +27,7 @@ from tpi.data_contract import (
 from tpi.sampling import muestrear_busquedas
 
 RUTA_MUESTRA = PROCESSED_DIR / "expedia_muestra.parquet"
-RUTA_MANIFIESTO = PROCESSED_DIR / "manifiesto.json"
+RUTA_MANIFIESTO = MANIFEST_PATH
 
 
 # --------------------------------------------------------------------------- fixtures sintéticas
@@ -156,18 +156,56 @@ def test_tamano_train_coincide_con_lo_reportado():
 
 CALIDAD = ["prop_review_score", "prop_starrating", "prop_location_score2", "price_usd"]
 
+# Refutación registrada el 12/11/2026 (docs/ia_log.md, error 10): con random_bool = 1 la posición
+# sigue asociada a estas dos variables (rho medio intra-búsqueda ≈ -0,07). strict=True: si algún
+# día el test pasa (otra muestra, otro tratamiento de datos), pytest avisa y hay que revisar.
+REFUTADA = pytest.mark.xfail(
+    strict=True, reason="Aleatorización imperfecta: asociación residual en R=1 (ia_log, error 10)"
+)
+
 
 @pytest.mark.data
 @requiere_datos
-@pytest.mark.parametrize("variable", CALIDAD)
+@pytest.mark.parametrize(
+    "variable",
+    [
+        "prop_review_score",
+        pytest.param("prop_starrating", marks=REFUTADA),
+        pytest.param("prop_location_score2", marks=REFUTADA),
+        "price_usd",
+    ],
+)
 def test_random_bool_1_orden_independiente_de_atributos(muestra, variable):
-    """Premisa del benchmark experimental. Si falla, se detiene el diseño (ver ia_log, Fase 0)."""
+    """Premisa original (Fase 0): orden aleatorio puro. Refutada para 2 de 4 atributos."""
     sub = muestra[muestra["random_bool"] == 1]
     r = resumir_rho(rho_intra_busqueda(sub, variable), variable)
     assert r.equivalente_a_cero, (
         f"{variable}: E[rho]={r.rho_medio:.4f}, IC95=[{r.ic95_inf:.4f}, {r.ic95_sup:.4f}] "
         f"excede ±{MARGEN_EQUIVALENCIA}"
     )
+
+
+# Umbral POST HOC (fijado después de ver la refutación, se declara como tal en el informe):
+# el orden "aleatorio" debe reducir al menos a la mitad la asociación que impone el algoritmo.
+REDUCCION_MINIMA = 0.5
+
+
+@pytest.mark.data
+@requiere_datos
+@pytest.mark.parametrize("variable", CALIDAD)
+def test_random_bool_1_reduce_la_asociacion_del_algoritmo(muestra, variable):
+    """Premisa del diseño cuasi-experimental (decisión del equipo, 12/11/2026).
+
+    R = 1 no es un RCT puro, pero debe estar mucho más cerca de serlo que R = 0; si no, el
+    benchmark experimental ajustado pierde sentido.
+    """
+    r0 = resumir_rho(rho_intra_busqueda(muestra[muestra["random_bool"] == 0], variable), variable)
+    r1 = resumir_rho(rho_intra_busqueda(muestra[muestra["random_bool"] == 1], variable), variable)
+    if abs(r0.rho_medio) <= MARGEN_EQUIVALENCIA:
+        pytest.skip(
+            f"{variable}: el algoritmo no la usa en forma apreciable (rho={r0.rho_medio:.4f})"
+        )
+    assert abs(r1.rho_medio) <= REDUCCION_MINIMA * abs(r0.rho_medio), (r0, r1)
 
 
 @pytest.mark.data
@@ -182,3 +220,18 @@ def test_random_bool_0_orden_depende_de_la_calidad(muestra):
     assert any(abs(r.rho_medio) > MARGEN_EQUIVALENCIA and r.p_valor < 0.001 for r in resumenes), (
         resumenes
     )
+
+
+@pytest.mark.data
+@requiere_datos
+def test_mecanismo_de_seleccion_del_dataset(muestra):
+    """Hallazgo 14 (ia_log): toda búsqueda tiene >= 1 clic y <= 1 reserva, y la sobrerrepresentación
+    de búsquedas con compra ocurre solo con el orden del algoritmo (R = 0).
+
+    Si cambia, cambia el análisis de la amenaza de selección (BITACORA, Entrada 4).
+    """
+    g = muestra.groupby(["srch_id", "random_bool"])[["click_bool", "booking_bool"]].sum()
+    assert (g["click_bool"] >= 1).all()
+    assert (g["booking_bool"] <= 1).all()
+    con_reserva = (g["booking_bool"] == 1).groupby(level="random_bool").mean()
+    assert con_reserva[0] > 0.9 and con_reserva[1] < 0.2, con_reserva.to_dict()
