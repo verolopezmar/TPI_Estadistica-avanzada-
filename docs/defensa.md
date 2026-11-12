@@ -159,3 +159,66 @@
    - IC 95 % sombreados, cercas de Tukey anotadas, Q-Q por grupo.
    - Figuras en `report/figures/f1_*.png`.
 6. **Confidencialidad en el notebook:** solo tablas agregadas y figuras; ningún registro individual.
+
+---
+
+## Fase 2 — Gauss-Markov, influyentes, VIF y PCA (12/11/2026; pendiente de revisión de Verónica)
+
+### Verónica — Project Lead & Scrum Master
+
+1. **Partición única y sin fuga:** 80/20 agrupada por búsqueda (24.000 / 6.000 búsquedas),
+   estratificada por `random_bool`, semilla 42. Test no se toca hasta la Fase 3.
+2. **Por qué aleatoria y no cronológica:** son 8 meses de datos y el Durbin-Watson (1,95) no
+   muestra autocorrelación temporal. El objetivo es generalizar a búsquedas nuevas del período,
+   no pronosticar.
+3. **Mensaje de negocio del PCA:** lo que se reserva no es lo más caro ni lo de mayor categoría
+   (PC1), sino lo bien ubicado, en promoción y barato para su búsqueda (PC2: 0,270 en reservados
+   vs. −0,004 en no reservados).
+4. **Precio pagado:** la promoción baja el precio por noche un 14,9 %; cada estrella lo sube un
+   6,2 %. El orden aleatorio no cambia el precio del hotel reservado (p = 0,661).
+5. **Autopsia (Entrada 3):** tres experimentos fallidos reales (precio crudo, RANSAC por defecto,
+   multicolinealidad anticipada que no apareció).
+
+### Lucía — Backend & ML / Causal Engineer
+
+1. **Modelo:** MCO de log(precio por noche) sobre 12.858 reservas de Train. R² = 0,604; F(17;
+   12840) = 1150,64, p < 10⁻³⁰⁰. Los coeficientes se leen como % de cambio: $100(e^\beta - 1)$.
+2. **Gauss-Markov:**
+   - BP (p = 4,96·10⁻⁹⁹) y White rechazan la homocedasticidad, así que uso **HC3**: los
+     coeficientes siguen insesgados y solo se corrige su varianza (EE hasta +31 %).
+   - JB rechaza normalidad (curtosis 5,8), pero con n grande t y F valen por TCL.
+   - DW = 1,95.
+3. **Influencia:**
+   - Umbrales: |r| > 3 (119 casos), h > 2(p+1)/n (843), D > 4/n (746) y D > 0,5 (ninguno).
+   - Los influyentes son el doble de frecuentes cuando la escala del precio es incompatible (9,5 %
+     vs. 4,9 %): **error de medición**.
+4. **Robustez:**
+   - Huber coincide con MCO sin influyentes (diferencia máx. 0,012).
+   - RANSAC por defecto falla (umbral = MAD de *y*, 55 % de inliers, signos invertidos); con
+     umbral 3σ̂ de los residuos queda bien.
+5. **VIF:** máx 1,74 (modelo) y 2,98 (conjunto de la Fase 3). Una correlación de a pares alta
+   (0,62) no implica un VIF alto: lo que cuenta es el $R^2_j$ sobre todos los regresores.
+6. **PCA:**
+   - Escalado y autovectores solo con Train; Test se proyecta con `transform`.
+   - Kaiser: 4 componentes (69,7 %); el codo está en 2.
+   - PC1 = categoría-precio; PC2 = ubicación y promoción, independiente de cadena.
+
+### Antonella — Frontend & UI/UX + QA & Validation Engineer
+
+1. **Tests de no fuga:**
+   - `test_particion_agrupada_sin_busquedas_compartidas`: ninguna búsqueda queda en Train y Test
+     a la vez.
+   - `test_pca_se_ajusta_solo_con_train`: la media del escalador es la de Train, los autovectores
+     no cambian al transformar Test, y un corrimiento de Test se ve en la proyección (no se
+     "absorbe").
+2. **Tests de diagnóstico con verdad conocida:**
+   - BP detecta heterocedasticidad plantada y no da falsos positivos.
+   - Cook marca un punto plantado.
+   - VIF > 10 ante una casi copia de una variable.
+3. **Reglas de reporte:** todos los p pasan por el formateador (nunca "p = 0"). Lo detecté y
+   corregí en la Fase 2 (error 25 del log).
+4. **Figuras de la Fase 2:** residuos vs. ajustados (hexbin en escala log), Q-Q, dispersión por
+   ventil, influencia (tamaño ∝ Cook, umbrales anotados), scree con línea de Kaiser, varianza
+   acumulada, cargas, y Test proyectado en PC1-PC2.
+5. **App (Fase 5):** el módulo de diagnóstico va a mostrar el plano PC1-PC2 calculado con la
+   rotación de Train, solo con agregados o muestras de puntos sin identificadores.

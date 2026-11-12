@@ -167,8 +167,62 @@ de `compN_rate`, que el asistente traía de memoria. Verónica transcribió la d
 +1 = Expedia más barata. La clasificación no cambia (no dependía del signo); la interpretación
 quedó fijada con la fuente.
 
+### Fase 2 — Supuestos de Gauss-Markov (MCO de log precio por noche, 12.858 reservas de Train)
+
+| Supuesto | Prueba y resultado | Remediación y justificación |
+|---|---|---|
+| Homocedasticidad | Breusch-Pagan LM = 516,99 (gl 17, p = 4,96·10⁻⁹⁹); White LM = 989,87 (p = 1,71·10⁻¹¹⁸): **se rechaza** | Errores **HC3**: los coeficientes MCO siguen insesgados, lo incorrecto era su varianza. HC3 es el más conservador con puntos de alto leverage (843 en la muestra) |
+| Normalidad de residuos | JB = 4209,26 (p < 10⁻³⁰⁰), asimetría 0,082, curtosis 5,798: **se rechaza** (colas pesadas, simétricas) | TCL con n = 12.858 para t y F; **Huber** como estimador de resguardo ante colas pesadas |
+| Independencia | Durbin-Watson = 1,9515 en orden temporal | Ninguna; respalda la partición aleatoria (no cronológica) |
+| Influyentes | 746 con D > 4/n; ninguno con D > 0,5 (máx 0,0117). Tasa de influyentes 9,51 % con escala de precio incompatible vs. 4,85 % en reservas de 1 noche | No se eliminan: parte es error de medición (escala del precio, ya neutralizada con el precio relativo) y parte son casos reales de cola pesada. Huber coincide con MCO sin influyentes (diferencia máx. 0,012) |
+| Multicolinealidad | VIF máx 1,74 (modelo) y 2,98 (conjunto de la Fase 3) | Ninguna; ningún VIF se acerca a 5 |
+| PCA sin fuga | Escalado y autovectores ajustados solo con Train (test automatizado) | Kaiser: 4 componentes (69,7 %); codo: 2. Se usan 2 para la visualización y 4 como features alternativas |
+
+Diseño (propuesto por Claude Code; pendiente de revisión por Verónica): partición 80/20 agrupada por
+búsqueda y estratificada por `random_bool`, única para las Fases 2-4; MCO sobre reservas (una por
+búsqueda) con log del precio por noche.
+
 ## Entrada 3 — Autopsia de experimentos fallidos (Data Autopsy)
-*Responsable: Backend/ML.* Pendiente (Fases 2 y 3, con al menos dos experimentos fallidos reales).
+*Rol responsable: Backend/ML. Ejecutado por Claude Code; revisión de Verónica.*
+
+### Experimento 1 — MCO sobre el precio crudo (Fase 2)
+
+- **Qué hicimos.** MCO del precio por noche en USD, sin log y sin quitar outliers, sobre 12.877
+  reservas de Train.
+- **Qué pasó.** R² = 0,0028; curtosis de residuos 12.192,8 (JB = 7,975·10¹⁰); una sola observación
+  con distancia de Cook 1,215 (> 0,5) dominaba el ajuste.
+- **Diagnóstico.** El precio tiene errores de captura de órdenes de magnitud (hasta 4,1 millones de
+  USD por noche) y cola pesada. MCO minimiza cuadrados, así que unos pocos valores imposibles
+  absorben la estimación.
+- **Corrección y aprendizaje.** Log del precio más la regla de outliers de la Fase 1: R² = 0,604
+  (n = 12.858). La auditoría forense es una condición para que el modelo signifique algo, no un
+  paso cosmético.
+
+### Experimento 2 — RANSAC con parámetros por defecto (Fase 2)
+
+- **Qué hicimos.** `RANSACRegressor` de scikit-learn con su configuración por defecto, como
+  estimador robusto de comparación.
+- **Qué pasó.** Retuvo solo el 55,02 % de las observaciones como inliers y dio coeficientes
+  inestables: estrellas −0,046 (MCO: +0,060), habitaciones +0,312 (MCO: −0,026); diferencia máxima
+  con MCO sin influyentes, 0,341.
+- **Diagnóstico.** El umbral por defecto es la MAD de la **variable respuesta**, no de los
+  residuos. Con un R² de 0,6 es demasiado estricto, y con 17 regresores cada subconjunto mínimo es
+  muy ruidoso.
+- **Corrección y aprendizaje.** Umbral = 3 σ̂ robusto de los residuos MCO (1,4826 · MAD): 89,03 %
+  de inliers y diferencia máxima 0,058. Un estimador "robusto" mal parametrizado es menos robusto
+  que MCO; los parámetros por defecto se auditan.
+
+### Experimento 3 — Hipótesis de multicolinealidad refutada (Fases 1 y 2)
+
+- **Qué anticipamos.** En la Fase 1 (correlaciones de a pares de hasta 0,62 entre estrellas y precio
+  histórico) anticipamos multicolinealidad calidad-precio para la Fase 2.
+- **Qué pasó.** VIF máx 1,74 en el modelo y 2,98 en el conjunto ampliado: no hay multicolinealidad
+  relevante.
+- **Aprendizaje.** Una correlación de a pares alta no implica un VIF alto: lo que importa es el
+  $R^2_j$ de cada regresor sobre **todos** los demás. La regularización de la Fase 3 se justifica
+  por selección y estabilidad predictiva, no por colinealidad.
+
+_Los experimentos fallidos de la Fase 3 se agregan al cerrarla._
 
 ## Entrada 4 — Formalización del debate causal
 *Responsables: Backend/ML + Project Lead.* La justificación de cada arco se completa en la Fase 4
