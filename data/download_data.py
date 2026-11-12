@@ -4,17 +4,27 @@ Requisitos (una sola vez):
   1. Cuenta en Kaggle y reglas de la competencia aceptadas en
      https://www.kaggle.com/c/expedia-personalized-sort/rules
   2. Autenticación de la API de Kaggle (kaggle>=2): `kaggle auth login`, o un token guardado en
-     %USERPROFILE%\\.kaggle\\access_token, o la variable de entorno KAGGLE_API_TOKEN.
+     ~/.kaggle/access_token, o la variable de entorno KAGGLE_API_TOKEN.
+
+Confidencialidad: las reglas prohíben compartir los datos con no participantes. Por eso el crudo
+se guarda FUERA del repo (por defecto ~/data/tpi-eaymr/raw; configurable con TPI_RAW_DIR) y la
+muestra queda en data/processed/, ignorada por git. Solo se versiona el manifiesto (hashes y
+tamaños, sin registros). tests/test_confidencialidad.py falla si se trackea un archivo de datos.
 
 Uso (desde la raíz del repo):
   python data/download_data.py                      # descarga + muestra por defecto
   python data/download_data.py --n-por-estrato 5000 # muestra más chica
   python data/download_data.py --solo-muestra       # rehace la muestra sin volver a descargar
 
+Estructura de la competencia: Kaggle publica `data.zip` (train.csv + test.csv) y tres zips de
+benchmarks que no usamos. test.csv no trae position, click_bool, booking_bool ni
+gross_bookings_usd, así que solo extraemos train.csv.
+
 Salidas:
-  data/raw/train.csv                        archivo original (no se versiona)
+  $TPI_RAW_DIR/data.zip                     zip original (fuera del repo)
+  $TPI_RAW_DIR/train.csv                    único archivo extraído (fuera del repo)
   data/processed/expedia_muestra.parquet    búsquedas completas, estratificadas por random_bool
-  data/processed/manifiesto.json            hash del crudo, semilla, tamaños y violaciones
+  data/manifiesto.json                      SHA-256 del zip y del csv, semilla, tamaños, violaciones
 """
 
 from __future__ import annotations
@@ -22,17 +32,20 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import struct
 import sys
 import zipfile
+import zlib
 from pathlib import Path
 
 import pandas as pd
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 
-from tpi.config import PROCESSED_DIR, RAW_DIR, SEED  # noqa: E402
+from tpi.config import MANIFEST_PATH, PROCESSED_DIR, RAW_DIR, SEED  # noqa: E402
 from tpi.data_contract import (  # noqa: E402
     ARCHIVO_TRAIN,
+    ARCHIVO_ZIP,
     CLAVE_BUSQUEDA,
     COMPETICION,
     DTYPES_LECTURA,
@@ -41,33 +54,72 @@ from tpi.data_contract import (  # noqa: E402
 )
 from tpi.sampling import muestrear_busquedas  # noqa: E402
 
+RUTA_ZIP = RAW_DIR / ARCHIVO_ZIP
 RUTA_TRAIN = RAW_DIR / ARCHIVO_TRAIN
 RUTA_MUESTRA = PROCESSED_DIR / "expedia_muestra.parquet"
-RUTA_MANIFIESTO = PROCESSED_DIR / "manifiesto.json"
+RUTA_MANIFIESTO = MANIFEST_PATH
 CHUNK = 1_000_000
+ZIP_DEFLATE64 = 9
 
 
 def descargar() -> None:
-    if RUTA_TRAIN.exists():
-        print(f"[ok] {RUTA_TRAIN} ya existe; no se descarga de nuevo.")
-        return
-    from kaggle.api.kaggle_api_extended import KaggleApi
-
-    api = KaggleApi()
-    api.authenticate()
     RAW_DIR.mkdir(parents=True, exist_ok=True)
-    print(f"[..] Descargando {ARCHIVO_TRAIN} de la competencia '{COMPETICION}' (~GB)...")
-    api.competition_download_file(COMPETICION, ARCHIVO_TRAIN, path=str(RAW_DIR), unzip=True)
-    # Algunas versiones dejan el zip sin extraer: lo resolvemos acá
-    for zp in RAW_DIR.glob("*.zip"):
-        with zipfile.ZipFile(zp) as z:
-            z.extractall(RAW_DIR)
-        zp.unlink()
-    if not RUTA_TRAIN.exists():
-        raise FileNotFoundError(
-            f"No se encontró {RUTA_TRAIN} tras la descarga. Archivos en data/raw: "
-            f"{[p.name for p in RAW_DIR.iterdir()]}"
+    if not RUTA_ZIP.exists():
+        from kaggle.api.kaggle_api_extended import KaggleApi
+
+        api = KaggleApi()
+        api.authenticate()
+        print(f"[..] Descargando {ARCHIVO_ZIP} de '{COMPETICION}' a {RAW_DIR} (~435 MB)...")
+        api.competition_download_file(COMPETICION, ARCHIVO_ZIP, path=str(RAW_DIR), unzip=False)
+    else:
+        print(f"[ok] {RUTA_ZIP} ya existe; no se descarga de nuevo.")
+    if RUTA_TRAIN.exists():
+        print(f"[ok] {RUTA_TRAIN} ya existe; no se extrae de nuevo.")
+        return
+    extraer_miembro(RUTA_ZIP, ARCHIVO_TRAIN, RUTA_TRAIN)
+
+
+def extraer_miembro(ruta_zip: Path, nombre: str, destino: Path) -> None:
+    """Extrae un único archivo del zip, verificando tamaño y CRC-32.
+
+    Kaggle comprime `data.zip` con Deflate64 (método 9), que `zipfile` no implementa. En ese caso
+    descomprimimos el flujo crudo con `inflate64` (wheels para Windows/Linux/macOS, sin compilar).
+    """
+    with zipfile.ZipFile(ruta_zip) as z:
+        miembros = [m for m in z.infolist() if Path(m.filename).name == nombre]
+        if len(miembros) != 1:
+            raise FileNotFoundError(f"{nombre} no está en {ruta_zip.name}: {z.namelist()}")
+        info = miembros[0]
+    print(f"[..] Extrayendo solo {info.filename} (método {info.compress_type})...")
+    tmp = destino.with_suffix(destino.suffix + ".part")
+    crc, n = 0, 0
+    with open(ruta_zip, "rb") as f, open(tmp, "wb") as out:
+        if info.compress_type == ZIP_DEFLATE64:
+            import inflate64
+
+            f.seek(info.header_offset)
+            cabecera = f.read(30)
+            largo_nombre, largo_extra = struct.unpack("<HH", cabecera[26:30])
+            f.seek(info.header_offset + 30 + largo_nombre + largo_extra)
+            restante = info.compress_size
+            inflador = inflate64.Inflater()
+            while restante > 0:
+                bloque = f.read(min(2**22, restante))
+                restante -= len(bloque)
+                datos = inflador.inflate(bloque)
+                crc, n = zlib.crc32(datos, crc), n + len(datos)
+                out.write(datos)
+        else:
+            with zipfile.ZipFile(f) as z, z.open(info) as origen:
+                while datos := origen.read(2**22):
+                    crc, n = zlib.crc32(datos, crc), n + len(datos)
+                    out.write(datos)
+    if n != info.file_size or crc != info.CRC:
+        tmp.unlink()
+        raise OSError(
+            f"Extracción corrupta de {nombre}: {n} bytes, CRC {crc:08x} != {info.CRC:08x}"
         )
+    tmp.replace(destino)
 
 
 def sha256(ruta: Path, bloque: int = 2**22) -> str:
@@ -111,7 +163,10 @@ def generar_muestra(n_por_estrato: int, seed: int) -> None:
     muestra.to_parquet(RUTA_MUESTRA, index=False)
 
     manifiesto = {
-        "fuente": f"kaggle competitions: {COMPETICION}/{ARCHIVO_TRAIN}",
+        "fuente": f"kaggle competitions: {COMPETICION}/{ARCHIVO_ZIP} -> {ARCHIVO_TRAIN}",
+        "bytes_data_zip": RUTA_ZIP.stat().st_size if RUTA_ZIP.exists() else None,
+        "sha256_data_zip": sha256(RUTA_ZIP) if RUTA_ZIP.exists() else None,
+        "bytes_train_csv": RUTA_TRAIN.stat().st_size,
         "sha256_train_csv": sha256(RUTA_TRAIN),
         "seed": seed,
         "n_por_estrato": n_por_estrato,

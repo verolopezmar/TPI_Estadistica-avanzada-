@@ -25,6 +25,7 @@ MODULOS_CRITICOS = [
     "streamlit",
     "pyarrow.parquet",
     "zmq",
+    "inflate64",
     "ipykernel",
     "nbclient",
 ]

@@ -21,8 +21,13 @@ def test_estructura_de_carpetas():
 
 
 def test_rutas_son_relativas_a_la_raiz():
-    for ruta in [config.RAW_DIR, config.PROCESSED_DIR, config.MODELS_DIR, config.FIGURES_DIR]:
+    for ruta in [config.PROCESSED_DIR, config.MODELS_DIR, config.FIGURES_DIR, config.MANIFEST_PATH]:
         assert config.ROOT in ruta.parents
+
+
+def test_crudo_fuera_del_repo():
+    """Confidencialidad: el crudo de Kaggle nunca puede quedar dentro del árbol del repo."""
+    assert config.ROOT not in config.RAW_DIR.parents and config.RAW_DIR != config.ROOT
 
 
 def test_archivos_de_gobernanza_existen():

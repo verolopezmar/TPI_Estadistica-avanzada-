@@ -15,6 +15,7 @@ data/processed/*
 
 # Credenciales
 kaggle.json
+access_token
 .env
 .streamlit/secrets.toml
 

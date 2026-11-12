@@ -39,6 +39,9 @@ nbconvert==7.17.2
 # pyzmq 27.3.0 lo bloquea Smart App Control de Windows 11 (DLL sin firma ni reputación);
 # 26.4.0 carga sin problemas. Sin pyzmq no arranca ningún kernel de Jupyter.
 pyzmq==26.4.0
+# data.zip de Kaggle usa Deflate64 (método 9), que zipfile no soporta; inflate64 trae wheels
+# (zipfile-deflate64 exige compilar con MSVC en Windows)
+inflate64==1.0.4
 
 # Calidad
 pytest==9.2.0
