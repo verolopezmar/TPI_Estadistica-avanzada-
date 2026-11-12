@@ -40,13 +40,20 @@ conversión y el gasto del usuario (Y), una vez aislada la autoselección de los
 
 ## Reproducción (Windows / PowerShell)
 
+> **Importante:** creá el entorno virtual **fuera** de cualquier carpeta sincronizada (OneDrive,
+> Dropbox, Google Drive). La sincronización bloquea y corrompe archivos del venv (DLLs, `.pyc`)
+> y rompe la instalación. Usamos `~/.venvs/tpi-eaymr`.
+
 ```powershell
-py -3.11 -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
+py -3.11 -m venv $HOME\.venvs\tpi-eaymr
+& $HOME\.venvs\tpi-eaymr\Scripts\Activate.ps1
+python -m pip install -r requirements.txt
 ruff check .
 pytest
 ```
+
+Datos: ver [`data/README.md`](data/README.md) (requiere cuenta de Kaggle y aceptar las reglas de
+la competencia; los datos no se versionan).
 
 Semilla global: `SEED = 42` (`src/tpi/config.py`). Nivel de significancia fijado a priori: α = 0,05.
 
