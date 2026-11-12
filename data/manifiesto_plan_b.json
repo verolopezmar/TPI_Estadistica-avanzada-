@@ -1,0 +1,9 @@
+{
+  "fuente": "https://archive.ics.uci.edu/static/public/468/online+shoppers+purchasing+intention+dataset.zip",
+  "licencia": "CC BY 4.0",
+  "cita": "Sakar, C. & Kastro, Y. (2018). UCI ML Repository. doi:10.24432/C5F88Q",
+  "sha256_zip": "2972e6184d3ad7beaaa831d9fc2b059dc3ee29df69d1ec593c466a5cd8485d14",
+  "n_filas": 12330,
+  "n_columnas": 18,
+  "revenue_positivos": 1908
+}
