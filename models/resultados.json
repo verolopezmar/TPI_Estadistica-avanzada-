@@ -402,7 +402,7 @@
     "F1": 0.21640719885171691,
     "F1_macro": 0.5958807501511303,
     "F1_ponderado": 0.9589088888751239,
-    "umbral": 0.10892491417926577,
+    "umbral": 0.10892278123047415,
     "F1 con umbral 0,5": 0.0
    },
    "Naive Bayes": {
@@ -438,7 +438,7 @@
     "F1": 0.23246492985971945,
     "F1_macro": 0.6049496049648642,
     "F1_ponderado": 0.9612917475031157,
-    "umbral": 0.1218752163125959,
+    "umbral": 0.12187521631259589,
     "F1 con umbral 0,5": 0.0006213109661385523
    }
   },
@@ -532,11 +532,11 @@
    },
    "srch_length_of_stay": {
     "MDI": 0.01739547629336878,
-    "Permutación (ΔPR-AUC)": 0.001417012451943378
+    "Permutación (ΔPR-AUC)": 0.0014170124519433725
    },
    "srch_booking_window": {
     "MDI": 0.055855157026660066,
-    "Permutación (ΔPR-AUC)": 0.0004531299760195173
+    "Permutación (ΔPR-AUC)": 0.0004531299760195229
    },
    "srch_adults_count": {
     "MDI": 0.009108225487451344,
@@ -602,15 +602,15 @@
      0.1032,
      0.1078
     ],
-    "regresión backdoor": 0.09611003884370409,
+    "regresión backdoor": 0.09611003884370461,
     "regresión IC95": [
      0.0944,
      0.0978
     ],
     "IPW": 0.08902992484287872,
     "tasa base P(Y|T=0)": 0.020646848055910764,
-    "sesgo de confusión (ingenuo − regresión)": 0.009369388716287258,
-    "sesgo relativo %": 9.74860569094549
+    "sesgo de confusión (ingenuo − regresión)": 0.00936938871628673,
+    "sesgo relativo %": 9.748605690944888
    },
    "R = 1 (aleatorio)": {
     "ingenuo (Y ~ T)": 0.010542381070104734,
@@ -618,23 +618,23 @@
      0.0096,
      0.0115
     ],
-    "regresión backdoor": 0.009205250753681567,
+    "regresión backdoor": 0.009205250753681612,
     "regresión IC95": [
      0.0086,
      0.0099
     ],
     "IPW": 0.007851900374669755,
     "tasa base P(Y|T=0)": 0.0036898787187316577,
-    "sesgo de confusión (ingenuo − regresión)": 0.0013371303164231678,
-    "sesgo relativo %": 14.525734846368996
+    "sesgo de confusión (ingenuo − regresión)": 0.0013371303164231227,
+    "sesgo relativo %": 14.525734846368433
    }
   },
   "or_intra": {
    "R = 0 (algoritmo) | sin ajuste": {
-    "OR intra": 5.382601301062032,
+    "OR intra": 5.382528999444814,
     "OR IC95": [
-     5.199,
-     5.573
+     5.196,
+     5.576
     ],
     "p": 0.0,
     "búsquedas informativas": 14124,
@@ -645,10 +645,10 @@
     ]
    },
    "R = 0 (algoritmo) | ajustado por Z": {
-    "OR intra": 3.37780832589996,
+    "OR intra": 3.377719754299366,
     "OR IC95": [
-     3.247,
-     3.514
+     3.242,
+     3.519
     ],
     "p": 0.0,
     "búsquedas informativas": 14124,
@@ -659,12 +659,12 @@
     ]
    },
    "R = 1 (aleatorio) | sin ajuste": {
-    "OR intra": 3.0018228087105476,
+    "OR intra": 3.00191459230051,
     "OR IC95": [
-     2.728,
-     3.304
+     2.717,
+     3.316
     ],
-    "p": 5.565458411084982e-112,
+    "p": 8.898724168257579e-104,
     "búsquedas informativas": 1971,
     "MPL-EF (Δp)": 0.008489563457025595,
     "Δp IC95": [
@@ -673,12 +673,12 @@
     ]
    },
    "R = 1 (aleatorio) | ajustado por Z": {
-    "OR intra": 2.1125114781630088,
+    "OR intra": 2.1124629978310714,
     "OR IC95": [
-     1.903,
-     2.345
+     1.895,
+     2.355
     ],
-    "p": 1.2447468918565332e-44,
+    "p": 1.741377694638824e-41,
     "búsquedas informativas": 1971,
     "MPL-EF (Δp)": 0.006441229801896599,
     "Δp IC95": [
@@ -687,16 +687,16 @@
     ]
    }
   },
-  "or_ingenuo_R0": 5.382601301062032,
-  "or_ajustado_R0": 3.37780832589996,
-  "or_benchmark": 2.1125114781630088,
-  "brecha_logor": 0.9352942568430279,
-  "pct_explicado_Z": 49.8179789121255,
+  "or_ingenuo_R0": 5.382528999444814,
+  "or_ajustado_R0": 3.377719754299366,
+  "or_benchmark": 2.1124629978310714,
+  "brecha_logor": 0.9353037736934774,
+  "pct_explicado_Z": 49.81883941349567,
   "sens_top4": {
-   "or": 2.1281394417026527,
+   "or": 2.128087798087903,
    "ic": [
-    1.9173350497293438,
-    2.3621210512840736
+    1.909235130931474,
+    2.3720272076499764
    ]
   },
   "mediador": {
@@ -777,23 +777,23 @@
   },
   "refutaciones": {
    "Causa común aleatoria": {
-    "ATE original": 0.09611003884370409,
-    "ATE refutado": 0.09611000366658427,
-    "p": 0.48483351462576807,
+    "ATE original": 0.09611003884370461,
+    "ATE refutado": 0.09611000366658443,
+    "p": 0.48483351446369005,
     "criterio": "estable si p > 0,05",
     "pasa": true
    },
    "Placebo (T permutado)": {
-    "ATE original": 0.09611003884370409,
-    "ATE refutado": -0.0001699597834247557,
-    "p": 0.41634976246509536,
+    "ATE original": 0.09611003884370461,
+    "ATE refutado": -0.0001699597834247498,
+    "p": 0.4163497624650965,
     "criterio": "pasa si ATE ≈ 0 y p > 0,05 (no se rechaza que el placebo sea nulo)",
     "pasa": true
    },
    "Subconjunto 80 %": {
-    "ATE original": 0.09611003884370409,
-    "ATE refutado": 0.09619809508041306,
-    "p": 0.4426719849296009,
+    "ATE original": 0.09611003884370461,
+    "ATE refutado": 0.09619809508041313,
+    "p": 0.4426719849299021,
     "criterio": "pasa si queda en el IC original [0.0944; 0.0978]",
     "pasa": true
    }
@@ -802,42 +802,42 @@
    {
     "fuerza sobre T (fracción de T invertida)": 0.01,
     "fuerza sobre Y": 0.01,
-    "ATE con U simulado": 0.08926178237721308,
-    "cambio %": -7.125433044125362
+    "ATE con U simulado": 0.08926178237721344,
+    "cambio %": -7.125433044125495
    },
    {
     "fuerza sobre T (fracción de T invertida)": 0.02,
     "fuerza sobre Y": 0.02,
-    "ATE con U simulado": 0.08005548982285696,
-    "cambio %": -16.7043414132371
+    "ATE con U simulado": 0.08005548982285662,
+    "cambio %": -16.704341413237913
    },
    {
     "fuerza sobre T (fracción de T invertida)": 0.05,
     "fuerza sobre Y": 0.05,
-    "ATE con U simulado": 0.05012014424582932,
-    "cambio %": -47.851291239892625
+    "ATE con U simulado": 0.050120144245829196,
+    "cambio %": -47.85129123989304
    },
    {
     "fuerza sobre T (fracción de T invertida)": 0.1,
     "fuerza sobre Y": 0.1,
-    "ATE con U simulado": -0.014724068315785363,
-    "cambio %": -115.32001078444046
+    "ATE con U simulado": -0.01472406831578479,
+    "cambio %": -115.32001078443976
    }
   ],
   "dml": {
    "R = 0": {
-    "ATE": 0.08327916620402309,
+    "ATE": 0.08327916620402308,
     "IC95": [
      0.07883924455472029,
-     0.0877190878533259
+     0.08771908785332587
     ],
     "tasa_base": 0.0202119792950456
    },
    "R = 1": {
-    "ATE": 0.0073357703815100095,
+    "ATE": 0.007335770381510012,
     "IC95": [
-     0.005897183455689263,
-     0.008774357307330756
+     0.005897183455689251,
+     0.008774357307330772
     ],
     "tasa_base": 0.0036581174198405814
    }
@@ -845,6 +845,177 @@
   "gasto_medio": 383.4863586425781,
   "gasto_mediana": 223.26998901367188,
   "p_top5_R1": 0.014232259788854737,
-  "p_resto_R1": 0.0036898787187316577
+  "p_resto_R1": 0.0036898787187316577,
+  "robustez": {
+   "tabla": {
+    "sin ponderar": {
+     "OR R=0": 3.377719754299366,
+     "OR R=1": 2.1124629978310714,
+     "cociente OR": 1.5989486006464355,
+     "Wald z": 7.921048492527166,
+     "p (Wald)": 2.3551605947403087e-15,
+     "AME R=0 (p.p.)": 5.3442373215931545,
+     "AME R=1 (p.p.)": 3.240833962466517,
+     "cociente AME": 1.6490315096321042,
+     "diferencia AME (p.p.)": 2.103403359126638
+    },
+    "R=0 ponderado a la composición de R=1": {
+     "OR R=0": 3.366349008870019,
+     "OR R=1": 2.1124629978310714,
+     "cociente OR": 1.5935659049774362,
+     "Wald z": 7.813759626643346,
+     "p (Wald)": 5.55069052979969e-15,
+     "AME R=0 (p.p.)": 5.49950440192782,
+     "AME R=1 (p.p.)": 3.240833962466517,
+     "cociente AME": 1.6969411162743697,
+     "diferencia AME (p.p.)": 2.258670439461303
+    }
+   },
+   "bootstrap": {
+    "OR_R0": {
+     "IC95_inf": 3.2507609271084537,
+     "mediana": 3.3824026716210707,
+     "IC95_sup": 3.5195090001815545,
+     "fracción de réplicas sin sobreestimación": NaN
+    },
+    "OR_R1": {
+     "IC95_inf": 1.8953196703151014,
+     "mediana": 2.1109578576922043,
+     "IC95_sup": 2.363774265334287,
+     "fracción de réplicas sin sobreestimación": NaN
+    },
+    "cociente_OR": {
+     "IC95_inf": 1.421060699232663,
+     "mediana": 1.601842186506432,
+     "IC95_sup": 1.8023966368801287,
+     "fracción de réplicas sin sobreestimación": 0.0
+    },
+    "cociente_OR_ponderado": {
+     "IC95_inf": 1.4179718132304668,
+     "mediana": 1.5976956167963765,
+     "IC95_sup": 1.795004452604199,
+     "fracción de réplicas sin sobreestimación": 0.0
+    },
+    "AME_R0": {
+     "IC95_inf": 0.05139670294211972,
+     "mediana": 0.053512368106083966,
+     "IC95_sup": 0.0555091566733847,
+     "fracción de réplicas sin sobreestimación": NaN
+    },
+    "AME_R1": {
+     "IC95_inf": 0.027185058345427542,
+     "mediana": 0.03238398656313851,
+     "IC95_sup": 0.037804569774209186,
+     "fracción de réplicas sin sobreestimación": NaN
+    },
+    "cociente_AME": {
+     "IC95_inf": 1.406092296927182,
+     "mediana": 1.652466942548608,
+     "IC95_sup": 1.9778151578121073,
+     "fracción de réplicas sin sobreestimación": 0.0
+    },
+    "diferencia_AME": {
+     "IC95_inf": 0.015249590574886432,
+     "mediana": 0.021036341001273724,
+     "IC95_sup": 0.02692254163707655,
+     "fracción de réplicas sin sobreestimación": 0.0
+    },
+    "cociente_AME_ponderado": {
+     "IC95_inf": 1.4478074006818382,
+     "mediana": 1.701066009861223,
+     "IC95_sup": 2.0336844758806865,
+     "fracción de réplicas sin sobreestimación": 0.0
+    },
+    "DR_EF_R0": {
+     "IC95_inf": 0.08010559983523553,
+     "mediana": 0.08262985634927192,
+     "IC95_sup": 0.08515185061889442,
+     "fracción de réplicas sin sobreestimación": NaN
+    },
+    "DR_EF_R1": {
+     "IC95_inf": 0.04104734233249178,
+     "mediana": 0.04764842964421058,
+     "IC95_sup": 0.0548109076009805,
+     "fracción de réplicas sin sobreestimación": NaN
+    },
+    "diferencia_DR_EF": {
+     "IC95_inf": 0.02768910066440829,
+     "mediana": 0.035039284213452766,
+     "IC95_sup": 0.04227019673762254,
+     "fracción de réplicas sin sobreestimación": 0.0
+    },
+    "cociente_DR_EF": {
+     "IC95_inf": 1.5056456716163569,
+     "mediana": 1.7351171309843723,
+     "IC95_sup": 2.014283255860384,
+     "fracción de réplicas sin sobreestimación": 0.0
+    }
+   },
+   "B": 1000,
+   "smd_max_sin_ponderar": 0.2476813856905789,
+   "smd_max_ponderado": 0.0052612777928496,
+   "ess": 12938.233032204702,
+   "n_R0": 14124,
+   "n_R1": 1971,
+   "fe_inf_R0": 0.08260293242845951,
+   "fe_inf_R1": 0.04772081266460963
+  },
+  "embudo": {
+   "R = 0 (algoritmo)": {
+    "P(clic|T=1)": 0.14099394341657678,
+    "P(clic|T=0)": 0.025280756618512843,
+    "RR clic": 5.577125144796036,
+    "P(res|clic,T=1)": 0.8945510180063552,
+    "P(res|clic,T=0)": 0.816702140979091,
+    "RR conversión|clic": 1.0953210149956705,
+    "RR reserva": 6.10874237435587,
+    "% del log-RR vía clic": 94.96897650831878,
+    "RR clic IC95": "[5.394; 5.748]",
+    "RR conversión|clic IC95": "[1.079; 1.111]",
+    "RR reserva IC95": "[5.917; 6.309]"
+   },
+   "R = 1 (aleatorio)": {
+    "P(clic|T=1)": 0.10418615528531337,
+    "P(clic|T=0)": 0.03514782597226161,
+    "RR clic": 2.9642275845890516,
+    "P(res|clic,T=1)": 0.13660413660413662,
+    "P(res|clic,T=0)": 0.10498170560090064,
+    "RR conversión|clic": 1.3012184915670173,
+    "RR reserva": 3.8571077462803087,
+    "% del log-RR vía clic": 80.49502251604939,
+    "RR clic IC95": "[2.874; 3.058]",
+    "RR conversión|clic IC95": "[1.196; 1.413]",
+    "RR reserva IC95": "[3.508; 4.214]"
+   }
+  },
+  "escenarios": {
+   "conservador": {
+    "Δp por exposición": 0.0055,
+    "fuente Δp": "límite inferior IC 95 %, R = 1 ajustado (efectos fijos)",
+    "gasto por reserva (USD)": 223.26998901367188,
+    "fuente gasto": "mediana",
+    "desplazamiento de otra reserva": 0.5,
+    "reservas incrementales / 1.000": 2.75,
+    "USD incrementales / 1.000": 613.9924697875977
+   },
+   "central": {
+    "Δp por exposición": 0.006441229801896599,
+    "fuente Δp": "R = 1 ajustado (efectos fijos)",
+    "gasto por reserva (USD)": 223.26998901367188,
+    "fuente gasto": "mediana",
+    "desplazamiento de otra reserva": 0.0,
+    "reservas incrementales / 1.000": 6.441229801896599,
+    "USD incrementales / 1.000": 1438.1333071039894
+   },
+   "optimista": {
+    "Δp por exposición": 0.01054238107012308,
+    "fuente Δp": "R = 1 sin ajuste (diferencia de tasas)",
+    "gasto por reserva (USD)": 383.4863586425781,
+    "fuente gasto": "media",
+    "desplazamiento de otra reserva": 0.0,
+    "reservas incrementales / 1.000": 10.54238107012308,
+    "USD incrementales / 1.000": 4042.859328003946
+   }
+  }
  }
 }

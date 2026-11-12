@@ -94,4 +94,4 @@ def test_app_corre_sin_excepciones():
 
     at = AppTest.from_file(str(ROOT / "app" / "app.py"), default_timeout=120).run()
     assert not at.exception, at.exception
-    assert len(at.tabs) == 3
+    assert len(at.tabs) == 4

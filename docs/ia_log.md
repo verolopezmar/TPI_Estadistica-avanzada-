@@ -315,7 +315,7 @@ competidores); `src/tpi/graficos.py` (paleta validada); notebook
     asociación residual con R = 1, que queda sin explicación. **Test:**
     `test_slots_estructurales_cada_seis_posiciones`.
 17. *Regla de outliers incompleta (error del asistente).* La primera regla (precio > 10× la mediana
-    de la búsqueda) no marcó el máximo de 4.121.713 USD, porque toda esa búsqueda tenía precios
+    de la búsqueda) no marcó precios de millones de USD por noche, porque toda esa búsqueda tenía precios
     absurdos y su mediana también. Lo detectó el propio asistente al comparar el máximo antes y
     después. **Corrección:** se agregaron cercas extremas de Tukey sobre log(precio). **Test:**
     `test_outlier_absoluto_detecta_busquedas_enteras_imposibles`.
@@ -513,3 +513,62 @@ las secciones 3 a 5 del notebook, los artefactos de `models/`, el informe, las s
     (el atributo más predictivo de la reserva), se agrega la simulación con verdad conocida, y el
     texto informa lo que muestran los datos. **Prevención:** los textos interpretativos se escriben
     después de leer el output, nunca antes.
+
+### Revisión humana que cambió el análisis: robustez de la conclusión central (12/11/2026)
+
+**Prompt (Verónica, resumen).** Revisión punto por punto del cierre de las Fases 3-5, con
+prioridad en blindar la conclusión causal de la sección 4.3. Es el ejemplo más claro del proyecto
+de **revisión humana que cambió el análisis**: cada pedido se convirtió en un análisis nuevo con
+evidencia propia.
+
+| Pedido de Verónica | Qué faltaba en la versión del asistente | Qué se agregó (propuesto por Claude Code según el pedido) |
+|---|---|---|
+| Balance entre las búsquedas aleatorias y las del algoritmo, con SMD, y re-ponderación si difieren | La comparación R = 0 vs. R = 1 asumía poblaciones comparables sin verificarlo | Tabla de SMD sobre las búsquedas que entran al estimador, pesos de odds R0 → R1, OR y efectos marginales re-estimados con los pesos (notebook, 4.3 bis a) |
+| No colapsabilidad del OR: repetir en diferencia de riesgos | Solo había escala OR (no colapsable) | Efecto marginal promedio del logit de elección y MPL con efectos fijos, restringidos a búsquedas con reserva (tasa base comparable) (4.3 bis b) |
+| IC del cociente 3,38/2,11 por bootstrap clusterizado (≥ 1000 réplicas) y test formal de la diferencia de log-OR | La conclusión se apoyaba en IC que no se superponían, y el "adelanto" del asistente usaba solo 24 réplicas | Test de Wald y bootstrap percentil por búsqueda con 1000 réplicas, paralelizado, también para los efectos marginales y la diferencia de riesgos (4.3 bis c) |
+| Redacción: no "se rechaza Backdoor"; nombrar candidatos de U | Formulación más fuerte que lo que permite el diseño | "Los datos son incompatibles con que el ajuste por lo observable elimine el sesgo", con candidatos concretos (conversión histórica, comisiones, inventario, contenido de la ficha, sesión) |
+| El clic no es un mediador sustantivo: reserva ⇒ clic | Se presentaba el 95 % de "mediación" como hallazgo, cuando es casi mecánico | Descomposición exacta del embudo RR = RR_clic × RR_conversión, con método e IC bootstrap; el residuo de 0,004 se explica como diferencia de conversión entre quienes hacen clic (4.4) |
+| Valuación en dólares como rango con supuestos explícitos | Un único número (≈ 10,5 reservas por cada 1.000 exposiciones) | Tres escenarios (conservador, central y optimista) con Δp, gasto y desplazamiento explícitos (4.9) |
+| "Solo agregados" al 100 % en el notebook | Dispersiones con puntos individuales; mínimos y máximos en tablas | Hexbin con celdas de al menos 10 observaciones; percentiles 1-99 en lugar de mínimo y máximo |
+
+**Errores / alucinaciones detectados.**
+31. *Imprecisión de un optimizador de biblioteca (detectada al validar el estimador nuevo).* El
+    `ConditionalLogit` de statsmodels con BFGS se detiene antes del máximo: en el test, su
+    log-verosimilitud (−4267,51309) es menor que la del Newton exacto (−4267,51304), con un error
+    relativo en el OR de ≈ 5·10⁻⁴. **Corrección:** el logit condicional usa el estimador exacto
+    por Newton-Raphson (una reserva por búsqueda) con errores sándwich por búsqueda. Los OR
+    reportados cambian en la cuarta cifra (3,3778 → 3,3777). **Test:**
+    `test_eleccion_logit_coincide_con_statsmodels` (contra el Newton de statsmodels, rel = 1e-6).
+32. *Evidencia insuficiente presentada como adelanto (del asistente).* El primer bootstrap del
+    cociente de OR usó 24 réplicas. Verónica exigió al menos 1000 réplicas con IC percentil.
+    **Corrección:** B = 1000 en la corrida final. **Prevención:** un IC por bootstrap solo se
+    reporta con B ≥ 1000.
+
+### Bonus: copiloto de decisión (12/11/2026)
+
+**Prompt (Verónica, resumen).** Estimar el esfuerzo de una versión mínima del copiloto
+conversacional y hacerla si hay margen antes del 16/11, sin tocar lo anterior, para compensar la
+dimensión Scrum.
+
+**Estimación del asistente:** 3 a 4 horas de desarrollo y tests, más la configuración del secreto
+en Streamlit Cloud, que la hace Verónica. Hubo margen y se hizo el mismo 12/11, en código nuevo y
+aislado.
+
+**Qué produjo la IA (propuesto por Claude Code, pendiente de revisión de Verónica):**
+- `app/copiloto.py`: 5 herramientas de solo lectura sobre los artefactos agregados (efecto causal
+  y robustez, CATE por perfil, predicción del RF, refutaciones, escenarios de valuación).
+- Loop manual de tool use con el SDK oficial (`anthropic==2.8.0`), modelo `claude-opus-5-5`,
+  `fallbacks` del lado del servidor ante rechazos y límite de 6 pasos.
+- **Guardarraíl contra cifras inventadas:** si la respuesta final contiene una cifra que no está en
+  ningún resultado de herramienta ni en la pregunta, se bloquea y se muestran los resultados
+  crudos.
+- Pestaña 4 de la app. Sin `ANTHROPIC_API_KEY`, la pestaña explica cómo activarla y el resto de
+  la app funciona igual.
+- `tests/test_copiloto.py`, con un cliente simulado y sin llamadas reales: formatos numéricos en
+  español, el guardarraíl acepta cifras redondeadas y rechaza inventadas, el loop devuelve el
+  `tool_result` con el mismo id, bloquea una cifra inventada ("clientes de más de 45 años: 12,7 %"),
+  maneja rechazos y las herramientas no devuelven identificadores.
+
+**Limitación declarada:** el guardarraíl verifica que cada cifra *exista* en un resultado de
+herramienta, no que esté usada en el sentido correcto. La interpretación sigue requiriendo
+criterio humano.

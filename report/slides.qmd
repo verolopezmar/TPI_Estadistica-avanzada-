@@ -30,6 +30,7 @@ def n(x, d=2):
 
 
 orb, ora, ori = F4["or_benchmark"], F4["or_ajustado_R0"], F4["or_ingenuo_R0"]
+RB = F4["robustez"]["bootstrap"]
 mejor = F3["mejor"]
 ```
 
@@ -110,13 +111,18 @@ t = F3["test"]
 
 - OR intra-búsqueda (logit condicional): **benchmark `{python} n(orb, 2)`**, observacional
   ajustado `{python} n(ora, 2)`, ingenuo `{python} n(ori, 2)`.
-- El ajuste por $Z$ explica el `{python} n(F4["pct_explicado_Z"], 0)` % del sesgo; el resto es
-  compatible con $U$. Un estudio solo observacional sobrevaluaría el slot en
-  `{python} n(100 * (ora / orb - 1), 0)` %.
-- Trampas: ajustar por el clic borra el efecto (mediador); condicionar en la selección o en $C$
-  induce Berkson.
+- Ajustar por $Z$ explica el `{python} n(F4["pct_explicado_Z"], 0)` % del sesgo. **Los datos son
+  incompatibles con que el ajuste elimine el sesgo**: OR × `{python} n(RB["cociente_OR"]["mediana"], 2)`
+  [`{python} n(RB["cociente_OR"]["IC95_inf"], 2)`; `{python} n(RB["cociente_OR"]["IC95_sup"], 2)`] y en
+  diferencia de riesgos × `{python} n(RB["cociente_AME"]["mediana"], 2)`
+  [`{python} n(RB["cociente_AME"]["IC95_inf"], 2)`; `{python} n(RB["cociente_AME"]["IC95_sup"], 2)`]
+  (bootstrap por búsqueda, `{python} F4["robustez"]["B"]` réplicas). Se sostiene re-ponderando a la
+  composición de la muestra aleatoria.
+- El clic es paso obligatorio del embudo: con orden aleatorio, el
+  `{python} n(F4["embudo"]["R = 1 (aleatorio)"]["% del log-RR vía clic"], 0)` % del efecto (escala log)
+  son más clics.
 
-![](figures/f4_or_comparacion.png){height=35%}
+![](figures/f4_or_comparacion.png){height=28%}
 
 ## 9 · Demo en vivo
 
@@ -130,6 +136,6 @@ t = F3["test"]
 - **El top-5 sí causa reservas, pero menos de lo que muestran los datos del algoritmo.** Hay que
   valuar el slot con el benchmark aleatorio y asignarlo donde el CATE es mayor.
 - La variable más predictiva **no es una palanca** en la misma magnitud: buena parte es selección.
-- Bitácora: 3+ experimentos fallidos documentados y 30 errores de IA detectados, con su test.
+- Bitácora: 3+ experimentos fallidos documentados y 32 errores de IA detectados, con su test.
 - Limitaciones: aleatorización imperfecta, selección sobre el clic, SUTVA y riesgo de licencia
   declarado.

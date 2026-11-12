@@ -1,8 +1,16 @@
-# Guía para la defensa oral, por rol
+# Guía de estudio para la defensa oral, por rol
 
-> Para: Verónica, Lucía y Antonella. Se completa al cierre de cada fase.
-> En la ronda de preguntas, cada una defiende el trabajo de su rol. Todo número de esta guía sale
-> de un output ejecutado; la fuente está entre paréntesis.
+> Para: Verónica, Lucía y Antonella. En la ronda de preguntas, cada una defiende el trabajo de su
+> rol. Todo número de esta guía sale de un output ejecutado; la fuente está entre paréntesis.
+
+**Cómo usar esta guía.**
+1. Leé tu rol en cada fase.
+2. Abrí la sección del notebook o el archivo que se cita y mirá el output con tus propios ojos.
+3. Respondé en voz alta las **preguntas de práctica** del final, sin mirar, y después verificá la
+   respuesta.
+4. Si te preguntan quién hizo el trabajo, la respuesta honesta está en el README y en la
+   BITÁCORA: Verónica lo ejecutó y validó con asistencia de Claude Code, y los roles se mantienen
+   para la defensa. Lo que sí tenés que dominar es el razonamiento de tu rol.
 
 ---
 
@@ -146,7 +154,7 @@
    - El precio relativo es invariante a la escala.
    - El outlier absoluto detecta búsquedas enteras imposibles.
    - El contraste de MCAR no da falsos positivos con faltantes aleatorios y detecta los MAR.
-2. **Error de la IA atrapado:** la primera regla de outliers no marcaba un precio de 4,1 millones
+2. **Error de la IA atrapado:** la primera regla de outliers no marcaba precios de millones de USD por noche
    (error 17). La corrección quedó fijada por un test.
 3. **Reglas de reporte automatizadas:**
    - `Contraste.texto()` nunca dice "se acepta H0".
@@ -303,7 +311,21 @@
 3. **Por qué el logit condicional:** es un modelo de elección dentro de la búsqueda. El OR es
    invariante a la selección de listas por su resultado (lo prueba una simulación con verdad
    conocida), mientras que la diferencia absoluta se infla.
-4. **Trampa del mediador:** ajustar por el clic baja el efecto de 0,078 a 0,004 (absorbe el 95 %).
+4. **El clic no es un mediador sustantivo:** no hay reserva sin clic, así que "ajustar por el clic"
+   anula el efecto casi por construcción.
+   - Lo informativo es la identidad del embudo RR = RR_clic × RR_conversión|clic.
+   - Con orden aleatorio: 2,96 × 1,30 = 3,86; el 80 % del efecto (escala log) son más clics.
+   - El residuo de 0,004 al ajustar por el clic no es un artefacto: es la diferencia de conversión
+     entre quienes hicieron clic (0,078) por la tasa de clic.
+4 bis. **Robustez de la conclusión (4.3 bis):**
+   - Balance: la mayor |SMD| pasa de 0,248 a 0,005 al re-ponderar, y el cociente de OR casi no
+     cambia (1,60).
+   - En escala de diferencia de riesgos, que es colapsable: cociente de efectos marginales 1,65
+     [1,41; 1,98].
+   - Bootstrap por búsqueda con 1000 réplicas: cociente de OR [1,42; 1,80]. Ninguna réplica ≤ 1.
+   - Wald z = 7,92.
+   - Redacción correcta: "los datos son incompatibles con que el ajuste por lo observable elimine
+     el sesgo", no "se rechaza Backdoor".
 5. **Colisionadores:**
    - La selección del dataset (≥ 1 clic) es un colisionador natural.
    - C simulado sobre orden aleatorio: condicionar en C induce Berkson entre exposición y calidad.
@@ -374,3 +396,34 @@
 3. **UX:**
    - Paleta validada; texto que explica la diferencia entre predecir e intervenir.
    - El aviso del What-Is: "esto es una predicción, no un efecto causal".
+
+---
+
+## Preguntas de práctica (respondé sin mirar; la respuesta está en la fuente indicada)
+
+### Verónica — Project Lead & Scrum Master
+1. ¿Por qué el top-5 "vende" y a la vez el dato del algoritmo lo sobreestima? (notebook 4.3 y 4.3 bis)
+2. ¿Por qué la muestra se arma por búsquedas y no por filas? (notebook 1.1)
+3. ¿Qué riesgo de licencia asumieron y cómo lo mitigaron? (BITÁCORA, Entrada 1)
+4. ¿Cuánto vale un slot del top-5? ¿Por qué das un rango y no un número? (notebook 4.9, escenarios)
+5. ¿Cómo funcionó Scrum en el equipo, honestamente? (BITÁCORA, Proceso Scrum)
+6. ¿Qué es un experimento fallido de la Entrada 3 y qué aprendieron? (BITÁCORA, Entrada 3)
+
+### Lucía — Backend & ML / Causal Engineer
+1. Demostrá con el DAG por qué $Z$ no alcanza para Backdoor con el orden del algoritmo. (notebook 4.1)
+2. ¿Qué es un logit condicional y por qué su OR sobrevive a la selección del dataset? (4.3; `test_or_condicional_sobrevive_al_filtro_de_seleccion`)
+3. ¿Qué es la no colapsabilidad del OR y cómo la descartaron como explicación de la brecha? (4.3 bis b)
+4. Si las búsquedas aleatorias fueran distintas de las del algoritmo, ¿qué harían? ¿Qué hicieron? (4.3 bis a)
+5. ¿Por qué el clic no es un "mediador sustantivo"? ¿Qué descomposición usaron? (4.4)
+6. ¿Qué miden las refutaciones de DoWhy y qué **no** miden? (4.6)
+7. ¿Qué es la ortogonalidad de Neyman en DML? ¿Para quién rinde más el slot? (4.7)
+8. ¿Por qué el MDI favorece variables continuas y la permutación no? (3.6)
+
+### Antonella — Frontend & UI/UX + QA & Validation Engineer
+1. ¿Cómo garantizan que ningún dato quede en el repo y que la app no exponga registros? (`test_confidencialidad.py`, `test_app.py`)
+2. ¿Qué es un `xfail(strict=True)` y por qué es mejor que borrar el test? (`test_data_contract.py`)
+3. Dame dos errores de la IA que atrapó un test y explicá el test. (BITÁCORA, Entrada 5)
+4. ¿Qué pasa si el logit condicional no converge? (`tpi.causal`, guarda de convergencia)
+5. ¿Qué muestra el semáforo de la app y qué no garantiza? (app, módulo What-If)
+6. ¿Cómo evita el copiloto inventar cifras? ¿Qué **no** garantiza el guardarraíl? (`app/copiloto.py`, `tests/test_copiloto.py`)
+7. ¿Cómo se reproduce todo desde cero? (README, "Reproducción paso a paso")

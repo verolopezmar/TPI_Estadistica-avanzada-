@@ -44,6 +44,8 @@ pyzmq==26.4.0
 # data.zip de Kaggle usa Deflate64 (método 9), que zipfile no soporta; inflate64 trae wheels
 # (zipfile-deflate64 exige compilar con MSVC en Windows)
 inflate64==1.0.4
+# Copiloto de la app (bonus): SDK oficial de Anthropic
+anthropic==2.8.0
 
 # Calidad
 pytest==9.2.0

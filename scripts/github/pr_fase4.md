@@ -9,15 +9,16 @@ Cierra la **Fase 4** (inferencia causal, Causal ML y el choque causal vs. predic
 - `requirements.txt`: `networkx==3.4.2` (dowhy 0.12 rompe con networkx ≥ 3.5; ia_log, error 26).
 
 ### Resultados principales (notebook, sección 4; llegan con el PR de la Fase 5)
-- OR intra-búsqueda del top-5: **benchmark (orden aleatorio, ajustado) 2,11 [1,90; 2,35]**; observacional ajustado 3,38 [3,25; 3,51]; ingenuo 5,38. El observacional sobreestima un 60 % aun ajustado: el Backdoor con Z observado se rechaza empíricamente.
+- OR intra-búsqueda del top-5: **benchmark (orden aleatorio, ajustado) 2,11 [1,90; 2,35]**; observacional ajustado 3,38 [3,25; 3,51]; ingenuo 5,38. El observacional ajustado sobreestima: cociente de OR 1,60 [1,42; 1,80] y cociente de efectos marginales 1,65 [1,41; 1,98] (bootstrap por búsqueda, 1000 réplicas; Wald z = 7,92), robusto a re-ponderar la composición. Los datos son incompatibles con que el ajuste por lo observable elimine el sesgo.
 - DoWhy (R = 0): ingenuo 0,1055; regresión 0,0961; IPW 0,0890. Las 3 refutaciones pasan; un U simulado moderado reduce el ATE un 48 %.
-- Mediador: el clic absorbe el 94,7 % del efecto. Selección S: el OR se conserva y la Δp se duplica (simulación con verdad conocida).
+- El clic es paso obligatorio del embudo (reserva ⇒ clic): con orden aleatorio, RR clic 2,96 × RR conversión 1,30 = RR reserva 3,86; el 80 % del efecto (escala log) son más clics. Selección S: el OR se conserva y la Δp se duplica (simulación con verdad conocida).
 - DML: ATE 0,083 (R = 0) y 0,007 (R = 1). CATE mayor con precio relativo bajo y buena ubicación.
 
 ### A revisar con atención
 1. Que la conclusión causal (benchmark con orden aleatorio vs. observacional ajustado) esté bien planteada y declarada en sus límites.
 2. El logit condicional como estimador principal (escala relativa) y la lectura de las refutaciones.
-3. Los errores 26 a 28 del log (dependencias, colinealidad intra-búsqueda, no convergencia).
+3. Los errores 26 a 32 del log (dependencias, colinealidad intra-búsqueda, no convergencia, optimizador de statsmodels, bootstrap insuficiente).
+4. La sección 4.3 bis (robustez) llega con el PR de la Fase 5.
 
 ## Quién hizo y quién revisa
 - **Autoría:** Verónica López Marsico, con asistencia de Claude Code (Claude Opus 5.5). Decisiones "propuestas por Claude Code" en `docs/ia_log.md`.

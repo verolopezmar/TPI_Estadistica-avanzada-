@@ -7,7 +7,8 @@ Cierra la **Fase 5** y el TP: notebook completo ejecutado (Fases 1 a 5), app Str
 - `models/`: `artefactos_app.json` (solo agregados; celdas con menos de 10 filas suprimidas), `rf_app.joblib` (RF compacto, hojas de ≥ 100 filas), `resultados.json` (fuente única de los números del informe y las slides).
 - `src/tpi/artefactos.py` + `tests/test_app.py`: sin identificadores, supresión de celdas, rangos de entrada, la app corre sin excepciones (`AppTest`).
 - `report/informe.qmd` → HTML y PDF; `report/slides.qmd` → PDF (beamer). Números inline desde `models/resultados.json`.
-- `README.md`, `BITACORA.md` (Entradas 1 a 5), `docs/defensa.md` (Fases 0 a 5), `docs/auditoria_final.md`, `scripts/github/`.
+- `README.md`, `BITACORA.md` (Entradas 1 a 5 y proceso Scrum), `docs/defensa.md` (guía de estudio por rol), `docs/auditoria_final.md`, `scripts/github/`.
+- **Robustez de la conclusión central (notebook, 4.3 bis):** balance con SMD y re-ponderación, escala de diferencia de riesgos, Wald y bootstrap por búsqueda con 1000 réplicas. Más el embudo del clic (4.4), escenarios de valuación (4.9) y "solo agregados" al 100 % en el notebook (hexbin, p1/p99).
 
 ### Confidencialidad (revisar)
 - La app no lee datos: solo `models/`.

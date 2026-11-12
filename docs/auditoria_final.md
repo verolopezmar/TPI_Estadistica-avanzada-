@@ -44,7 +44,7 @@
 | F4: ensayo crítico | ✅ | NB 4.8 |
 | F5: 4 roles, Quality Gate, BITÁCORA | ✅ | README, `.github/`, `BITACORA.md` |
 | F5: app con 3 módulos (Diagnóstico + PCA, What-Is con probabilidad e importancia, What-If con DAG, ATE, CATE y semáforo) | ✅ | `app/app.py`; `tests/test_app.py` |
-| F5: bonus copiloto conversacional | ❌ | No implementado (es opcional); priorizamos Causal y ML por puntaje |
+| F5: bonus copiloto conversacional | ✅ | `app/copiloto.py` (commit propio en la rama de la Fase 5): tool use sobre artefactos agregados y guardarraíl contra cifras inventadas (`tests/test_copiloto.py`). Requiere `ANTHROPIC_API_KEY` en los Secrets |
 
 ## C. Rúbrica (nivel "Excelente")
 
@@ -57,16 +57,16 @@
 | 2.1 Abstracción antes del código | ✅ | DAG y ecuaciones antes de cada bloque |
 | 2.2 Parámetros y supuestos | ✅ | Estimandos (τ, OR condicional), supuestos de Gauss-Markov, SUTVA y positividad (Entrada 4) |
 | 2.3 Modelos de resguardo | ✅ | Welch, Kruskal, Games-Howell, HC3, Huber, RANSAC con umbral corregido, umbral F1 |
-| 3.1 Escenarios y sensibilidad propios | ✅ | Holdout cronológico, T = top-4, PCA como features, ranking vs. Expedia, U simulado, simulaciones S y C |
-| 3.2 Convergencia y estabilidad | ✅ | Curva OOB/CV vs. número de árboles, CV de 5 pliegues, refutación por subconjuntos |
+| 3.1 Escenarios y sensibilidad propios | ✅ | Holdout cronológico, T = top-4, PCA como features, ranking vs. Expedia, U simulado, simulaciones S y C, **re-ponderación por balance, escala de diferencia de riesgos**, escenarios de valuación |
+| 3.2 Convergencia y estabilidad | ✅ | Curva OOB/CV vs. número de árboles, CV de 5 pliegues, refutación por subconjuntos, **bootstrap por búsqueda con 1000 réplicas** (OR, efectos marginales, diferencia de riesgos, embudo) |
 | 3.3 Contrastes diagnósticos | ✅ | Batería completa con estadístico, gl y p; refutaciones |
 | 3.4 Visualización avanzada | ✅ | Paneles con IC sombreados, cercas anotadas, Q-Q por grupo, reliability diagrams, forest plot de OR, CATE con bandas |
 | 4.1 Vehículo editorial | ✅ | Informe Quarto HTML + PDF con resumen, índice, tablas y figuras numeradas; notebook como anexo |
 | 4.2 Redacción | ⚠️ | Sobria y técnica; **pendiente la revisión de estilo de Verónica** |
 | 4.3 Traducción a negocio | ✅ | NB 4.9 e informe (valuación del slot, asignación por CATE, experimentación continua, límites) |
 | 4.4 Reproducibilidad, fuentes y gobernanza de IA | ✅ | Tests, CI, semilla, bibliografía verificada (Crossref/UCI), Entrada 5 + `docs/ia_log.md` |
-| Scrum: Quality Gate de QA | ⚠️ | Hay PRs con veredicto, pero **la revisión la hace la misma persona que integra** (declarado). Riesgo en la dimensión Scrum (10 pts) |
-| Defensa oral por rol | ⚠️ | `docs/defensa.md` completo; **Lucía y Antonella tienen que estudiarlo**, porque el log declara que no ejecutaron el trabajo |
+| Scrum: Quality Gate de QA | ⚠️ | Proceso real documentado (BITÁCORA, "Proceso Scrum"): un sprint por fase con criterios de aceptación, Definition of Done, revisiones de la PO que cambiaron el análisis (la de robustez en particular), retros y el control de 32 errores de IA como práctica de QA. Salvedad declarada: la revisión de QA la hace la misma persona que integra, y no hubo revisión cruzada entre integrantes |
+| Defensa oral por rol | ⚠️ | `docs/defensa.md` es una guía de estudio por rol, con preguntas de práctica; **Lucía y Antonella tienen que estudiarla**, porque el log declara que no ejecutaron el trabajo |
 
 ## D. Riesgos y pendientes antes del 18/11
 
@@ -78,15 +78,16 @@
    podrían considerarse "resulting model parameters".
 5. **Dimensión Scrum:** el registro honesto de que una sola persona hizo y revisó todo puede
    restar puntos en "dinámica de equipo".
-6. **Puntos individuales en el notebook (decisión de Verónica).** La app solo publica agregados, pero
-   el notebook versionado incluye dos gráficos de dispersión con puntos individuales, sin
-   identificadores:
-   - `f2_pca_plano`: 4.000 hoteles de Test en el plano PCA más los reservados.
-   - `f2_influencia`: una observación por reserva.
-
-   Además, algunas tablas de resumen muestran mínimos y máximos (valores de un solo registro).
-   Si se quiere el criterio estricto de "solo agregados" también en el notebook, hay que
-   reemplazarlos por hexbin o deciles y re-ejecutar (≈ 15 min).
+6. **Puntos individuales en el notebook: resuelto** (decisión de Verónica). El plano PCA de Test y el
+   gráfico de influencia pasaron a hexbin con celdas de ≥ 10 observaciones; los mínimos y máximos,
+   a p1/p99; las menciones textuales de valores de un solo registro, a rangos.
 7. **Avisos de joblib en Windows** al cerrar los procesos de trabajo de las búsquedas paralelas
    (`KeyError` en `resource_tracker`): son ruido de limpieza de temporales, no errores de celda (el
    notebook termina con código 0).
+8. **Tests con fallo esperado:** solo los dos de la premisa de `random_bool`, marcados
+   `xfail(strict=True, reason="Aleatorización imperfecta: asociación residual en R=1 (ia_log, error 10)")`.
+9. **Robustez de la conclusión central (revisión de Verónica): resuelta** (notebook, 4.3 bis).
+   - Balance con re-ponderación: mayor |SMD| de 0,248 a 0,005.
+   - Escala de diferencia de riesgos: cociente de efectos marginales 1,65 [1,41; 1,98].
+   - Wald z = 7,92, p = 2,4·10⁻¹⁵.
+   - Bootstrap por búsqueda con 1000 réplicas: cociente de OR 1,60 [1,42; 1,80], ninguna réplica ≤ 1.

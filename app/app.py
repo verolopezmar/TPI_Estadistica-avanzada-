@@ -59,8 +59,13 @@ with st.sidebar:
     )
     st.info("Datos confidenciales (reglas de Kaggle): la app no contiene registros individuales.")
 
-tab1, tab2, tab3 = st.tabs(
-    ["1 · Diagnóstico y exploración", "2 · Predictivo (What-Is)", "3 · Simulación causal (What-If)"]
+tab1, tab2, tab3, tab4 = st.tabs(
+    [
+        "1 · Diagnóstico y exploración",
+        "2 · Predictivo (What-Is)",
+        "3 · Simulación causal (What-If)",
+        "4 · Copiloto de decisión (bonus)",
+    ]
 )
 
 # ------------------------------------------------------------------------------- Diagnóstico
@@ -273,6 +278,20 @@ with tab3:
     )
     k3.metric("OR ingenuo (algoritmo, sin ajuste)", f"{ca['or_ingenuo']:.2f}")
     k4.metric("Refutaciones DoWhy", f"{icono} {luz}")
+    rob = ca["robustez"]
+    st.caption(
+        f"Sobreestimación del observacional ajustado: OR × {rob['cociente_or']:.2f} "
+        f"(IC 95 % bootstrap por búsqueda [{rob['ic_boot_or'][0]:.2f}; {rob['ic_boot_or'][1]:.2f}]); en diferencia "
+        f"de riesgos (efecto marginal) × {rob['cociente_ame']:.2f} [{rob['ic_boot_ame'][0]:.2f}; {rob['ic_boot_ame'][1]:.2f}]; "
+        f"con la muestra del algoritmo re-ponderada a la composición de la aleatoria, OR × {rob['cociente_or_ponderado']:.2f}. "
+        "Los datos son incompatibles con que el ajuste por lo observable elimine el sesgo."
+    )
+    with st.expander("Valuación del slot: escenarios por cada 1.000 exposiciones en el top-5"):
+        esc = pd.DataFrame(ca["escenarios"]).set_index("escenario")
+        st.dataframe(esc, use_container_width=True)
+        st.caption(
+            "Población: búsquedas con al menos un clic (la única que contiene el dataset). Las cifras absolutas dependen de esa selección."
+        )
     c1, c2 = st.columns([1.1, 1])
     with c1:
         st.markdown("**DAG causal** (orden del algoritmo; U e I son latentes)")
@@ -345,3 +364,63 @@ with tab3:
     with st.expander("Sensibilidad a un confusor no observado y trampa del mediador"):
         st.dataframe(pd.DataFrame(ca["sensibilidad_u"]), use_container_width=True)
         st.dataframe(pd.DataFrame(ca["mediador"]), use_container_width=True)
+
+# ------------------------------------------------------------------------------ Copiloto (bonus)
+with tab4:
+    import os
+
+    st.subheader("Preguntale al motor causal")
+    st.caption(
+        "Asistente con herramientas de solo lectura sobre los resultados agregados de esta app. "
+        "Guardarraíl: si la respuesta incluye una cifra que no sale de una herramienta, se bloquea."
+    )
+    try:
+        clave = st.secrets.get("ANTHROPIC_API_KEY", None)
+    except Exception:  # noqa: BLE001 - sin secrets.toml, st.secrets lanza al accederlo
+        clave = None
+    clave = clave or os.environ.get("ANTHROPIC_API_KEY")
+    if not clave:
+        st.info(
+            "El copiloto está desactivado: falta la clave `ANTHROPIC_API_KEY`. En Streamlit Community Cloud, "
+            'cargala en *Settings → Secrets* como `ANTHROPIC_API_KEY = "..."`; en local, como variable de entorno. '
+            "El resto de la app funciona sin ella."
+        )
+    else:
+        import anthropic
+
+        from copiloto import responder
+
+        if "chat" not in st.session_state:
+            st.session_state.chat, st.session_state.historial = [], []
+        for rol, texto in st.session_state.chat:
+            st.chat_message(rol).markdown(texto)
+        pregunta = st.chat_input(
+            "Ej.: ¿cuánto rinde el top-5 para un hotel de 3 estrellas un 20 % más barato que su búsqueda?"
+        )
+        if pregunta:
+            st.chat_message("user").markdown(pregunta)
+            with st.spinner("Consultando el motor causal..."):
+                try:
+                    r = responder(
+                        pregunta,
+                        anthropic.Anthropic(api_key=clave),
+                        art,
+                        cargar_modelo(),
+                        st.session_state.historial,
+                    )
+                except anthropic.APIError as e:
+                    r = {
+                        "texto": f"No se pudo consultar el modelo ({type(e).__name__}).",
+                        "resultados": [],
+                        "bloqueado": True,
+                        "no_verificadas": [],
+                        "historial": st.session_state.historial,
+                    }
+            st.chat_message("assistant").markdown(r["texto"])
+            if r["no_verificadas"]:
+                st.error(f"Cifras sin respaldo en las herramientas: {r['no_verificadas']}")
+            if r["resultados"]:
+                with st.expander("Resultados de las herramientas consultadas"):
+                    st.json(r["resultados"])
+            st.session_state.chat += [("user", pregunta), ("assistant", r["texto"])]
+            st.session_state.historial = [] if r["bloqueado"] else r["historial"]

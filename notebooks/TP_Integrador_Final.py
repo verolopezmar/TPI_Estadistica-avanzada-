@@ -724,7 +724,10 @@ print(
     f"n recurrentes = {len(rec)}, n nuevos = {len(nue)} | efecto mínimo detectable (g): {efecto_minimo_detectable(len(rec), len(nue)):.4f}"
 )
 print(f"Asimetría log gasto: recurrentes {stats.skew(rec):.3f}, nuevos {stats.skew(nue):.3f}")
-res.groupby("usuario_recurrente")["gross_bookings_usd"].describe()
+# Solo agregados: percentiles 1-99 (sin mínimo ni máximo, que describen un único registro)
+res.groupby("usuario_recurrente")["gross_bookings_usd"].quantile(
+    [0.01, 0.25, 0.5, 0.75, 0.99]
+).unstack().rename(columns=lambda q: f"p{round(100 * q)}")
 
 # %% [markdown]
 # **Decisión.** No se rechaza $H_0$: t de Welch(1158,6) = 1,303, p = 0,193; IC 95 % para la diferencia
@@ -1124,26 +1127,29 @@ print(f"R² MCO sin influyentes: {sin_inf.rsquared:.4f} (n = {int(sin_inf.nobs)}
 robustez.round(4)
 
 # %%
+# Solo agregados (decisión de Verónica, 12/11): densidad por celdas, sin puntos individuales
 fig, ax = plt.subplots(figsize=(7.5, 4.2))
-tam = 4 + 400 * inf["cook"] / inf["cook"].max()
-ax.scatter(inf["leverage"], inf["r_ext"], s=tam, color=gr.AZUL, alpha=0.35, lw=0)
+hb = ax.hexbin(np.log10(inf["leverage"]), inf["r_ext"], C=inf["cook"], reduce_C_function=np.mean,
+               gridsize=45, cmap=gr.SECUENCIAL, mincnt=10)  # fmt: skip
+fig.colorbar(hb, ax=ax, label="Cook medio de la celda (celdas con ≥ 10 obs.)")
 ax.axhline(3, color=gr.TEXTO_2, ls="--", lw=1)
 ax.axhline(-3, color=gr.TEXTO_2, ls="--", lw=1)
-ax.axvline(2 * k / n_obs, color=gr.NARANJA, ls="--", lw=1)
-ax.annotate("|r| = 3", xy=(inf.leverage.max() * 0.6, 3.3), fontsize=8, color=gr.TEXTO_2)
+ax.axvline(np.log10(2 * k / n_obs), color=gr.NARANJA, ls="--", lw=1)
+ax.annotate(
+    "|r| = 3", xy=(np.log10(inf.leverage).quantile(0.99), 3.2), fontsize=8, color=gr.TEXTO_2
+)
 ax.annotate(
     "h = 2(p+1)/n",
-    xy=(2 * k / n_obs, inf.r_ext.max() * 0.97),
+    xy=(np.log10(2 * k / n_obs), -4.5),
     xytext=(6, 0),
     textcoords="offset points",
     fontsize=8,
     color=gr.TEXTO_2,
 )
 ax.set(
-    xscale="log",
-    xlabel="Leverage h_ii (escala log)",
+    xlabel="log10(leverage h_ii)",
     ylabel="Residuo estudentizado externo",
-    title="Influencia (tamaño ∝ distancia de Cook)",
+    title="Influencia: Cook medio por celda (solo celdas con ≥ 10 reservas)",
 )
 fig.tight_layout()
 gr.guardar(fig, "f2_influencia")
@@ -1284,22 +1290,32 @@ plt.show()
 proy = pd.DataFrame(Z_test[:, :2], columns=["PC1", "PC2"]).assign(
     reserva=df.loc[~df.train, "booking_bool"].to_numpy()
 )
-muestra_proy = pd.concat(
-    [proy[proy.reserva == 0].sample(4000, random_state=SEED), proy[proy.reserva == 1]]
-)
+# Solo agregados: tasa de reserva por celda del plano (celdas con ≥ 10 hoteles), sin puntos individuales
 fig, ax = plt.subplots(figsize=(7, 4.6))
+hb = ax.hexbin(proy.PC1, proy.PC2, C=proy.reserva, reduce_C_function=np.mean, gridsize=40,
+               cmap=gr.SECUENCIAL, mincnt=10, extent=(-6, 8, -5, 7))  # fmt: skip
+fig.colorbar(hb, ax=ax, label="tasa de reserva de la celda")
+medias_pc = proy.groupby("reserva")[["PC1", "PC2"]].mean()
 for r, color, nombre in [
-    (0, gr.AZUL, "Sin reserva (muestra de 4.000)"),
-    (1, gr.NARANJA, "Reservado"),
+    (0, gr.AZUL, "centroide sin reserva"),
+    (1, gr.NARANJA, "centroide reservados"),
 ]:
-    d = muestra_proy[muestra_proy.reserva == r]
-    ax.scatter(d.PC1, d.PC2, s=8, color=color, alpha=0.35 if r == 0 else 0.6, lw=0, label=nombre)
+    ax.scatter(
+        *medias_pc.loc[r],
+        s=120,
+        color=color,
+        marker="X",
+        edgecolor=gr.SUPERFICIE,
+        lw=1.5,
+        label=nombre,
+        zorder=3,
+    )
 ax.set(
     xlabel=f"PC1 ({var_pca.pct_var.iloc[0]:.1f} %)",
     ylabel=f"PC2 ({var_pca.pct_var.iloc[1]:.1f} %)",
-    title="Test proyectado en el plano PC1-PC2 de Train",
+    title="Test en el plano PC1-PC2 de Train: tasa de reserva por celda",
 )
-ax.legend(loc="upper right", markerscale=2)
+ax.legend(loc="upper right")
 fig.tight_layout()
 gr.guardar(fig, "f2_pca_plano")
 plt.show()
@@ -2235,34 +2251,279 @@ plt.show()
 #
 # | | OR intra-búsqueda (IC 95 %) |
 # |---|---|
-# | Orden del algoritmo, ingenuo | 5,38 [5,20; 5,57] |
-# | Orden del algoritmo, ajustado por $Z$ | 3,38 [3,25; 3,51] |
-# | **Orden aleatorio, ajustado (benchmark)** | **2,11 [1,90; 2,35]** |
-# | Orden aleatorio, sin ajuste | 3,00 [2,73; 3,30] |
+# | Orden del algoritmo, ingenuo | 5,38 |
+# | Orden del algoritmo, ajustado por $Z$ | 3,38 |
+# | **Orden aleatorio, ajustado (benchmark)** | **2,11** |
+# | Orden aleatorio, sin ajuste | 3,00 |
+#
+# (IC 95 % sándwich por búsqueda en la tabla de arriba.)
 #
 # 1. **El top-5 tiene efecto causal:** con orden aleatorio, estar en el top-5 multiplica por 2,11 las
-#    chances de que el hotel sea el reservado de su lista. El IC excluye 1 ($p$ = 1,2·10⁻⁴⁴).
+#    chances de que el hotel sea el reservado de su lista; el IC excluye 1.
 # 2. **El estimador observacional sobreestima, aun ajustado.** Ajustar por $Z$ cierra la mitad de la
-#    brecha en log-odds (ver la salida de arriba). El OR observacional ajustado (3,38) sigue un 60 %
-#    por encima del benchmark, y sus IC no se superponen. Es lo que predice el DAG: $Z$ no bloquea
-#    $T \leftarrow U \to Y$. **El supuesto Backdoor con $Z$ observado se rechaza empíricamente.**
-# 3. Con orden aleatorio, ajustar por $Z$ también baja el OR (de 3,00 a 2,11). Es coherente con la
-#    aleatorización imperfecta (amenaza B): por eso el benchmark es el ajustado. Una diferencia por la
-#    no colapsabilidad del OR iría en sentido contrario (alejaría el OR de 1), así que no explica la
-#    baja.
-# 4. La sensibilidad con $T$ = top-4 del dataset (salida de arriba) no cambia la conclusión.
+#    brecha en log-odds (salida de arriba), pero el OR observacional ajustado sigue un 60 % por encima
+#    del benchmark. **Los datos son incompatibles con que el ajuste por lo observable elimine el
+#    sesgo** de selección del algoritmo. Es lo que anticipa el DAG ($Z$ no bloquea
+#    $T \leftarrow U \to Y$). La sección 4.3 bis somete esta conclusión a cuatro pruebas.
+# 3. **Candidatos concretos de confusión no observada ($U$)**, es decir, señales que un ranker de
+#    hoteles en producción usa y este dataset no expone:
+#    - la tasa histórica de clic y de conversión del hotel en Expedia, por destino;
+#    - el margen o la comisión que Expedia cobra a cada hotel (incluidos acuerdos de visibilidad);
+#    - la disponibilidad y el inventario en tiempo real;
+#    - la calidad del contenido de la ficha (fotos, descripción);
+#    - el comportamiento previo del usuario en la misma sesión (clics y búsquedas anteriores).
 #
-# Esta conclusión no depende de la escala absoluta, que la selección del dataset distorsiona: el OR
-# intra-búsqueda es invariante a ese filtro (`test_or_condicional_sobrevive_al_filtro_de_seleccion` y
-# sección 4.5).
+#    Todas afectan a la vez la posición y la reserva.
+# 4. Con orden aleatorio, ajustar por $Z$ también baja el OR (de 3,00 a 2,11), por la aleatorización
+#    imperfecta (amenaza B): por eso el benchmark es el ajustado.
+# 5. La sensibilidad con $T$ = top-4 del dataset (salida de arriba) no cambia la conclusión.
 
 # %% [markdown]
-# ## 4.4 La trampa del mediador (clic)
+# ## 4.3 bis Robustez de la conclusión central
 #
-# **Pregunta trampa del enunciado:** ¿qué pasa si el modelo causal incluye el mediador $M$? En el
-# DAG todo el efecto del top-5 pasa por el clic ($T \to M \to Y$; no hay reserva sin clic). Ajustar
-# por $M$ bloquea ese canal y estima solo el efecto directo, que debería ser ≈ 0. Además, como
-# $M$ es colisionador ($T \to M \leftarrow I$), condicionar en él abre $T - I - Y$.
+# Cuatro objeciones posibles a "el observacional ajustado sobreestima el efecto causal", y cómo las
+# contrastamos:
+#
+# * **(a) ¿Diferencia de población, no de confusión?** Si las búsquedas con orden aleatorio y las del
+#   algoritmo tuvieran distinta composición, la brecha podría venir de efectos distintos en
+#   poblaciones distintas. Medimos el balance con la **diferencia de medias estandarizada** (SMD) de
+#   covariables de búsqueda y de composición de la lista, sobre las búsquedas que realmente entran
+#   al estimador (las que tienen reserva). Después **re-ponderamos** la muestra del algoritmo a la
+#   distribución de la aleatoria con pesos de odds, $w = \hat P(R=1\mid X)/\hat P(R=0\mid X)$, y
+#   recalculamos.
+# * **(b) ¿No colapsabilidad del OR?** El OR condicional cambia con el conjunto de ajuste aunque no
+#   haya sesgo. Repetimos la comparación en **escala de diferencia de riesgos**, que sí es colapsable:
+#   (i) el **efecto marginal promedio** del logit de elección, $\frac1N\sum_i [P_i(T_i=1) - P_i(T_i=0)]$
+#   con el resto de la lista fijo; (ii) el MPL con efectos fijos. Restringidos a búsquedas con una
+#   reserva, la tasa base es comparable entre estratos (≈ 1/largo de la lista), así que la escala
+#   absoluta también es comparable.
+# * **(c) ¿Es significativa la brecha?** Test de Wald de $H_0: \log \mathrm{OR}_{R=0} = \log \mathrm{OR}_{R=1}$
+#   (muestras independientes), e **IC 95 % percentil por bootstrap clusterizado por búsqueda**
+#   (**1000 réplicas**: búsquedas completas remuestreadas con reposición en cada estrato, pesos de
+#   balance re-estimados en cada réplica, paralelizado en 24 núcleos con `joblib`, sin submuestreo).
+#   Se obtienen los OR de cada estrato y su cociente, los efectos marginales (cociente y
+#   diferencia) y la diferencia de riesgos con efectos fijos.
+
+# %%
+from tpi.causal import (
+    bootstrap_brecha,
+    efecto_marginal_eleccion,
+    eleccion_logit,
+    pesos_odds_busqueda,
+    smd,
+)
+
+informativas = dc[dc.groupby("srch_id")["booking_bool"].transform("sum") == 1].copy()
+g_inf = informativas.groupby("srch_id")
+informativas["largo_lista"] = g_inf["prop_id"].transform("size")
+for nueva, base in [
+    ("estrellas_media", "prop_starrating"), ("resenas_media", "prop_review_score"), ("ubic2_media", "prop_location_score2"),
+    ("log_precio_medio", "log_precio"), ("promo_share", "promotion_flag"), ("marca_share", "prop_brand_bool"),
+    ("comp_info_media", "comp_n_info"), ("log_hist_medio", "prop_log_historical_price"),
+]:  # fmt: skip
+    informativas[nueva] = g_inf[base].transform("mean")
+informativas["sitio_principal"] = (
+    informativas["site_id"] == informativas["site_id"].mode()[0]
+).astype(int)
+informativas["pais_usuario_principal"] = (
+    informativas["visitor_location_country_id"]
+    == informativas["visitor_location_country_id"].mode()[0]
+).astype(int)
+COLS_BUSQ = [
+    "largo_lista", "srch_length_of_stay", "srch_booking_window", "srch_adults_count", "srch_children_count",
+    "srch_room_count", "srch_saturday_night_bool", "usuario_recurrente", "sitio_principal", "pais_usuario_principal",
+    "estrellas_media", "resenas_media", "ubic2_media", "log_precio_medio", "promo_share", "marca_share",
+    "comp_info_media", "log_hist_medio",
+]  # fmt: skip
+I0, I1 = informativas[informativas.random_bool == 0], informativas[informativas.random_bool == 1]
+s0b, s1b = I0.groupby("srch_id")[COLS_BUSQ].first(), I1.groupby("srch_id")[COLS_BUSQ].first()
+w_bal = pesos_odds_busqueda(s0b, s1b, COLS_BUSQ)
+ess = w_bal.sum() ** 2 / (w_bal**2).sum()
+balance = pd.DataFrame(
+    {
+        "media R=0": s0b.mean(),
+        "media R=1": s1b.mean(),
+        "SMD sin ponderar": [smd(s0b[c], s1b[c]) for c in COLS_BUSQ],
+        "SMD ponderado": [smd(s0b[c], s1b[c], w_bal.to_numpy()) for c in COLS_BUSQ],
+    }
+)
+print(
+    f"Búsquedas con reserva: R=0 {len(s0b):,}, R=1 {len(s1b):,} | tamaño efectivo de R=0 ponderado: {ess:,.0f} | peso máx. {w_bal.max():.2f}"
+)
+print(
+    f"|SMD| máx.: sin ponderar {balance['SMD sin ponderar'].abs().max():.3f}, ponderado {balance['SMD ponderado'].abs().max():.3f}"
+)
+balance.round(3)
+
+# %%
+filas_rob = []
+for nombre, pesos in [("sin ponderar", None), ("R=0 ponderado a la composición de R=1", w_bal)]:
+    a0 = eleccion_logit(I0, "top5", "booking_bool", Z_HOTEL, pesos_grupo=pesos)
+    a1 = eleccion_logit(I1, "top5", "booking_bool", Z_HOTEL)
+    dlog, ee = a0.params["top5"] - a1.params["top5"], np.hypot(a0.ee["top5"], a1.ee["top5"])
+    ame0 = efecto_marginal_eleccion(I0, "top5", "booking_bool", Z_HOTEL, pesos_grupo=pesos)
+    ame1 = efecto_marginal_eleccion(I1, "top5", "booking_bool", Z_HOTEL)
+    filas_rob.append(
+        {
+            "especificación": nombre, "OR R=0": np.exp(a0.params["top5"]), "OR R=1": np.exp(a1.params["top5"]),
+            "cociente OR": np.exp(dlog), "Wald z": dlog / ee, "p (Wald)": 2 * stats.norm.sf(abs(dlog / ee)),
+            "AME R=0 (p.p.)": 100 * ame0, "AME R=1 (p.p.)": 100 * ame1, "cociente AME": ame0 / ame1, "diferencia AME (p.p.)": 100 * (ame0 - ame1),
+        }
+    )  # fmt: skip
+fe_i0, fe_i1 = (
+    lpm_efectos_fijos(I0, "top5", "booking_bool", Z_HOTEL),
+    lpm_efectos_fijos(I1, "top5", "booking_bool", Z_HOTEL),
+)
+tabla_rob = pd.DataFrame(filas_rob).set_index("especificación")
+print(
+    f"MPL con efectos fijos (búsquedas con reserva): R=0 Δp = {fe_i0.estimacion:.4f} {tuple(np.round(fe_i0.ic95, 4))}, R=1 Δp = {fe_i1.estimacion:.4f} {tuple(np.round(fe_i1.ic95, 4))}, cociente = {fe_i0.estimacion / fe_i1.estimacion:.3f}"
+)
+print(
+    f"Tasa base (búsquedas con reserva): R=0 {I0.booking_bool.mean():.4f}, R=1 {I1.booking_bool.mean():.4f}"
+)
+tabla_rob.round(4)
+
+# %%
+t0 = time.time()
+boot = bootstrap_brecha(I0, I1, "top5", "booking_bool", Z_HOTEL, COLS_BUSQ, B=1000, seed=SEED)
+ic_boot = boot.quantile([0.025, 0.5, 0.975]).T.rename(
+    columns={0.025: "IC95_inf", 0.5: "mediana", 0.975: "IC95_sup"}
+)
+ic_boot["fracción de réplicas sin sobreestimación"] = [
+    (boot[c] <= (0 if c.startswith("diferencia") else 1)).mean()
+    if c.startswith(("cociente", "diferencia"))
+    else np.nan
+    for c in boot.columns
+]
+print(f"Bootstrap por búsqueda: {len(boot)} réplicas, {time.time() - t0:.0f} s")
+ic_boot.round(4)
+
+# %%
+fig, ax = plt.subplots(1, 2, figsize=(12, 3.6))
+orden = balance["SMD sin ponderar"].abs().sort_values().index
+ax[0].scatter(
+    balance.loc[orden, "SMD sin ponderar"], orden, color=gr.AZUL, s=30, label="sin ponderar"
+)
+ax[0].scatter(
+    balance.loc[orden, "SMD ponderado"],
+    orden,
+    color=gr.NARANJA,
+    s=30,
+    marker="D",
+    label="ponderado",
+)
+for x in (-0.1, 0.1):
+    ax[0].axvline(x, color=gr.TEXTO_2, ls="--", lw=1)
+ax[0].set(xlabel="SMD (R=0 − R=1)", title="Balance de búsquedas con reserva")
+ax[0].legend(loc="lower right")
+for c, color, nombre in [
+    ("cociente_OR", gr.AZUL, "cociente de OR"),
+    ("cociente_AME", gr.NARANJA, "cociente de AME"),
+]:
+    ax[1].hist(boot[c], bins=30, color=color, alpha=0.5, label=nombre)
+ax[1].axvline(1, color=gr.TEXTO_2, ls="--", lw=1)
+ax[1].annotate(
+    "sin sesgo (= 1)",
+    xy=(1, ax[1].get_ylim()[1] * 0.9),
+    xytext=(4, 0),
+    textcoords="offset points",
+    fontsize=8,
+    color=gr.TEXTO_2,
+)
+ax[1].set(
+    xlabel="observacional ajustado / benchmark",
+    ylabel="réplicas",
+    title="Bootstrap por búsqueda (1000 réplicas)",
+)
+ax[1].legend()
+fig.tight_layout()
+gr.guardar(fig, "f4_robustez")
+plt.show()
+
+# %% [markdown]
+# **La conclusión resiste las tres objeciones.**
+#
+# **(a) No es una diferencia de población.** Sobre las 14.124 búsquedas con reserva del algoritmo y
+# las 1.971 aleatorias, el balance sin ponderar ya es bueno en casi todo: 16 de 18 covariables con
+# |SMD| < 0,12. Las excepciones son la proporción de hoteles en promoción (0,248) y el largo de la
+# lista (0,166). Con pesos de odds, la mayor |SMD| baja a 0,005, con un tamaño efectivo de 12.938 y
+# un peso máximo de 3,43. Re-ponderado, el cociente de OR casi no cambia (1,599 → 1,594).
+#
+# **(b) No es la no colapsabilidad del OR.** En escala de diferencia de riesgos, colapsable y con tasa
+# base comparable (0,0399 vs. 0,0425 en búsquedas con reserva):
+# - el efecto marginal promedio del top-5 es 5,34 p.p. con el algoritmo contra 3,24 p.p. con orden
+#   aleatorio (cociente 1,65; diferencia 2,10 p.p.);
+# - el MPL con efectos fijos da 0,0826 contra 0,0477 (cociente 1,73).
+#
+# **(c) Es significativa y precisa.**
+# - Test de Wald de la igualdad de log-OR: z = 7,92, p = 2,4·10⁻¹⁵ (5,5·10⁻¹⁵ re-ponderado; la tabla
+#   redondea a 4 decimales).
+# - Bootstrap percentil clusterizado por búsqueda, con 1000 réplicas:
+#
+# | Magnitud | Mediana | IC 95 % |
+# |---|---|---|
+# | OR algoritmo ajustado | 3,38 | [3,25; 3,52] |
+# | OR benchmark (aleatorio, ajustado) | 2,11 | [1,90; 2,36] |
+# | **Cociente de OR** | **1,60** | **[1,42; 1,80]** |
+# | Cociente de OR re-ponderado | 1,60 | [1,42; 1,80] |
+# | Efecto marginal, algoritmo (p.p.) | 5,35 | [5,14; 5,55] |
+# | Efecto marginal, benchmark (p.p.) | 3,24 | [2,72; 3,78] |
+# | **Cociente de efectos marginales** | **1,65** | **[1,41; 1,98]** |
+# | Diferencia de efectos marginales (p.p.) | 2,10 | [1,52; 2,69] |
+# | Diferencia de riesgos con EF, algoritmo − benchmark | 0,035 | [0,028; 0,042] |
+#
+# En **ninguna** de las 1000 réplicas el cociente cae a 1 o menos (ni en OR, ni en efecto marginal,
+# ni en diferencia de riesgos). **Los datos son incompatibles con que el ajuste por las covariables
+# observadas elimine el sesgo de selección del algoritmo:** el observacional ajustado sobreestima el
+# efecto causal del top-5 en un 60-65 %, en las dos escalas.
+
+# %% [markdown]
+# ## 4.4 El clic: paso obligatorio del embudo, no mediador sustantivo
+#
+# En Expedia, `booking_bool = 1` implica `click_bool = 1` (regla verificada en el contrato de
+# datos): **la reserva sin clic es estructuralmente imposible**. Por eso "ajustar por el clic"
+# anula el efecto casi por construcción y no es un hallazgo sustantivo de mediación. Lo informativo
+# es **descomponer** el efecto. Como $Y = 1 \Rightarrow M = 1$, vale la identidad exacta
+#
+# $$P(Y=1\mid T) = P(M=1\mid T)\cdot P(Y=1\mid M=1, T) \;\Rightarrow\;
+#   \mathrm{RR}_{Y} = \mathrm{RR}_{\text{clic}} \times \mathrm{RR}_{\text{conversión}\mid \text{clic}}$$
+#
+# **Método:** proporciones por fila búsqueda × hotel en cada estrato; los IC 95 % son percentiles de
+# 1000 réplicas de bootstrap clusterizado por búsqueda. Con orden aleatorio, $\mathrm{RR}_{\text{clic}}$ es causal. En
+# cambio, $\mathrm{RR}_{\text{conversión}\mid\text{clic}}$ condiciona en un colisionador
+# ($T \to M \leftarrow I$), así que es **descriptivo**: compara quienes hicieron clic en cada
+# posición, que no son intercambiables.
+
+
+# %%
+def embudo(d: pd.DataFrame) -> dict:
+    ctr = d.groupby("top5")["click_bool"].mean()
+    conv = d[d.click_bool == 1].groupby("top5")["booking_bool"].mean()
+    rr_c, rr_v = ctr[1] / ctr[0], conv[1] / conv[0]
+    return {"P(clic|T=1)": ctr[1], "P(clic|T=0)": ctr[0], "RR clic": rr_c, "P(res|clic,T=1)": conv[1], "P(res|clic,T=0)": conv[0],
+            "RR conversión|clic": rr_v, "RR reserva": rr_c * rr_v, "% del log-RR vía clic": 100 * np.log(rr_c) / np.log(rr_c * rr_v)}  # fmt: skip
+
+
+from joblib import Parallel, delayed
+
+rng_e = np.random.default_rng(SEED)
+filas_emb, ic_emb = {}, {}
+for estrato, d in [("R = 0 (algoritmo)", R0), ("R = 1 (aleatorio)", R1)]:
+    filas_emb[estrato] = embudo(d)
+    pos = d.groupby("srch_id").indices
+    ids = np.array(list(pos))
+    sorteos = [rng_e.choice(ids, len(ids)) for _ in range(1000)]
+    reps = Parallel(n_jobs=-1)(
+        delayed(embudo)(d.iloc[np.concatenate([pos[i] for i in sel])]) for sel in sorteos
+    )
+    ic_emb[estrato] = pd.DataFrame(reps).quantile([0.025, 0.975])
+tabla_emb = pd.DataFrame(filas_emb).T
+for estrato in tabla_emb.index:
+    for c in ["RR clic", "RR conversión|clic", "RR reserva"]:
+        tabla_emb.loc[estrato, f"{c} IC95"] = (
+            f"[{ic_emb[estrato].loc[0.025, c]:.3f}; {ic_emb[estrato].loc[0.975, c]:.3f}]"
+        )
+tabla_emb
 
 # %%
 med = {
@@ -2270,34 +2531,49 @@ med = {
     "ajustando además por el clic (M)": lpm_efectos_fijos(
         R0, "top5", "booking_bool", Z_HOTEL + ["click_bool"]
     ),
+    "solo hoteles clickeados (condicionar en M)": lpm_efectos_fijos(
+        R0[R0.click_bool == 1], "top5", "booking_bool", Z_HOTEL
+    ),
 }
-solo_clic = R0[R0.click_bool == 1]
-med["solo hoteles clickeados (condicionar en M)"] = lpm_efectos_fijos(
-    solo_clic, "top5", "booking_bool", Z_HOTEL
-)
 tabla_med = pd.DataFrame(
     {
         k: {"Δp": v.estimacion, "IC95": tuple(np.round(v.ic95, 4)), "p": v.p_valor}
         for k, v in med.items()
     }
 ).T
-print(
-    f"El clic absorbe el {100 * (1 - med['ajustando además por el clic (M)'].estimacion / med['efecto total (ajuste Z)'].estimacion):.1f} % del efecto total (R = 0)"
+solo_clic = R0[R0.click_bool == 1]
+dif_conv = (
+    solo_clic.loc[solo_clic.top5 == 1, "booking_bool"].mean()
+    - solo_clic.loc[solo_clic.top5 == 0, "booking_bool"].mean()
 )
+print(f"Residual al ajustar por el clic: {med['ajustando además por el clic (M)'].estimacion:.4f}")
 print(
-    f"P(reserva | clic) en R = 0: top-5 = {solo_clic.loc[solo_clic.top5 == 1, 'booking_bool'].mean():.4f}, resto = {solo_clic.loc[solo_clic.top5 == 0, 'booking_bool'].mean():.4f}"
+    f"Diferencia de conversión entre clickeados (top-5 − resto, R = 0): {dif_conv:.4f} × P(clic) = {dif_conv * R0.click_bool.mean():.4f}"
 )
 tabla_med
 
 # %% [markdown]
-# **Trampa del mediador confirmada.** Ajustar por el clic baja el efecto de 0,0778 a 0,0042: el clic
-# absorbe el ≈ 95 % del efecto total. Tal como dice el DAG, el top-5 actúa casi enteramente a través del
-# clic, y un modelo que "controla" por el clic concluiría erróneamente que la posición casi no importa.
+# **Lectura del embudo** (IC 95 % bootstrap por búsqueda, 1000 réplicas):
 #
-# **Condicionar en el clic** (analizar solo los hoteles clickeados) da 0,115 con un IC muy amplio
-# [0,045; 0,185]. No es ni el efecto total ni el directo: al seleccionar sobre un colisionador
-# ($T \to M \leftarrow I$), la exposición queda asociada con la intención de compra. Es la trampa
-# típica de "miremos solo a quienes hicieron clic".
+# | | RR clic | RR conversión \| clic | RR reserva | % del log-RR vía clic |
+# |---|---|---|---|---|
+# | Orden aleatorio (R = 1) | 2,96 [2,87; 3,06] | 1,30 [1,20; 1,41] | 3,86 [3,51; 4,21] | 80 % |
+# | Orden del algoritmo (R = 0) | 5,58 [5,39; 5,75] | 1,10 [1,08; 1,11] | 6,11 [5,92; 6,31] | 95 % |
+#
+# - Con orden aleatorio, **el top-5 casi triplica la probabilidad de clic** (efecto causal) y el 80 %
+#   del efecto sobre la reserva (en escala log) opera por esa vía.
+# - El 20 % restante es una mayor conversión entre quienes hicieron clic. Es descriptivo: condiciona
+#   en el clic, que es un colisionador, y no es un efecto directo identificado.
+# - Con el algoritmo, el RR del clic (5,58) está inflado por la selección de hoteles atractivos: el
+#   mismo sesgo de 4.3, visto en el primer paso del embudo.
+#
+# **El "≈ 95 % que absorbe el clic" no es un hallazgo sustantivo.** Como no hay reserva sin clic,
+# ajustar por el clic deja solo la diferencia de conversión entre quienes hicieron clic. El residuo
+# del MPL al ajustar por el clic (0,0042) **no es un artefacto numérico**: tiene el orden de magnitud
+# de esa diferencia de conversión (0,0778) por la tasa de clic (≈ 0,0034). Condicionar en el clic
+# (analizar solo los hoteles clickeados) da 0,115 con un IC muy amplio, la trampa de "miremos solo a
+# quienes hicieron clic". (El aviso de matriz singular en esa celda viene de covariables que quedan
+# casi constantes entre los clickeados; no afecta el coeficiente de T.)
 
 # %% [markdown]
 # ## 4.5 La trampa del colisionador
@@ -2703,14 +2979,18 @@ pd.concat(curvas, names=["variable"]).round(4)
 # %% [markdown]
 # ## 4.9 Traducción a decisiones de negocio
 #
-# 1. **Valuación del slot premium.**
-#    - Con orden aleatorio, la tasa de reserva por hotel mostrado es 1,42 % en el top-5 contra 0,37 %
-#      fuera de él (salida de abajo).
-#    - En la población de búsquedas con al menos un clic, cada exposición en el top-5 agrega ≈ 1,05
-#      puntos porcentuales de probabilidad de reserva.
-#    - Con el gasto mediano por reserva (salida de abajo), cada 1.000 exposiciones en el top-5 agregan
-#      ≈ 10,5 reservas.
-#    - Es una cifra ilustrativa: la escala absoluta depende de la selección del dataset.
+# 1. **Valuación del slot premium: un rango, no un número.** La tabla de escenarios de abajo valúa
+#    1.000 exposiciones en el top-5 bajo supuestos explícitos:
+#    - **Δp por exposición:** desde el límite inferior del IC del benchmark ajustado (conservador)
+#      hasta la diferencia de tasas sin ajuste con orden aleatorio (optimista).
+#    - **Gasto por reserva:** mediana (conservador y central) o media (optimista).
+#    - **Desplazamiento:** con slots de suma cero, una reserva ganada puede ser una reserva que perdió
+#      otro hotel de la lista. El escenario conservador supone que la mitad de las reservas
+#      incrementales son desplazadas: es el valor para la plataforma, no para el hotel.
+#
+#    Todas las cifras valen **solo para búsquedas con al menos un clic**, la única población del
+#    dataset. La escala absoluta depende de esa selección: el rango es ilustrativo y sirve para
+#    ordenar decisiones, no para presupuestar.
 # 2. **No pagar el sesgo.** Valuar el slot con datos del algoritmo, aun ajustados, sobreestima su
 #    efecto relativo en un 60 % (OR 3,38 vs. 2,11). Un contrato de posicionamiento pago calculado así
 #    sobreprecia el inventario.
@@ -2736,14 +3016,36 @@ print(
 d1 = R1.groupby("top5")["booking_bool"].mean()
 print(f"R = 1: P(reserva | top-5) = {d1[1]:.4f}, P(reserva | resto) = {d1[0]:.4f}")
 
+# %%
+# Escenarios de valuación del slot (por 1.000 exposiciones en el top-5, búsquedas con ≥ 1 clic)
+fe_bench = tabla_rel.loc[("R = 1 (aleatorio)", "ajustado por Z")]
+supuestos = {
+    "conservador": {"Δp por exposición": fe_bench["Δp IC95"][0], "fuente Δp": "límite inferior IC 95 %, R = 1 ajustado (efectos fijos)",
+                    "gasto por reserva (USD)": gasto_medio.median(), "fuente gasto": "mediana", "desplazamiento de otra reserva": 0.5},
+    "central": {"Δp por exposición": fe_bench["MPL-EF (Δp)"], "fuente Δp": "R = 1 ajustado (efectos fijos)",
+                "gasto por reserva (USD)": gasto_medio.median(), "fuente gasto": "mediana", "desplazamiento de otra reserva": 0.0},
+    "optimista": {"Δp por exposición": d1[1] - d1[0], "fuente Δp": "R = 1 sin ajuste (diferencia de tasas)",
+                  "gasto por reserva (USD)": gasto_medio.mean(), "fuente gasto": "media", "desplazamiento de otra reserva": 0.0},
+}  # fmt: skip
+escenarios = pd.DataFrame(supuestos).T
+escenarios["reservas incrementales / 1.000"] = (
+    1000
+    * escenarios["Δp por exposición"].astype(float)
+    * (1 - escenarios["desplazamiento de otra reserva"].astype(float))
+)
+escenarios["USD incrementales / 1.000"] = escenarios["reservas incrementales / 1.000"] * escenarios[
+    "gasto por reserva (USD)"
+].astype(float)
+escenarios
+
 # %% [markdown]
 # ## 4.10 Síntesis de la Fase 4
 #
 # | Pregunta | Respuesta | Evidencia |
 # |---|---|---|
 # | ¿El top-5 causa reservas? | Sí: OR intra-búsqueda 2,11 [1,90; 2,35] con orden aleatorio | 4.3, benchmark |
-# | ¿Cuánto sesgo tiene el observacional? | Ingenuo 5,38; ajustado 3,38: sobreestima 60 % aun ajustado | 4.3; Backdoor con $Z$ rechazado |
-# | ¿El efecto pasa por el clic? | Sí, ≈ 95 % | 4.4 |
+# | ¿Cuánto sesgo tiene el observacional? | Ingenuo 5,38; ajustado 3,38: sobreestima ≈ 60 % aun ajustado, también en diferencia de riesgos y con muestras re-ponderadas | 4.3 y 4.3 bis: los datos son incompatibles con que el ajuste por lo observable elimine el sesgo |
+# | ¿Cómo opera el efecto? | El clic es paso obligatorio del embudo; con orden aleatorio, la mayor parte del efecto es más clics | 4.4 |
 # | ¿Qué pasa si se condiciona en colisionadores? | La diferencia absoluta se infla (S); aparece Berkson (C) | 4.5 y simulaciones con verdad conocida |
 # | ¿Es robusta la estimación? | Estable en las 3 refutaciones; sensible a un U moderado | 4.6 |
 # | ¿Para quién rinde más? | Hoteles baratos para su búsqueda y bien ubicados | 4.7, CATE |
@@ -2946,6 +3248,21 @@ art["causal"] = {
     "refutaciones": tabla_refut.reset_index(names="prueba").to_dict(orient="records"),
     "sensibilidad_u": tabla_u.to_dict(orient="records"),
     "mediador": tabla_med.reset_index(names="especificacion").to_dict(orient="records"),
+    "robustez": {
+        "cociente_or": float(tabla_rob.iloc[0]["cociente OR"]),
+        "ic_boot_or": [
+            float(ic_boot.loc["cociente_OR", "IC95_inf"]),
+            float(ic_boot.loc["cociente_OR", "IC95_sup"]),
+        ],
+        "cociente_ame": float(tabla_rob.iloc[0]["cociente AME"]),
+        "ic_boot_ame": [
+            float(ic_boot.loc["cociente_AME", "IC95_inf"]),
+            float(ic_boot.loc["cociente_AME", "IC95_sup"]),
+        ],
+        "p_wald": float(tabla_rob.iloc[0]["p (Wald)"]),
+        "cociente_or_ponderado": float(tabla_rob.iloc[1]["cociente OR"]),
+    },
+    "escenarios": escenarios.reset_index(names="escenario").to_dict(orient="records"),
 }
 ruta_art = guardar_json(art, MODELS_DIR / "artefactos_app.json")
 prohibidas = claves_prohibidas(json.loads(ruta_art.read_text("utf-8")))
@@ -3092,6 +3409,20 @@ resultados = {
         "gasto_mediana": float(gasto_medio.median()),
         "p_top5_R1": float(d1[1]),
         "p_resto_R1": float(d1[0]),
+        "robustez": {
+            "tabla": tabla_rob.to_dict(orient="index"),
+            "bootstrap": ic_boot.to_dict(orient="index"),
+            "B": len(boot),
+            "smd_max_sin_ponderar": float(balance["SMD sin ponderar"].abs().max()),
+            "smd_max_ponderado": float(balance["SMD ponderado"].abs().max()),
+            "ess": float(ess),
+            "n_R0": len(s0b),
+            "n_R1": len(s1b),
+            "fe_inf_R0": fe_i0.estimacion,
+            "fe_inf_R1": fe_i1.estimacion,
+        },
+        "embudo": tabla_emb.to_dict(orient="index"),
+        "escenarios": escenarios.to_dict(orient="index"),
     },
 }
 ruta_res = guardar_json(resultados, MODELS_DIR / "resultados.json")

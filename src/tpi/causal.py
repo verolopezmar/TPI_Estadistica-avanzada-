@@ -38,7 +38,26 @@ class Efecto:
 def logit_condicional(
     df: pd.DataFrame, t: str, y: str, covariables: list[str], grupo: str = "srch_id"
 ) -> Efecto:
-    """OR de T sobre Y dentro de cada `grupo` (las listas sin variación en Y no aportan)."""
+    """OR de T sobre Y dentro de cada `grupo` (las listas sin variación en Y no aportan).
+
+    Con a lo sumo un evento por grupo (las reservas de Expedia) usa el estimador exacto por
+    Newton-Raphson (`eleccion_logit`, errores sándwich por grupo); si hay grupos con varios eventos
+    (p. ej. clics), usa `ConditionalLogit` de statsmodels con guarda de convergencia."""
+    if df.groupby(grupo)[y].sum().max() <= 1:
+        d = df[df.groupby(grupo)[y].transform("sum") == 1]
+        covs = [c for c in covariables if d.groupby(grupo)[c].std().fillna(0).gt(0).any()]
+        a = eleccion_logit(df, t, y, covs, grupo)
+        b, ee = a.params[t], a.ee[t]
+        from scipy.stats import norm
+
+        return Efecto(
+            "logit condicional",
+            float(np.exp(b)),
+            (float(np.exp(b - 1.96 * ee)), float(np.exp(b + 1.96 * ee))),
+            float(2 * norm.sf(abs(b / ee))),
+            a.n_grupos,
+            "OR intra-búsqueda",
+        )
     d = df[df.groupby(grupo)[y].transform("nunique") > 1]
     X = d[[t, *covariables]].astype(float)
     X = X.loc[:, X.groupby(d[grupo]).transform("std").fillna(0).gt(0).any()]  # sin variación intra
@@ -146,3 +165,210 @@ def modelo_dowhy(df: pd.DataFrame, t: str, y: str, confusores: list[str], mediad
     cols = [t, y, *confusores, *([mediador] if mediador else [])]
     modelo = CausalModel(data=df[cols], treatment=t, outcome=y, graph=g)
     return modelo, modelo.identify_effect(proceed_when_unidentifiable=True)
+
+
+# --------------------------------------------------------------------------------------------
+# Logit condicional vectorizado (una reserva por búsqueda), con pesos por búsqueda.
+# Con a lo sumo un evento por grupo, el logit condicional es un logit multinomial de elección
+# dentro de la lista: P(i elegido | s) = exp(x_i'b) / sum_{j en s} exp(x_j'b). Es exacto (no una
+# aproximación) y permite bootstrap por búsqueda en segundos.
+# --------------------------------------------------------------------------------------------
+@dataclass(frozen=True)
+class AjusteEleccion:
+    params: pd.Series
+    ee: pd.Series
+    n_grupos: int
+
+
+def _preparar_eleccion(df, t, y, covariables, grupo):
+    d = df[df.groupby(grupo)[y].transform("sum") == 1].sort_values(grupo)
+    if df.groupby(grupo)[y].sum().max() > 1:
+        raise ValueError("Hay grupos con más de un evento: usar logit_condicional (statsmodels)")
+    X = d[[t, *covariables]].astype(float)
+    covs = [c for c in X.columns if c != t]
+    if covs:
+        X[covs] = (X[covs] - X[covs].mean()) / X[covs].std().replace(0, 1)
+    codigos, inicio = np.unique(d[grupo].to_numpy(), return_index=True)
+    return d, X, d[y].to_numpy(dtype=float), inicio, codigos
+
+
+def eleccion_logit(
+    df: pd.DataFrame,
+    t: str,
+    y: str,
+    covariables: list[str],
+    grupo: str = "srch_id",
+    pesos_grupo: pd.Series | None = None,
+) -> AjusteEleccion:
+    """Logit condicional (≤ 1 evento por grupo) por máxima verosimilitud con gradiente analítico.
+    `pesos_grupo` (indexado por id de grupo) pondera la log-verosimilitud de cada búsqueda.
+    Errores estándar: sándwich robusto por grupo (válido también con pesos)."""
+    d, X, yv, inicio, codigos = _preparar_eleccion(df, t, y, covariables, grupo)
+    Xm = X.to_numpy()
+    w = (
+        np.ones(len(codigos))
+        if pesos_grupo is None
+        else pesos_grupo.reindex(codigos).to_numpy(float)
+    )
+    largo = np.diff(np.r_[inicio, len(d)])
+    w_fila = np.repeat(w, largo)
+
+    def evaluar(b):
+        eta = Xm @ b
+        m = np.maximum.reduceat(eta, inicio)
+        e = np.exp(eta - np.repeat(m, largo))
+        den = np.add.reduceat(e, inicio)
+        p = e / np.repeat(den, largo)
+        ll = np.sum(w * (np.add.reduceat(yv * eta, inicio) - m - np.log(den)))
+        grad = Xm.T @ (w_fila * (yv - p))
+        pX = p[:, None] * Xm
+        media_g = np.add.reduceat(pX, inicio)
+        H = Xm.T @ (w_fila[:, None] * pX) - (media_g * w[:, None]).T @ media_g  # −∂²ll
+        return ll, grad, H, p
+
+    # Newton-Raphson amortiguado (la log-verosimilitud es cóncava)
+    b = np.zeros(Xm.shape[1])
+    ll, grad, H, p = evaluar(b)
+    for _ in range(100):
+        paso = np.linalg.solve(H, grad)
+        if grad @ paso < 1e-10:  # decremento de Newton: mejora esperada de la log-verosimilitud
+            break
+        a = 1.0
+        while True:
+            ll_n, grad_n, H_n, p_n = evaluar(b + a * paso)
+            if ll_n >= ll - 1e-12 or a < 1e-8:
+                break
+            a /= 2
+        b, ll, grad, H, p = b + a * paso, ll_n, grad_n, H_n, p_n
+    else:
+        raise RuntimeError("El logit de elección no convergió en 100 iteraciones de Newton")
+    # Errores estándar sándwich robustos por grupo
+    score_g = np.add.reduceat((yv - p)[:, None] * Xm, inicio) * w[:, None]
+    Hinv = np.linalg.inv(H)
+    V = Hinv @ (score_g.T @ score_g) @ Hinv
+    return AjusteEleccion(
+        pd.Series(b, index=X.columns), pd.Series(np.sqrt(np.diag(V)), index=X.columns), len(codigos)
+    )
+
+
+def efecto_marginal_eleccion(
+    df, t, y, covariables, grupo="srch_id", pesos_grupo=None, ajuste=None
+) -> float:
+    """Efecto marginal promedio en la escala de probabilidad (colapsable): para cada hotel de las
+    búsquedas con reserva, P(ser el elegido | T=1) − P(ser el elegido | T=0), con el resto de la
+    lista fijo; promedio ponderado por búsqueda."""
+    a = ajuste if ajuste is not None else eleccion_logit(df, t, y, covariables, grupo, pesos_grupo)
+    d, X, _, inicio, codigos = _preparar_eleccion(df, t, y, covariables, grupo)
+    Xm, b = X.to_numpy(), a.params.to_numpy()
+    largo = np.diff(np.r_[inicio, len(d)])
+    eta = Xm @ b
+    den = np.repeat(np.add.reduceat(np.exp(eta), inicio), largo)
+    bt = b[0]
+    e0 = np.exp(eta - bt * Xm[:, 0])
+    e1 = e0 * np.exp(bt)
+    otros = den - np.exp(eta)
+    ame_fila = e1 / (otros + e1) - e0 / (otros + e0)
+    w = (
+        np.ones(len(codigos))
+        if pesos_grupo is None
+        else pesos_grupo.reindex(codigos).to_numpy(float)
+    )
+    w_fila = np.repeat(w, largo)
+    return float(np.sum(w_fila * ame_fila) / np.sum(w_fila))
+
+
+def pesos_odds_busqueda(
+    origen: pd.DataFrame, destino: pd.DataFrame, columnas: list[str], seed: int = SEED
+) -> pd.Series:
+    """Pesos por búsqueda que llevan la composición de `origen` a la de `destino`:
+    w = P(destino | X) / P(origen | X) (pesos de odds), estimados con una logística estandarizada
+    sobre covariables de nivel búsqueda. Normalizados a media 1."""
+    from sklearn.linear_model import LogisticRegression
+    from sklearn.pipeline import make_pipeline
+    from sklearn.preprocessing import StandardScaler
+
+    a, b = origen[columnas].assign(_d=0), destino[columnas].assign(_d=1)
+    ab = pd.concat([a, b])
+    m = make_pipeline(StandardScaler(), LogisticRegression(max_iter=5000)).fit(
+        ab[columnas], ab["_d"]
+    )
+    p = m.predict_proba(origen[columnas])[:, 1]
+    w = pd.Series(p / (1 - p), index=origen.index)
+    return w / w.mean()
+
+
+def smd(a: pd.Series, b: pd.Series, w_a: np.ndarray | None = None) -> float:
+    """Diferencia de medias estandarizada (desvío combinado sin ponderar, criterio de Austin)."""
+    ma = np.average(a, weights=w_a) if w_a is not None else a.mean()
+    return float((ma - b.mean()) / np.sqrt((a.var() + b.var()) / 2))
+
+
+def _remuestrear(
+    df: pd.DataFrame, rng: np.random.Generator, grupo: str = "srch_id"
+) -> pd.DataFrame:
+    """Remuestra búsquedas completas con reposición; cada copia recibe un id nuevo."""
+    pos = df.groupby(grupo, sort=True).indices
+    ids = np.array(list(pos))
+    elegidos = rng.choice(len(ids), size=len(ids), replace=True)
+    filas = [pos[ids[k]] for k in elegidos]
+    out = df.iloc[np.concatenate(filas)].copy()
+    out[grupo] = np.repeat(np.arange(len(elegidos)), [len(f) for f in filas])
+    return out
+
+
+def _replica_brecha(d0, d1, t, y, covs, cols_busqueda, semilla):
+    """Una réplica bootstrap (búsquedas remuestreadas con reposición en cada estrato): OR de cada
+    estrato y su cociente (sin ponderar y con R0 re-ponderado a la composición de R1, pesos
+    re-estimados en la réplica), efectos marginales promedio (AME) y diferencia de riesgos con
+    efectos fijos (MPL-EF), con sus cocientes y diferencias."""
+    rng = np.random.default_rng(semilla)
+    b0, b1 = _remuestrear(d0, rng), _remuestrear(d1, rng)
+    a1 = eleccion_logit(b1, t, y, covs)
+    a0 = eleccion_logit(b0, t, y, covs)
+    s0 = b0.groupby("srch_id")[cols_busqueda].first()
+    s1 = b1.groupby("srch_id")[cols_busqueda].first()
+    w = pesos_odds_busqueda(s0, s1, cols_busqueda)
+    a0w = eleccion_logit(b0, t, y, covs, pesos_grupo=w)
+    ame1 = efecto_marginal_eleccion(b1, t, y, covs, ajuste=a1)
+    ame0 = efecto_marginal_eleccion(b0, t, y, covs, ajuste=a0)
+    ame0w = efecto_marginal_eleccion(b0, t, y, covs, pesos_grupo=w, ajuste=a0w)
+    fe0 = lpm_efectos_fijos(b0, t, y, covs).estimacion
+    fe1 = lpm_efectos_fijos(b1, t, y, covs).estimacion
+    return {
+        "OR_R0": float(np.exp(a0.params[t])),
+        "OR_R1": float(np.exp(a1.params[t])),
+        "cociente_OR": float(np.exp(a0.params[t] - a1.params[t])),
+        "cociente_OR_ponderado": float(np.exp(a0w.params[t] - a1.params[t])),
+        "AME_R0": ame0,
+        "AME_R1": ame1,
+        "cociente_AME": ame0 / ame1,
+        "diferencia_AME": ame0 - ame1,
+        "cociente_AME_ponderado": ame0w / ame1,
+        "DR_EF_R0": fe0,
+        "DR_EF_R1": fe1,
+        "diferencia_DR_EF": fe0 - fe1,
+        "cociente_DR_EF": fe0 / fe1,
+    }
+
+
+def bootstrap_brecha(
+    d0: pd.DataFrame,
+    d1: pd.DataFrame,
+    t: str,
+    y: str,
+    covariables: list[str],
+    cols_busqueda: list[str],
+    B: int = 200,
+    seed: int = SEED,
+    n_jobs: int = -1,
+) -> pd.DataFrame:
+    """Bootstrap por búsqueda (clúster), independiente en cada estrato, de la brecha entre el
+    efecto observacional (d0) y el benchmark (d1). `cols_busqueda` son columnas constantes por
+    búsqueda ya presentes en d0 y d1 (para re-estimar los pesos de balance en cada réplica)."""
+    from joblib import Parallel, delayed
+
+    semillas = np.random.default_rng(seed).integers(0, 2**31 - 1, size=B)
+    filas = Parallel(n_jobs=n_jobs)(
+        delayed(_replica_brecha)(d0, d1, t, y, covariables, cols_busqueda, int(s)) for s in semillas
+    )
+    return pd.DataFrame(filas)

@@ -11,7 +11,7 @@ Cuatro familias de anomalías en Expedia:
    pero una fracción de los registros está por estadía. Se diagnostica con las reservas
    (gasto real / precio informado) y se neutraliza con el precio **relativo a la mediana de la
    búsqueda**, que es invariante a la escala común de la lista.
-3. **Valores extremos de precio** (máximo de 4,1 millones de USD por noche): regla de outlier
+3. **Valores extremos de precio** (millones de USD por noche): regla de outlier
    intra-búsqueda, más winsorización del precio relativo.
 4. **Faltantes**: se contrasta MCAR comparando el indicador de faltante contra variables
    observadas (si depende de ellas, MCAR se rechaza) y se argumenta MAR/MNAR por el mecanismo de
@@ -47,9 +47,9 @@ def resumen_distribucion(s: pd.Series) -> dict[str, float]:
         "media": float(s.mean()),
         "desvio": float(s.std()),
         "asimetria": float(stats.skew(s)),
-        "p50": float(s.median()),
+        "p01": float(s.quantile(0.01)),  # p1/p99 en lugar de mínimo y máximo: estos describen
+        "p50": float(s.median()),  # un único registro (criterio "solo agregados")
         "p99": float(s.quantile(0.99)),
-        "max": float(s.max()),
     }
 
 

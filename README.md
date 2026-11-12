@@ -22,18 +22,22 @@
 | Orden del algoritmo, comparación ingenua | 5,38 | [5,20; 5,57] |
 
 - **El top-5 sí causa reservas.**
-- **Con datos del algoritmo, el efecto se sobreestima un 60 % aun después de ajustar**: el ranker usa
-  información que no observamos. La mitad del sesgo se explica con variables observadas; la otra
-  mitad, no.
-- El efecto pasa casi entero por el clic, y es mayor para hoteles baratos para su búsqueda y bien
-  ubicados.
+- **Con datos del algoritmo, el efecto se sobreestima aun después de ajustar:**
+  - cociente de OR 1,60 (IC 95 % bootstrap por búsqueda [1,42; 1,80], 1000 réplicas);
+  - en diferencia de riesgos, cociente de efectos marginales 1,65 [1,41; 1,98];
+  - se mantiene re-ponderando a la composición de la muestra aleatoria.
+
+  Los datos son incompatibles con que el ajuste por lo observable elimine el sesgo: el ranker usa
+  información que no observamos.
+- Con orden aleatorio, el top-5 casi triplica la probabilidad de clic: el clic es el paso
+  obligatorio del embudo. El efecto es mayor para hoteles baratos para su búsqueda y bien ubicados.
 - Detalle en el [informe](report/informe.qmd) y en el notebook (Fase 4).
 
 ## Entregables
 
 | Entregable | Dónde |
 |---|---|
-| App en producción (Diagnóstico + PCA, What-Is, What-If) | PENDIENTE_URL_DEPLOY · código en [`app/`](app/) |
+| App en producción (Diagnóstico + PCA, What-Is, What-If y copiloto de decisión como bonus) | PENDIENTE_URL_DEPLOY · código en [`app/`](app/) |
 | Notebook maestro (Restart & Run All) | [`notebooks/TP_Integrador_Final.ipynb`](notebooks/TP_Integrador_Final.ipynb) |
 | Informe técnico (Quarto, HTML y PDF) | [`report/informe.qmd`](report/informe.qmd) → `report/informe.html`, `report/informe.pdf` |
 | Diapositivas de la defensa (PDF) | [`report/slides.pdf`](report/slides.pdf) |
@@ -123,7 +127,8 @@ RF compacto). No lee datos.
    - **Branch:** `main`
    - **Main file path:** `app/app.py`
    - **App URL:** opcional, por ejemplo `tpi-eaymr-top5`.
-4. **Advanced settings** → **Python version: 3.11**. Sin secrets.
+4. **Advanced settings** → **Python version: 3.11**. Opcional (copiloto, bonus): en **Secrets** cargar
+   `ANTHROPIC_API_KEY = "..."`. Sin la clave, la pestaña del copiloto queda desactivada y el resto funciona.
 5. **Deploy.** Streamlit Cloud instala `app/requirements.txt` (el que está junto a `app.py`, mínimo
    y con las mismas versiones con que se serializó el modelo).
 6. Copiar la URL pública en el badge y en la tabla de entregables de este README (reemplazar

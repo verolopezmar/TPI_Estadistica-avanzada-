@@ -20,6 +20,36 @@ de la tabla se mantienen porque la defensa oral es por rol; Lucía y Antonella n
 PRs. Cada PR registra quién lo revisó realmente, y `docs/ia_log.md` registra quién propuso y quién
 aprobó cada decisión.
 
+### Proceso Scrum (registro real)
+
+**Cómo trabajamos.** Un sprint por fase del enunciado. Verónica actuó como Product Owner: definió
+el objetivo y los criterios de aceptación de cada sprint, revisó cada incremento y aprobó o pidió
+cambios. Claude Code ejecutó el trabajo técnico. La revisión de QA la hizo Verónica sobre lo que
+produjo el asistente. El control sistemático de los errores de la IA (32 registrados, cada uno con
+su test o guarda) funcionó como práctica de QA.
+
+**Definition of Done (aplicada a cada sprint):** `ruff check` y `ruff format --check` sin errores;
+`pytest` en verde (con los tests de datos locales); notebook ejecutable de punta a punta; todo
+número de un texto sale de un output; ningún dato en el diff; decisiones y errores de IA en
+`docs/ia_log.md`; PR con veredicto de QA antes del merge.
+
+| Sprint | Fecha | Objetivo y criterio de aceptación | Revisión de la PO (qué cambió) | Retro: aprendizaje aplicado al sprint siguiente |
+|---|---|---|---|---|
+| 0 — Setup y datos | 11-12/11 | Repo, CI, contrato de datos, descarga verificada; aceptación: N real = N citado, sin datos en git | Confirmó dataset y roles; transcribió `random_bool` y las reglas de Kaggle; pidió mitigaciones de confidencialidad; registró el desvío de commits sin PR | Lo que el asistente "recuerda" se verifica en la fuente primaria antes de usarlo |
+| 1 — Inferencia y auditoría | 12/11 | Contrastes con estadístico, gl, p, IC y efecto; MCAR/MAR/MNAR; Zc clasificada | Pidió contrastar Zc → T, T de sensibilidad, limitación sin hipótesis forzada; transcribió `compN_*`; aprobó la auditoría | Una clasificación causal exige contrastar las dos flechas del criterio |
+| 2 — Gauss-Markov y PCA | 12/11 | Supuestos con remediación; PCA sin fuga (test) | Aprobó la partición, HC3 + Huber y la retención de componentes | Los parámetros por defecto (RANSAC) se auditan |
+| 3 — Torneo predictivo | 12/11 | 4 familias, CV agrupada, calibración, MDI vs. permutación; aceptación: sin fuga (tests) | Revisión conjunta con las Fases 4 y 5 (cambio de ritmo pedido por la PO) | El umbral de decisión se elige en Train; PR-AUC con prevalencia baja |
+| 4 — Inferencia causal | 12/11 | DAG, DoWhy, DML/CATE, refutaciones, ensayo | **Revisión de robustez**: balance, diferencia de riesgos, bootstrap con 1000 réplicas, redacción prudente, embudo, escenarios | Una conclusión central se somete a todas las objeciones razonables antes de presentarla |
+| 5 — App y entrega | 12/11 | App con solo agregados (tests), informe, slides, README, BITÁCORA | "Solo agregados" al 100 % también en el notebook; deploy y merges a cargo de la PO | Los controles de confidencialidad se testean, no se declaran |
+
+**Ceremonias, tal como ocurrieron:**
+- *Planning:* el prompt de inicio de cada fase (log de IA).
+- *Review:* los mensajes de revisión de Verónica, punto por punto, con aprobaciones registradas
+  como "propuesto por Claude Code, aprobado por Verónica".
+- *Retro:* la columna de aprendizajes y las lecciones de gobernanza de la Entrada 5.
+
+No hubo dailies ni revisión cruzada entre integrantes, y así se declara.
+
 ---
 
 ## Entrada 1 — Marco estratégico e hipótesis
@@ -124,7 +154,7 @@ por Verónica el 12/11**.
 | Contrastes sobre **unidades independientes** (búsquedas o reservas) | Filas búsqueda × hotel | Las filas de una lista comparten usuario y contexto; tratarlas como independientes subestima los errores estándar |
 | α = 0,05 fijado a priori + **efecto mínimo detectable** con 1 − β = 0,80 | Solo p-valor | Con n en miles todo es "significativo"; el MDE dice qué no puede ver la muestra |
 | **Precio relativo** a la mediana de la búsqueda (winsorizado 1-99 %) | `price_usd` crudo | Desplazamiento de escala: 3,2 % de las reservas de ≥ 2 noches tienen precio por estadía, disperso entre sitios (1,9-7,5 %), así que no se puede corregir por sitio |
-| Outliers de precio con **dos reglas**: cercas extremas de Tukey sobre log (8,41-1951,14 USD) **o** > 10× / < 1/10 de la mediana de la búsqueda | Solo regla relativa | La relativa sola no detectó una búsqueda entera con precios de 4,1 millones (su mediana también era absurda) |
+| Outliers de precio con **dos reglas**: cercas extremas de Tukey sobre log (8,41-1951,14 USD) **o** > 10× / < 1/10 de la mediana de la búsqueda | Solo regla relativa | La relativa sola no detectó una búsqueda entera con precios de millones de USD por noche (su mediana también era absurda) |
 | Centinelas (0) → NaN + indicador | Dejarlos como valores | El 0 de `prop_log_historical_price` (14,8 % de filas) sesga la media −14,8 % e infla el desvío de 0,525 a 1,860 |
 
 ### Supuestos contrastados, violaciones y remediación
@@ -191,7 +221,7 @@ búsqueda) con log del precio por noche.
   reservas de Train.
 - **Qué pasó.** R² = 0,0028; curtosis de residuos 12.192,8 (JB = 7,975·10¹⁰); una sola observación
   con distancia de Cook 1,215 (> 0,5) dominaba el ajuste.
-- **Diagnóstico.** El precio tiene errores de captura de órdenes de magnitud (hasta 4,1 millones de
+- **Diagnóstico.** El precio tiene errores de captura de órdenes de magnitud (millones de
   USD por noche) y cola pesada. MCO minimiza cuadrados, así que unos pocos valores imposibles
   absorben la estimación.
 - **Corrección y aprendizaje.** Log del precio más la regla de outliers de la Fase 1: R² = 0,604
@@ -384,19 +414,27 @@ completo, fase por fase); revisión de Verónica.*
 2. Contrato de datos, test de `random_bool` y DAG borrador, todavía sin datos.
 3. Descarga verificada, confidencialidad con mitigaciones testeadas y plan B listo para activar.
 4. Por fase: diseño propuesto, ejecución, cierre con "qué revisar" y guía de defensa por rol.
-5. Revisiones de Verónica que cambiaron el trabajo: contrastar Zc → T antes de llamarla confusor,
-   transcribir las definiciones de Kaggle, T de sensibilidad, limitación declarada sin hipótesis
-   forzada.
+5. Revisiones de Verónica que cambiaron el trabajo:
+   - contrastar Zc → T antes de llamarla confusor;
+   - transcribir las definiciones de Kaggle;
+   - T de sensibilidad y limitación declarada sin hipótesis forzada;
+   - y, sobre todo, la **revisión de robustez de la conclusión central**: balance con SMD y
+     re-ponderación, escala de diferencia de riesgos, bootstrap por búsqueda con 1000 réplicas,
+     redacción prudente, el clic como paso del embudo, valuación por escenarios y "solo agregados"
+     al 100 %.
 
-### Errores y alucinaciones detectados (28) y su refutación determinística
+   Cada pedido se convirtió en un análisis nuevo con evidencia propia (detalle en el log,
+   "Revisión humana que cambió el análisis").
+
+### Errores y alucinaciones detectados (32) y su refutación determinística
 
 | Tipo | Casos (número en el log) | Cómo se detectó o previno |
 |---|---|---|
 | Afirmaciones de memoria sin fuente primaria | 1 (`random_bool`), 3 (autenticación de Kaggle), 20 (signo de `compN_rate`), 21 (dominio de `compN_inv`) | Fuente primaria transcripta por Verónica; tests de contrato (`test_comp_inv_tiene_un_valor_no_documentado`) |
 | Premisas refutadas por los datos | 10 (`random_bool` no es un RCT puro), 16 (los huecos son slots fijos), 24 (la multicolinealidad anticipada no apareció) | `xfail(strict=True)`, `test_slots_estructurales_cada_seis_posiciones`, VIF |
-| Dependencias incompatibles | 4 (pyarrow/numpy), 5 (pyzmq bloqueado por Windows), 11 (Deflate64), 26 (dowhy/networkx) | `test_environment.py`, `test_dowhy_identifica_backdoor_sin_mediador...` |
+| Dependencias y bibliotecas | 4 (pyarrow/numpy), 5 (pyzmq bloqueado por Windows), 11 (Deflate64), 26 (dowhy/networkx), 29 (propensión sin converger dentro de DoWhy), 31 (BFGS de statsmodels se detiene antes del máximo) | `test_environment.py`, `test_dowhy_identifica_backdoor_sin_mediador...`, `test_eleccion_logit_coincide_con_statsmodels`; aserción de convergencia en el notebook |
 | Errores de código o de diseño del asistente | 6 (test sin potencia), 13 (`df.T` es la transpuesta), 17 (regla de outliers incompleta), 23 (RANSAC por defecto), 27 (colinealidad intra-búsqueda), 28 (logit condicional no convergido) | Tests con verdad conocida y guardas que lanzan error |
-| Errores de reporte | 7 (figura engañosa), 18 y 25 (`p = 0`), 19 (omisión en un texto), 22 (aprobación no ocurrida) | Formateador de p-valores testeado; cotejo de cada número contra un output; una aprobación solo se registra si consta en un mensaje de Verónica |
+| Errores de reporte | 7 (figura engañosa), 18 y 25 (`p = 0`), 19 (omisión en un texto), 22 (aprobación no ocurrida), 30 (resultado redactado antes de ver el output), 32 (bootstrap con 24 réplicas presentado como adelanto) | Formateador de p-valores testeado; cotejo de cada número contra un output; una aprobación solo se registra si consta en un mensaje de Verónica; los textos se escriben después de leer el output; bootstrap con B ≥ 1000 |
 | Otros | 2 (atribución de cifras), 8-9 (documentación y proceso), 12 (transcripción de otro asistente), 14 (descripción incompleta de la fuente), 15 (API de pingouin) | Verificación contra el texto completo o la fuente; tests contra referencias externas |
 
 ### Lecciones de gobernanza
@@ -410,3 +448,7 @@ completo, fase por fase); revisión de Verónica.*
    premisa que los datos refutaron.
 4. **La autoría se registra tal como ocurrió**, incluido el desvío de proceso de los primeros commits
    y la reorganización del equipo.
+5. **La revisión humana es la última línea de defensa.** Los controles automáticos (tests, guardas
+   de convergencia) atraparon errores de cómputo. Las objeciones de fondo (comparabilidad de
+   poblaciones, no colapsabilidad, incertidumbre de un cociente, mediación mecánica) vinieron de la
+   revisión de Verónica.

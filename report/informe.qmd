@@ -51,6 +51,7 @@ abstract: |
 ```{python}
 #| label: setup
 import json
+import math
 from pathlib import Path
 
 R = json.loads(Path("../models/resultados.json").read_text("utf-8"))
@@ -74,6 +75,10 @@ def pct(x, d=1):
 c1, c2, an = F1["contraste1"], F1["contraste2"], F1["anova"]
 orb, ora, ori = F4["or_benchmark"], F4["or_ajustado_R0"], F4["or_ingenuo_R0"]
 mejor = F3["mejor"]
+R4 = F4["robustez"]
+RB = R4["bootstrap"]
+TR = R4["tabla"]
+EMB = F4["embudo"]
 ```
 
 # Resumen ejecutivo
@@ -85,9 +90,19 @@ mejor = F3["mejor"]
   `{python} n(ora, 2)`.
 - **La mitad del sesgo es explicable y la otra mitad no.** Ajustar por calidad, precio,
   competidores y contexto explica el `{python} n(F4["pct_explicado_Z"], 1)` % de la brecha en
-  log-odds. El resto es compatible con un confusor no observado: el desempeño histórico del hotel
-  que usa el ranker. Un análisis solo observacional sobrestimaría el valor del slot en
-  `{python} pct(ora / orb - 1, 0)`.
+  log-odds. **Los datos son incompatibles con que el ajuste por lo observable elimine el sesgo:**
+  - el OR observacional ajustado supera al benchmark por un factor de
+    `{python} n(RB["cociente_OR"]["mediana"], 2)` (IC 95 % bootstrap por búsqueda
+    [`{python} n(RB["cociente_OR"]["IC95_inf"], 2)`; `{python} n(RB["cociente_OR"]["IC95_sup"], 2)`],
+    `{python} R4["B"]` réplicas);
+  - en diferencia de riesgos, que es colapsable, el factor es
+    `{python} n(RB["cociente_AME"]["mediana"], 2)`
+    [`{python} n(RB["cociente_AME"]["IC95_inf"], 2)`; `{python} n(RB["cociente_AME"]["IC95_sup"], 2)`];
+  - el resultado se mantiene re-ponderando la muestra del algoritmo a la composición de la
+    aleatoria.
+
+  Candidatos de confusión no observada: la conversión histórica del hotel en Expedia, las comisiones
+  y los acuerdos de visibilidad, el inventario en tiempo real y el comportamiento en la sesión.
 - **Predecir no es intervenir.** El mejor modelo predictivo (`{python} mejor`, PR-AUC
   `{python} n(F3["test"][mejor]["PR_AUC"], 3)` frente a una prevalencia del 2 %) usa la posición
   como su variable principal, pero buena parte de ese poder predictivo es selección del algoritmo y
@@ -256,7 +271,50 @@ en log-odds. El ajuste por $Z$ explica el `{python} n(F4["pct_explicado_Z"], 1)`
 compatible con la confusión no observada $U$. La sensibilidad con $T$ = top-4 del dataset da OR =
 `{python} n(F4["sens_top4"]["or"], 3)`.
 
-## Trampas del mediador y del colisionador
+## Robustez de la conclusión central
+
+La conclusión "el observacional ajustado sobreestima el efecto causal" se sometió a tres pruebas
+(notebook, 4.3 bis), todas sobre las búsquedas con una reserva, que son las que entran a los
+estimadores intra-búsqueda:
+
+1. **Balance de poblaciones.** Antes de re-ponderar, la mayor |SMD| entre las búsquedas del
+   algoritmo y las aleatorias es `{python} n(R4["smd_max_sin_ponderar"], 3)` (proporción de hoteles
+   en promoción y largo de la lista). Con pesos de odds, la mayor |SMD| baja a
+   `{python} n(R4["smd_max_ponderado"], 3)`, con un tamaño efectivo de `{python} n(R4["ess"], 0)` de
+   `{python} n(R4["n_R0"], 0)` búsquedas. La brecha no se explica por una diferencia de población:
+   re-ponderado, el cociente de OR es `{python} n(TR["R=0 ponderado a la composición de R=1"]["cociente OR"], 3)`.
+2. **No colapsabilidad del OR.** En escala de diferencia de riesgos (efecto marginal promedio del
+   logit de elección), el top-5 suma `{python} n(TR["sin ponderar"]["AME R=0 (p.p.)"], 2)` p.p. con
+   el algoritmo contra `{python} n(TR["sin ponderar"]["AME R=1 (p.p.)"], 2)` p.p. con orden
+   aleatorio. La tasa base es comparable entre estratos en esta población (una reserva por lista).
+3. **Incertidumbre.**
+   - Test de Wald de la igualdad de log-OR: z = `{python} n(TR["sin ponderar"]["Wald z"], 2)`,
+     `{python} pv(TR["sin ponderar"]["p (Wald)"])`.
+   - Bootstrap percentil clusterizado por búsqueda, con `{python} R4["B"]` réplicas (@tbl-robustez).
+
+```{python}
+#| label: tbl-robustez
+#| tbl-cap: "Bootstrap por búsqueda (IC 95 % percentil): OR, efectos marginales (AME) y diferencia de riesgos con efectos fijos (DR-EF)."
+b = pd.DataFrame(RB).T[["IC95_inf", "mediana", "IC95_sup"]].astype(float)
+b.round(4)
+```
+
+## El clic: paso obligatorio del embudo
+
+Reservar implica hacer clic, así que la identidad exacta
+$\mathrm{RR}_Y = \mathrm{RR}_{\text{clic}} \times \mathrm{RR}_{\text{conversión}\mid\text{clic}}$
+descompone el efecto. Con orden aleatorio:
+- $\mathrm{RR}_{\text{clic}}$ = `{python} n(EMB["R = 1 (aleatorio)"]["RR clic"], 2)`
+  `{python} EMB["R = 1 (aleatorio)"]["RR clic IC95"].replace(".", ",")`;
+- $\mathrm{RR}_{\text{conversión}\mid\text{clic}}$ = `{python} n(EMB["R = 1 (aleatorio)"]["RR conversión|clic"], 2)`,
+  que es descriptivo, porque condiciona en un colisionador;
+- el `{python} n(EMB["R = 1 (aleatorio)"]["% del log-RR vía clic"], 0)` % del efecto en escala log
+  opera a través de más clics.
+
+"Ajustar por el clic" anula el efecto casi por construcción, así que no es un hallazgo sustantivo
+de mediación.
+
+## Trampas de selección y del colisionador
 
 ```{python}
 #| label: tbl-trampas
@@ -267,7 +325,6 @@ m["Δp"] = m["Δp"].astype(float).round(4)
 m
 ```
 
-- **Mediador:** ajustar por el clic absorbe casi todo el efecto, porque no hay reserva sin clic.
 - **Colisionador natural (selección del dataset):** en la simulación con verdad conocida, el OR
   intra-búsqueda se recupera con y sin el filtro, mientras que la diferencia absoluta se infla.
 - **Colisionador simulado C ($T \to C \leftarrow Y$):**
@@ -309,16 +366,22 @@ cocientes son `{python} n(d0["ATE"] / d0["tasa_base"], 2)` y
 
 ```{python}
 #| label: negocio
-gasto = F4["gasto_mediana"]
-dp = F4["p_top5_R1"] - F4["p_resto_R1"]
+ESC = F4["escenarios"]
+e = pd.DataFrame(ESC).T[["Δp por exposición", "gasto por reserva (USD)", "desplazamiento de otra reserva", "reservas incrementales / 1.000", "USD incrementales / 1.000"]]
 ```
 
-- **Valuación del slot.** Con orden aleatorio, la tasa de reserva por hotel mostrado es
-  `{python} pct(F4["p_top5_R1"], 2)` en el top-5 y `{python} pct(F4["p_resto_R1"], 2)` fuera de él.
-  Con un gasto mediano por reserva de `{python} n(gasto, 0)` USD, eso equivale a
-  `{python} n(1000 * dp * gasto, 0)` USD adicionales por cada 1.000 exposiciones en el top-5, en la
-  población de búsquedas con al menos un clic. Es una cifra ilustrativa, porque las tasas absolutas
-  dependen de la selección del dataset.
+```{python}
+#| label: tbl-escenarios
+#| tbl-cap: "Escenarios de valuación del slot (por 1.000 exposiciones en el top-5; búsquedas con al menos un clic)."
+e.astype(float).round(4)
+```
+
+- **Valuación del slot: un rango con supuestos explícitos** (@tbl-escenarios). Cada 1.000
+  exposiciones en el top-5 valen entre `{python} n(ESC["conservador"]["USD incrementales / 1.000"], 0)`
+  y `{python} n(ESC["optimista"]["USD incrementales / 1.000"], 0)` USD de gasto incremental, según el
+  efecto supuesto, el gasto por reserva y cuánto de la reserva ganada se le quita a otro hotel de la
+  lista. Vale solo para búsquedas con al menos un clic, y la escala absoluta depende de la selección
+  del dataset: sirve para ordenar decisiones, no para presupuestar.
 - **No pagar el sesgo.** Una valuación basada en datos del algoritmo, aun ajustada, sobrestima el
   OR del slot en `{python} pct(ora / orb - 1, 0)`. Cobrar o asignar slots premium con esa cifra
   sobrevalúa el inventario.
@@ -341,9 +404,20 @@ dp = F4["p_top5_R1"] - F4["p_resto_R1"]
 
 Código modular en `src/tpi/`, `SEED = 42`, dependencias fijadas, tests automáticos (`pytest`) e
 integración continua. Este trabajo usó **Claude Code** (Anthropic) como asistente. `docs/ia_log.md`
-registra los prompts, lo producido, quién propuso y quién aprobó cada decisión, y los 30 errores o
+registra los prompts, lo producido, quién propuso y quién aprobó cada decisión, y los 32 errores o
 alucinaciones detectados, con el test que los refuta o previene. Ningún número de este informe se
 tomó del texto del asistente: todos salen de `models/resultados.json`, que genera el notebook.
+
+**Controles de calidad automáticos:**
+- El notebook **se detiene si un estimador no converge**: el logit condicional y de elección (que
+  falla en lugar de devolver un número dudoso) y el modelo de propensión del IPW.
+- Ningún archivo de datos puede quedar en el repositorio.
+- Los artefactos públicos no contienen celdas con menos de 10 filas.
+- Las refutaciones de premisas quedan como tests `xfail` estrictos con su motivo.
+
+La revisión humana de la autora cambió el análisis central: pidió el balance con re-ponderación, la
+escala de diferencia de riesgos, el bootstrap con 1000 réplicas y la reformulación del clic como
+paso del embudo.
 Métodos: @pearl2009causality, @sharma2020dowhy, @chernozhukov2018dml y @prentice1979casecontrol.
 
 # Referencias {.unnumbered}

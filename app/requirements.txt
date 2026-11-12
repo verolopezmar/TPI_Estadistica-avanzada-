@@ -6,3 +6,5 @@ numpy==1.26.4
 scikit-learn==1.5.2
 joblib==1.6.0
 plotly==7.1.0
+# Copiloto (bonus): SDK oficial de Anthropic; requiere ANTHROPIC_API_KEY en los secrets
+anthropic==2.8.0
