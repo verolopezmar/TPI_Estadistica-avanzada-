@@ -215,4 +215,10 @@ def agregar_competidores(df: pd.DataFrame, umbral_diff: float = 100.0) -> pd.Dat
         0, np.nan
     )
     out["comp_diff_max"] = diffs.where(diffs <= umbral_diff).max(axis=1)
+    # compN_inv = −1 no está documentado por Kaggle ({+1, 0, NULL}): se trata como faltante y se
+    # conserva un indicador (propuesto por Claude Code, aprobado por Verónica el 12/11).
+    invs = [f"comp{i}_inv" for i in range(1, 9)]
+    no_doc = out[invs] == -1
+    out["comp_inv_no_documentado"] = no_doc.any(axis=1).astype("int8")
+    out[invs] = out[invs].mask(no_doc)
     return out

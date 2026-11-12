@@ -120,9 +120,13 @@ def test_imputacion_por_grupo_con_indicador():
 def test_agregado_de_competidores_ignora_diferencias_imposibles():
     fila = {f"comp{i}_rate": np.nan for i in range(1, 9)}
     fila |= {f"comp{i}_rate_percent_diff": np.nan for i in range(1, 9)}
+    fila |= {f"comp{i}_inv": np.nan for i in range(1, 9)}
     fila |= {"comp2_rate": 1, "comp3_rate": -1, "comp5_rate": 1}
     fila |= {"comp2_rate_percent_diff": 12.0, "comp5_rate_percent_diff": 269_379.0}
+    fila |= {"comp2_inv": -1, "comp3_inv": 1}  # −1 no documentado por Kaggle
     out = agregar_competidores(pd.DataFrame([fila]))
     assert out.loc[0, "comp_n_info"] == 3
-    assert out.loc[0, "comp_saldo"] == pytest.approx(1 / 3)
+    assert out.loc[0, "comp_saldo"] == pytest.approx(1 / 3)  # +1 = Expedia más barata
     assert out.loc[0, "comp_diff_max"] == 12.0
+    assert out.loc[0, "comp_inv_no_documentado"] == 1
+    assert np.isnan(out.loc[0, "comp2_inv"]) and out.loc[0, "comp3_inv"] == 1
