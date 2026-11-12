@@ -20,8 +20,10 @@ conversión y el gasto del usuario (Y), una vez aislada la autoselección de los
 | Lucía Báez | ⚙️ Backend & ML / Causal Engineer | Concentra el mayor volumen técnico (Fases 1 a 4: statsmodels, scikit-learn, DoWhy, EconML), por eso tiene un solo rol. |
 | Antonella Robiollio | 🎨 Frontend & UI/UX Engineer + 🔍 QA & Validation Engineer | La app se construye recién en la Fase 5, así que durante las Fases 1 a 4 su carga es la auditoría de los PRs del backend (pytest, leakage, ruff). |
 
-**Conflicto de interés del rol doble:** en los PRs que escribe Antonella (app), el veredicto
-`[APROBADO]`/`[BLOQUEADO]` lo emite Lucía como QA suplente, y queda registrado en el PR.
+**Organización real del trabajo (desde el 12/11/2026):** Verónica ejecuta y valida todo el trabajo
+con asistencia de Claude Code, incluidos los veredictos `[APROBADO]`/`[BLOQUEADO]` de los PRs. Los
+roles de la tabla se mantienen para la defensa oral. Cada PR registra quién lo revisó realmente
+(ver `BITACORA.md` y `docs/ia_log.md`).
 
 ## Estructura del repositorio
 

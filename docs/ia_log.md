@@ -1,18 +1,27 @@
 # Registro de uso de IA (insumo de la Entrada 5 de la BITÁCORA)
 
 Asistente: **Claude Code** (modelo Claude Opus 5.5, Anthropic), usado desde VS Code.
-Alcance: el asistente propone código, textos y diseños; **todas las decisiones metodológicas las
-toma el equipo** y quedan registradas acá. Ningún número del informe se toma del texto del
-asistente: todo valor sale de un output ejecutado y versionado.
+Alcance: el asistente propone código, textos y diseños y ejecuta lo que se le pide; **las
+decisiones las toma Verónica López Marsico** y quedan registradas acá con su autoría. Ningún número
+del informe se toma del texto del asistente: todo valor sale de un output ejecutado y versionado.
 
-Formato por fase: prompt (resumido) · qué produjo la IA · qué decidimos · errores/alucinaciones
-detectados · test determinístico que los refuta o previene.
+**Convención de autoría.** Cada decisión indica quién la propuso y quién la aprobó, p. ej.
+"propuesto por Claude Code, aprobado por Verónica el 12/11". Todos los prompts los escribió
+Verónica (en algunos casos con ayuda de otro asistente de IA para redactarlos; ver error 12).
+
+**Organización real del trabajo (desde el 12/11/2026).** Verónica ejecuta y valida todo el
+trabajo con asistencia de Claude Code, incluidas las revisiones de QA de los PRs. Los roles Scrum
+del README se mantienen porque la defensa oral es por rol. Lucía Báez y Antonella Robiollio no
+revisan ni validan PRs. Ver también la BITÁCORA (Roles Scrum).
+
+Formato por fase: prompt (resumido) · qué produjo la IA · qué se decidió y quién ·
+errores/alucinaciones detectados · test determinístico que los refuta o previene.
 
 ---
 
 ## Fase 0 — Setup y selección del dataset (11/11/2026)
 
-**Prompt (resumen).** Brief completo del TPI: leer enunciado y rúbrica, armar la estructura del
+**Prompt (Verónica, resumen).** Brief completo del TPI: leer enunciado y rúbrica, armar la estructura del
 repo, verificar herramientas (Python, Quarto, TinyTeX), asignar roles Scrum y proponer 3-4
 datasets reales para estimar el efecto causal de un recomendador, sin descargar datos hasta la
 aprobación del equipo.
@@ -23,10 +32,11 @@ aprobación del equipo.
   veredicto QA, esqueletos de README y BITÁCORA, este log.
 - Verificación del entorno: Python 3.11.9 y 3.13, Quarto 1.11.9 con TinyTeX 2026 OK; `gh` no
   instalado; `git` sin `user.name`/`user.email` global.
-- Propuesta de 4 datasets candidatos con recomendación (ver mensaje de Fase 0 y Entrada 1).
+- Propuesta de 4 datasets candidatos con recomendación de Expedia.
 - Propuesta de asignación de roles.
 
-**Qué decidimos.** Ver la sección "Decisiones confirmadas por el equipo (12/11/2026)" más abajo.
+**Qué se decidió.** Dataset (Expedia) y roles: propuestos por Claude Code, aprobados por Verónica
+el 11/11. Detalle en "Decisiones (12/11/2026)" más abajo.
 
 **Errores / alucinaciones detectados y verificaciones pendientes.**
 1. *Afirmación no verificada en fuente primaria.* La definición de `random_bool` del dataset de
@@ -40,7 +50,7 @@ aprobación del equipo.
    significativamente distinta de 0, mientras que con `random_bool = 0` sí lo es. Si (b) falla, la
    premisa del benchmark experimental es falsa y se descarta el diseño.
 2. *Atribución de cifras.* El primer resumen de búsqueda web atribuía el tamaño del dataset a "un
-   paper" sin decir cuál. Antes de citarlo verificamos el texto completo: Liu et al. (2013,
+   paper" sin decir cuál. Antes de citarlo, el asistente verificó el texto completo: Liu et al. (2013,
    arXiv:1311.7679) dice textualmente "The training data contains 399,344 unique search lists and
    9,917,530 points". El mismo paper **no** define `random_bool` (solo lo lista en una tabla de
    importancia), lo que confirma el punto 1.
@@ -51,7 +61,7 @@ aprobación del equipo.
 
 ## Fase 0 (continuación) — Render, contrato de datos y DAG borrador (11/11/2026)
 
-**Prompt (resumen).** Dataset aprobado: Expedia (plan B: Online Shoppers semi-sintético). Roles
+**Prompt (Verónica, resumen).** Dataset aprobado: Expedia (plan B: Online Shoppers semi-sintético). Roles
 confirmados. Sin datos todavía: render de prueba de Quarto (¿rompe la ruta de OneDrive con
 tilde?), script de descarga, contrato de datos, test de `random_bool` y DAG borrador. Sin
 commits hasta tener `gh`.
@@ -61,8 +71,10 @@ commits hasta tener `gh`.
 `data/download_data.py`; `tests/test_environment.py`, `test_data_contract.py`, `test_dag.py`;
 `docs/dag_borrador.md` + figura.
 
-**Qué decidimos.** Dataset A (Expedia), roles según la propuesta, informe Quarto independiente
-con el notebook como anexo. _(DAG: pendiente de revisión con Lucía.)_
+**Qué se decidió.** Dataset A (Expedia) y roles según la propuesta de Claude Code: aprobados por
+Verónica. Informe Quarto independiente con el notebook como anexo: decisión de Verónica. El DAG
+borrador (propuesta de Claude Code) quedó pendiente de revisión; la revisó y aprobó Verónica el
+12/11 (ver "Decisiones").
 
 **Errores / alucinaciones detectados.**
 3. *Instrucción desactualizada del asistente (autenticación de Kaggle).* En la Fase 0 el
@@ -70,8 +82,8 @@ con el notebook como anexo. _(DAG: pendiente de revisión con Lucía.)_
    paquete instalado (`kaggle==2.2.5`), su propio mensaje indica el esquema nuevo:
    `kaggle auth login` (OAuth), un token en `~/.kaggle/access_token` o la variable
    `KAGGLE_API_TOKEN`. **Corrección:** el docstring de `data/download_data.py` documenta el
-   esquema vigente. **Prevención:** antes de escribir llamadas a la API inspeccionamos las
-   firmas reales (`inspect.signature`) en lugar de confiar en la memoria del asistente.
+   esquema vigente. **Prevención:** antes de escribir llamadas a la API, el asistente inspecciona
+   las firmas reales (`inspect.signature`) en lugar de confiar en la memoria del asistente.
 4. *Incompatibilidad silenciosa de dependencias.* pip instaló `pyarrow==26.0.1` sobre
    `numpy==1.26.4` sin advertir; `import pyarrow` falla con "pyarrow requires NumPy 2.0 or
    newer". El asistente había fijado el `requirements.txt` a partir de `pip freeze` sin probar
@@ -95,7 +107,7 @@ con el notebook como anexo. _(DAG: pendiente de revisión con Lucía.)_
 
 ## Interrupción de sesión y retoma (12/11/2026)
 
-**Prompt (resumen).** La sesión anterior del asistente se cerró. Se pide releer enunciado,
+**Prompt (Verónica, resumen).** La sesión anterior del asistente se cerró. Se pide releer enunciado,
 rúbrica, BITÁCORA, README y este log; revisar git; informar fase, trabajo terminado, trabajo a
 medias y decisiones pendientes, **sin avanzar** hasta la confirmación del equipo.
 
@@ -120,48 +132,53 @@ venv fuera de OneDrive) se verificó en disco antes de afirmarlo.
 
 ### Resolución de las inconsistencias (12/11/2026)
 
-8. **Resuelta.** Procedimiento oficial: venv fuera de carpetas sincronizadas
-   (`~/.venvs/tpi-eaymr`), instalado desde `requirements.txt`. El README se corrigió en
-   consecuencia. Motivo: OneDrive bloquea y corrompe archivos del venv.
+8. **Resuelta (decisión de Verónica, 12/11).** Procedimiento oficial: venv fuera de carpetas
+   sincronizadas (`~/.venvs/tpi-eaymr`), instalado desde `requirements.txt`. El README lo
+   corrigió Claude Code a pedido de Verónica. Motivo: OneDrive bloquea y corrompe archivos del venv.
 9. **Registrada tal cual, sin reescribir el historial.** Los 5 commits de
    `feat/fase0-contrato-datos` (12/11/2026 00:11) se hicieron y pushearon antes de instalar `gh`,
    contra lo planificado. No pasaron por un PR, pero tampoco llegaron a `main`, así que la regla
-   de oro (ningún merge a `main` sin firma del QA) no se violó. Decisión del Project Lead: no
+   de oro (ningún merge a `main` sin firma del QA) no se violó. Decisión de Verónica: no
    reescribir el historial (hacerlo sobre una rama pública sería peor que el desvío) y abrir el
-   PR de la Fase 0 ahora, para que el QA audite los 5 commits juntos antes del merge.
+   PR de la Fase 0, para auditar los 5 commits juntos antes del merge. La auditoría la hace
+   Verónica (ver "Organización real del trabajo").
 
-### Decisiones confirmadas por el equipo (12/11/2026)
+### Decisiones (12/11/2026)
 
 - **Dataset:** Expedia "Personalize Expedia Hotel Searches — ICDM 2013" (Kaggle). Plan B:
-  Online Shoppers con tratamiento semi-sintético.
-- **Roles:** Verónica López Marsico = Project Lead & Scrum Master; Lucía Báez = Backend & ML/
-  Causal Engineer; Antonella Robiollio = Frontend & UI/UX + QA (Lucía es QA suplente en los PRs
-  de la app).
-- **Informe:** Quarto independiente, con `TP_Integrador_Final.ipynb` como anexo.
-- **DAG:**
-  - T binaria = hotel en el top-5 de la búsqueda; la posición continua va como análisis de
-    sensibilidad.
-  - Y principal = `booking_bool`. `gross_bookings_usd` solo existe si hubo reserva:
-    condicionar en "reservó" se usa como ejemplo de la trampa de selección/colisionador.
-  - Zc (variables de competidores): la clasifica el asistente con el criterio del equipo
-    (si el ranking la usa **y** afecta la reserva, es confusor; si solo afecta Y, es predictor),
-    con justificación empírica en la Fase 1.
-  - Colisionador: natural si encontramos uno defendible, más el simulado como validación.
-  - `click_bool` se evalúa como mediador natural (posición → clic → reserva) para la trampa del
-    mediador.
-  - `random_bool` como experimento natural: se comparan las estimaciones observacionales (orden
-    del algoritmo) con el efecto bajo orden aleatorio, **después** de verificar en los datos y en
-    la documentación de la competencia que la variable significa eso.
-- **Entorno oficial:** venv en `~/.venvs/tpi-eaymr` (ver punto 8).
-- **Historial de git:** no se reescribe (ver punto 9).
+  Online Shoppers con tratamiento semisintético. Propuestos por Claude Code, aprobados por
+  Verónica.
+- **Roles (nominales, para la defensa oral):** Verónica López Marsico = Project Lead & Scrum
+  Master; Lucía Báez = Backend & ML/Causal Engineer; Antonella Robiollio = Frontend & UI/UX + QA.
+  Propuesta de Claude Code, aprobada por Verónica. Desde el 12/11 todo el trabajo y las
+  validaciones los hace Verónica (decisión de Verónica).
+- **Informe:** Quarto independiente, con `TP_Integrador_Final.ipynb` como anexo (decisión de
+  Verónica).
+- **DAG** (borrador de Claude Code; definiciones aprobadas por Verónica el 12/11):
+  - T binaria = hotel en el top-5; posición continua como sensibilidad. Propuesto por Claude
+    Code, aprobado por Verónica.
+  - Y principal = `booking_bool` (propuesto por Claude Code, aprobado por Verónica). Usar el
+    gasto, que solo existe si hubo reserva, como ejemplo de la trampa de selección/colisionador:
+    decisión de Verónica sobre una observación del borrador de Claude Code.
+  - Zc: criterio fijado por Verónica (confusor si el ranking la usa **y** afecta la reserva;
+    predictor si solo afecta Y). La clasificación empírica la hace Claude Code en la Fase 1 y la
+    revisa Verónica.
+  - Colisionador natural si hay uno defendible, más el simulado como validación: decisión de
+    Verónica.
+  - `click_bool` como mediador natural (posición → clic → reserva): estaba en el borrador de
+    Claude Code; Verónica pidió evaluarlo como trampa del mediador.
+  - `random_bool` como experimento natural: propuesto por Claude Code en la Fase 0, aprobado por
+    Verónica con la condición de verificarlo antes en los datos y en la documentación.
+- **Entorno oficial:** venv en `~/.venvs/tpi-eaymr` (decisión de Verónica; ver punto 8).
+- **Historial de git:** no se reescribe (decisión de Verónica; ver punto 9).
 
 ---
 
 ## Fase 0 (cierre) — Descarga, verificación de `random_bool` y confidencialidad (12/11/2026)
 
-**Prompt (resumen).** Autenticar Kaggle y descargar; verificar `random_bool` y la licencia;
+**Prompt (Verónica, resumen).** Autenticar Kaggle y descargar; verificar `random_bool` y la licencia;
 correr los 7 tests de datos. Luego, con la definición de `random_bool` y las reglas copiadas
-por el equipo de la pestaña Data/Rules: citar la fuente primaria, analizar el sesgo de selección
+por Verónica de la pestaña Data/Rules, con su sesión de Kaggle: citar la fuente primaria, analizar el sesgo de selección
 del dataset ("most of the data are for searches that resulted in a purchase"), mitigar el riesgo
 de confidencialidad (las reglas prohíben compartir datos y "resulting model parameters") y dejar
 el plan B listo para activar sin rehacer la estructura.
@@ -185,15 +202,24 @@ el plan B listo para activar sin rehacer la estructura.
   con R = 1; ninguna con `random_bool` inconsistente. Contrato de datos sin violaciones.
 - Muestra: 30.000 búsquedas completas (15.000 por estrato), 739.323 filas.
 
-**Qué decidimos (equipo).**
-- `random_bool`: se cita la definición de la fuente primaria. Ante la refutación parcial (error
-  10), R = 1 se trata como **cuasi-experimento ajustado**: efectos fijos por búsqueda + ajuste
-  por Z, reportando sin ajuste vs. ajustado.
-- Comparación observacional vs. experimental: **escala relativa como principal** (risk ratio /
-  log-odds dentro de la búsqueda) y, como robustez, ambos estratos restringidos a búsquedas con
-  reserva (ATE absoluto). `booking_bool` sigue como Y principal; `click_bool` como secundario.
-- Confidencialidad: consulta al profesor (pendiente). Mientras tanto, las mitigaciones de
-  `data/README.md` y el plan B evaluado.
+**Qué se decidió y quién.**
+- Citar la definición de `random_bool` de la fuente primaria: pedido de Verónica.
+- R = 1 como **cuasi-experimento ajustado** (efectos fijos por búsqueda + ajuste por Z,
+  reportando sin ajuste vs. ajustado): **propuesto por Claude Code, aprobado por Verónica el
+  12/11** (opción recomendada entre tres presentadas, tras la refutación parcial del error 10).
+- **Escala relativa dentro de la búsqueda como principal** (risk ratio / log-odds) y, como
+  robustez, ambos estratos restringidos a búsquedas con reserva (ATE absoluto); `click_bool` como
+  resultado secundario: **propuesto por Claude Code, aprobado por Verónica el 12/11**.
+- Análisis del sesgo de selección del dataset: planteado por Verónica (puntos a, b, c); el
+  hallazgo del filtro "≥ 1 clic" y la derivación del risk ratio son de Claude Code, revisados por
+  Verónica.
+- Mitigaciones de confidencialidad (nada de datos en el repo con test que lo garantice, crudo
+  fuera de OneDrive configurable por variable de entorno, app solo con agregados, plan B listo):
+  definidas por Verónica, implementadas por Claude Code. Consulta a la cátedra: la envía Verónica
+  el 12/11. Si el 14/11 no hay respuesta o es negativa, se activa el plan B (decisión de
+  Verónica).
+- Descargar solo `data.zip` y usar solo `train.csv`: decisión de Verónica. Elegir `inflate64` para
+  Deflate64: Claude Code.
 
 **Errores / alucinaciones detectados.**
 10. *Premisa experimental refutada en parte.* El asistente propuso en la Fase 0 usar R = 1 como
@@ -216,10 +242,12 @@ el plan B listo para activar sin rehacer la estructura.
     wheel para Windows/Python 3.11 y exige compilar con MSVC. **Corrección:** `inflate64==1.0.4`
     (wheel, sin bloqueo de Smart App Control). **Test:** `test_modulo_importa[inflate64]` y
     verificación de CRC-32 en cada extracción.
-12. *Discrepancia de transcripción detectada por la API.* El tamaño de `data.zip` informado a
-    mano era 434.537.097 bytes; la API y el archivo descargado dicen **434.573.097** (dos dígitos
-    traspuestos). **Prevención:** el manifiesto registra tamaños y hashes del archivo real; nunca
-    se copian cifras a mano.
+12. *Error de transcripción de otro asistente de IA.* El prompt traía el tamaño de `data.zip`
+    como 434.537.097 bytes. La cifra la transcribió mal el asistente de IA que ayudó a Verónica a
+    armar los prompts (no Claude Code). La API de Kaggle y el archivo descargado dicen
+    **434.573.097** (dos dígitos traspuestos); Claude Code lo detectó al listar los archivos de la
+    competencia. **Prevención:** el manifiesto registra tamaños y hashes del archivo real y nunca
+    se copian cifras a mano de un texto generado por IA.
 13. *Error del asistente en su propio diagnóstico.* Al resumir el plan B escribió `d.T` para la
     columna de tratamiento `"T"`: en pandas `d.T` es la **transpuesta**, y el resultado salió
     `nan` sin error. Lo detectó el propio output. **Corrección:** la columna se llama
