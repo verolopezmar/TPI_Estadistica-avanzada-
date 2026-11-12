@@ -1,0 +1,78 @@
+---
+title: "Retorno causal de un algoritmo de recomendación"
+subtitle: "TPI Decision Intelligence Capstone — EAyMR 2026, UCA"
+author:
+  - name: Verónica López Marsico
+    role: Project Lead & Scrum Master
+  - name: Lucía Báez
+    role: Backend & ML / Causal Engineer
+  - name: Antonella Robiollio
+    role: Frontend & UI/UX + QA & Validation Engineer
+date: 2026-11-18
+lang: es
+abstract: |
+  Borrador de estructura (render de prueba de la Fase 0). El resumen ejecutivo se redacta al
+  cierre de la Fase 4.
+bibliography: referencias.bib
+number-sections: true
+crossref:
+  fig-title: Figura
+  tbl-title: Tabla
+  fig-prefix: Figura
+  tbl-prefix: Tabla
+execute:
+  echo: false
+  warning: false
+format:
+  html:
+    toc: true
+    embed-resources: true
+  pdf:
+    toc: true
+    documentclass: scrartcl
+    papersize: a4
+    geometry: margin=2.5cm
+jupyter: python3
+---
+
+# Introducción
+
+Estimamos el efecto causal de la exposición algorítmica sobre la conversión
+[@pearl2009causality; @sharma2020dowhy; @chernozhukov2018dml], usando los datos del desafío de
+Expedia [@liu2013expedia].
+
+```{python}
+#| label: fig-prueba
+#| fig-cap: "Figura de prueba del render (se elimina en la versión final)."
+import matplotlib.pyplot as plt
+import numpy as np
+
+rng = np.random.default_rng(42)
+fig, ax = plt.subplots(figsize=(6, 3))
+ax.hist(rng.normal(size=1000), bins=30, color="#4C72B0")
+ax.set_xlabel("Valor simulado")
+ax.set_ylabel("Frecuencia")
+ax.set_title("Prueba de render: ñ, á, é, í, ó, ú")
+plt.show()
+```
+
+La @fig-prueba verifica la numeración de figuras y las referencias cruzadas.
+
+# Fase 1 — Inferencia clásica y ANOVA
+
+# Fase 2 — Gauss-Markov, influyentes y PCA
+
+# Fase 3 — Torneo de Machine Learning
+
+# Fase 4 — Inferencia causal y Causal ML
+
+# Conclusiones y recomendaciones de negocio
+
+# Referencias {.unnumbered}
+
+::: {#refs}
+:::
+
+# Anexo A — Uso de herramientas de IA {.appendix}
+
+# Anexo B — Notebook reproducible {.appendix}
