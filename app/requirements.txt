@@ -1,0 +1,8 @@
+# Dependencias mínimas de la app (Streamlit Community Cloud lee este archivo, junto a app.py).
+# Mismas versiones que requirements.txt: el modelo se serializó con scikit-learn 1.5.2.
+streamlit==1.67.0
+pandas==2.2.3
+numpy==1.26.4
+scikit-learn==1.5.2
+joblib==1.6.0
+plotly==7.1.0

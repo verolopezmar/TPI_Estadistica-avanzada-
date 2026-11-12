@@ -421,3 +421,95 @@ de revisión por Verónica**:
     Jarque-Bera y del F global mostraban "p = 0"; el formateador `_p` del módulo de inferencia no
     se estaba usando ahí. **Corrección:** todos los p de la Fase 2 pasan por `formato_p`
     ("p < 1e-300 (subdesborde de doble precisión)").
+
+### Aprobaciones de Verónica (12/11/2026, revisión de las Fases 1 y 2)
+
+**Propuestos por Claude Code, aprobados por Verónica el 12/11:**
+- Fase 1: clasificación de competidores (`comp_saldo` y `comp_n_info` confusores, `comp_diff_max`
+  excluida); DAG con Zc → T, Zc → M y nodo S; corrección del signo de `compN_rate`;
+  `compN_inv = −1` tratado como faltante con indicador (`comp_inv_no_documentado`) y declarado en la
+  auditoría.
+- Fase 2: partición 80/20 por búsqueda estratificada por `random_bool` (unidad = búsqueda, sin fuga
+  intra-búsqueda; no es un problema de pronóstico temporal); no eliminar influyentes; HC3 como
+  principal y Huber de respaldo; 2 PCs para la app y 4 como features alternativas.
+
+**Cambio de ritmo (decisión de Verónica, 12/11):** terminar las Fases 3, 4 y 5 en el día. Claude Code
+decide con criterio y registra cada decisión como "propuesto por Claude Code"; Verónica revisa todo
+junto al final. Solo se frena ante acciones físicas (login, deploy) o decisiones que cambien la
+conclusión causal. Los scripts de GitHub pasan a `scripts/github/` (Git Bash); Verónica abre y
+mergea los PRs en orden ("Create a merge commit"). Ya existe el PR #38 (Fase 0).
+
+---
+
+## Fases 3, 4 y 5 (12/11/2026)
+
+**Prompt (Verónica, resumen).** Terminar el TP completo hoy: torneo predictivo, inferencia causal
+completa, app con solo agregados, deploy listo, notebook ejecutable, informe, README, BITÁCORA,
+slides, guía de defensa y auto-auditoría.
+
+**Qué produjo la IA.** `src/tpi/preparacion.py` (pipeline de la Fase 1 en una función, verificada
+contra los pasos del notebook), `modelos.py`, `causal.py`, `artefactos.py`, `app/` (app Streamlit +
+lógica testeable), los tests correspondientes (`test_modelos.py`, `test_causal.py`, `test_app.py`),
+las secciones 3 a 5 del notebook, los artefactos de `models/`, el informe, las slides, el README y
+`scripts/github/abrir_prs_pendientes.sh`.
+
+**Decisiones propuestas por Claude Code (pendientes de revisión por Verónica):**
+- *Fase 3:*
+  - Y = `booking_bool` por fila; PR-AUC como métrica de selección (prevalencia ≈ 2 %).
+  - `StratifiedGroupKFold(5)` por búsqueda.
+  - Excluir `click_bool` y el gasto por fuga; `position` sí entra.
+  - Búsqueda de hiperparámetros en una submuestra del 25 % de las búsquedas de Train (Grid para
+    logística y CART, `RandomizedSearchCV` con 20 combinaciones para RF, `n_jobs=-1`), con
+    reentrenamiento en todo Train.
+  - Umbral de clasificación elegido en Train (máximo F1 fuera de pliegue).
+  - Holdout cronológico (último 20 % de las búsquedas por fecha) como sensibilidad, a pedido de
+    Verónica.
+  - Métrica extra de ranking (¿el hotel reservado está en el top-5 del modelo?).
+- *Fase 4:*
+  - Logit condicional por búsqueda como estimador principal (escala relativa) y MPL con efectos fijos
+    como escala absoluta.
+  - DoWhy con DAG de columnas reales (mediador explícito).
+  - Ajuste intra-búsqueda solo con variables de hotel (las de búsqueda las absorbe el efecto fijo).
+  - Refutaciones con 20 simulaciones, más la sensibilidad a un confusor no observado.
+  - DML con 6.000 búsquedas por estrato (RF como modelos de ruido, cross-fitting agrupado por
+    búsqueda).
+  - Colisionador C simulado sobre datos reales con R = 1.
+  - Simulación del filtro S con verdad conocida.
+- *Fase 5:*
+  - App con artefactos agregados (supresión de celdas < 10) y RF compacto (hojas ≥ 100 filas), sin
+    EconML en vivo (grilla de CATE precalculada).
+  - `app/requirements.txt` mínimo.
+  - `models/resultados.json` como única fuente de los números del informe y las slides (expresiones
+    inline de Quarto).
+
+**Errores / alucinaciones detectados.**
+26. *Incompatibilidad silenciosa de dependencias (del `requirements.txt` armado por el
+    asistente).* `dowhy==0.12` llama a `networkx.algorithms.d_separated`, que no existe en
+    `networkx==3.6.1`: la identificación fallaba con `AttributeError`. El test de imports no lo
+    detectaba. **Corrección:** `networkx==3.4.2` (tiene esa función y también `is_d_separator`).
+    Además, el puente `nx_pydot.from_pydot` es incompatible con `pydot 4`, así que el grafo de
+    DoWhy se construye directo en networkx. **Test:**
+    `test_dowhy_identifica_backdoor_sin_mediador_y_recupera_el_efecto`.
+27. *Colinealidad introducida por el asistente.* El prototipo del ajuste intra-búsqueda incluía
+    `log_precio` y `log_precio_rel` juntos. Dentro de una búsqueda difieren solo en la mediana de la
+    lista, que absorbe el efecto fijo: la matriz quedaba de rango incompleto (`SingularMatrixWarning`).
+    **Corrección:** `log_precio` solo en el ajuste agrupado (DoWhy).
+28. *Estimaciones no convergidas casi usadas como resultado (error del asistente).* El logit
+    condicional del prototipo emitió `ConvergenceWarning` y el asistente llegó a reportar sus OR
+    como "primeros resultados". Se detectó al revisar el log. **Corrección:** covariables
+    estandarizadas, BFGS con hasta 2000 iteraciones y una guarda que **lanza un error** si no
+    converge, en lugar de devolver un número dudoso. Los valores convergidos son casi idénticos a
+    los del prototipo (R = 1 ajustado: 2,113 vs. 2,108), pero solo se reportan los convergidos.
+29. *Propensión sin converger dentro de DoWhy (detectado por el asistente al leer los outputs).* El
+    estimador IPW de DoWhy ajusta por defecto una regresión logística sin escalar las covariables, y
+    emitió `ConvergenceWarning` (lbfgs). El primer valor de IPW (0,0896) venía de una propensión
+    sin converger. **Corrección:** `propensity_score_model` = estandarización + logística con 3000
+    iteraciones, con una aserción que detiene el notebook si la propensión no converge.
+30. *Resultado anticipado como hecho (error del asistente).* Antes de ver los outputs, el asistente
+    redactó que condicionar en el colisionador simulado C "asocia la exposición con las estrellas"
+    (Berkson). Con los datos reales, la correlación T–estrellas casi no cambia (0,0247 → 0,0284):
+    las estrellas apenas causan la reserva con orden aleatorio, y Berkson requiere que la variable
+    cause el colisionador a través de Y. **Corrección:** el contraste usa `prop_location_score2`
+    (el atributo más predictivo de la reserva), se agrega la simulación con verdad conocida, y el
+    texto informa lo que muestran los datos. **Prevención:** los textos interpretativos se escriben
+    después de leer el output, nunca antes.

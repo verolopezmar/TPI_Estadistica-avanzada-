@@ -222,11 +222,59 @@ búsqueda) con log del precio por noche.
   $R^2_j$ de cada regresor sobre **todos** los demás. La regularización de la Fase 3 se justifica
   por selección y estabilidad predictiva, no por colinealidad.
 
-_Los experimentos fallidos de la Fase 3 se agregan al cerrarla._
+### Experimento 4 — Umbral de clasificación por defecto (Fase 3)
+
+- **Qué hicimos.** Clasificar con el umbral 0,5 de `predict`.
+- **Qué pasó.** F1 = 0 en logística y CART, y 0,0006 en Random Forest: con 2 % de reservas, ninguna
+  probabilidad supera 0,5 y todo se clasifica como "no reserva".
+- **Corrección y aprendizaje.** Umbral elegido en Train (máximo F1 en predicciones fuera de
+  pliegue): ≈ 0,12 en RF, con F1 = 0,23 en Test. En problemas desbalanceados, el umbral es una
+  decisión de negocio y se elige sin mirar Test.
+
+### Experimento 5 — Naive Bayes gaussiano (Fase 3)
+
+- **Qué hicimos.** `GaussianNB` sobre las 27 features estandarizadas.
+- **Qué pasó.** El peor del torneo: PR-AUC 0,074 y Brier 0,070, contra 0,020 de los demás. El
+  umbral elegido en Train (0,9998) no se traslada a Test: recall 0,003.
+- **Diagnóstico.** Se viola la independencia condicional (correlaciones dentro de cada clase de
+  hasta 0,72, entre precio y precio histórico) y muchas variables son binarias o de conteo, no
+  normales. NB cuenta varias veces la misma evidencia y empuja las probabilidades a 0 o a 1.
+- **Aprendizaje.** NB puede ordenar razonablemente (ROC-AUC 0,796) aun con probabilidades
+  inutilizables. Cuando importan las probabilidades (la app muestra una probabilidad calibrada), se
+  descarta.
 
 ## Entrada 4 — Formalización del debate causal
-*Responsables: Backend/ML + Project Lead.* La justificación de cada arco se completa en la Fase 4
-(borrador en `docs/dag_borrador.md`). Adelantamos dos amenazas a la validez detectadas en la Fase 0.
+*Roles responsables: Backend/ML + Project Lead. DAG propuesto por Claude Code; definiciones de T, Y,
+Zc y colisionadores aprobadas por Verónica el 12/11. Fuente de verdad: `src/tpi/dag.py` y
+`tests/test_dag.py` (12 pruebas de d-separación).*
+
+### Justificación de cada arco
+
+| Arco | Justificación | Evidencia en los datos |
+|---|---|---|
+| R → T | `random_bool` define el mecanismo de asignación: con R = 1 el orden es (casi) aleatorio | Asociación posición–atributos 71-87 % menor con R = 1 (Fase 1); residual declarada (amenaza B) |
+| Zh → T | Un ranker usa estrellas, reseñas, ubicación, precio y promoción | ρ̄ intra-búsqueda posición–`location_score2` −0,299 con R = 0 |
+| Zp → T | La popularidad previa (precio histórico, afinidad) es una señal típica de ranking | Supuesto de dominio |
+| Zb → T, Zu → T | Personalización por contexto e historial del usuario | Supuesto de dominio (en las estimaciones intra-búsqueda, Zb y Zu quedan absorbidas por el efecto fijo) |
+| Zc → T | El ranker premia precios competitivos | Interacción Zc × R sobre T: `comp_saldo` p = 2,7·10⁻¹⁸ (Fase 1, 1.4) |
+| U → T | El ranker usa el desempeño histórico del hotel en Expedia (CTR, conversión), que no observamos | Brecha residual entre el OR observacional ajustado y el benchmark (Fase 4, 4.3) |
+| T → M | Sesgo de posición: más arriba, más clics | Contraste 1: CTR del top-5 2,16 veces el del resto con orden aleatorio |
+| M → Y; sin T → Y directo | No hay reserva sin clic (regla del contrato de datos, verificada) | Ajustar por el clic absorbe casi todo el efecto (Fase 4, 4.4) |
+| Z → M, Z → Y | Calidad, precio, contexto e historial afectan clic y reserva por sí mismos | Zc → Y: OR 1,137 y 1,118 con R = 1 |
+| I → M, I → Y | La intención de compra de la sesión causa clic y reserva, no la posición | Latente; absorbida por el efecto fijo de búsqueda |
+| M → S, Y → S | El proveedor incluyó solo búsquedas con ≥ 1 clic y, en R = 0, sobremuestreó compras | 0 de 399.344 búsquedas sin clic; 93,86 % vs. 13,04 % con reserva |
+| T → C ← Y | Colisionador simulado ("destacado en el reporte") para la trampa de Berkson | Por construcción (Fase 4, 4.5) |
+
+### Plausibilidad de las variables latentes
+
+- **U** (desempeño histórico propio de Expedia) es la amenaza principal. Es razonable que un ranker
+  en producción use la conversión histórica de cada hotel, que también predice la reserva. No hay
+  proxy perfecto en los datos: `prop_log_historical_price` y `srch_query_affinity_score` son
+  parciales. La Fase 4 cuantifica cuánto sesgo deja sin explicar el ajuste por Z.
+- **I** (intención de la sesión) es de nivel búsqueda: la comparación dentro de la búsqueda la
+  elimina por construcción.
+
+Adelantamos dos amenazas a la validez detectadas en la Fase 0.
 
 ### Amenaza A — El dataset está seleccionado sobre el mediador y, en R = 0, sobre el resultado
 
@@ -310,5 +358,55 @@ Ver Entrada 1. Decisión de Verónica: seguir con Expedia sin consultar a la cá
 mitigaciones verificadas por tests; el plan B queda disponible y no se activa.
 
 ## Entrada 5 — Trazabilidad y uso ético de asistentes de IA
-*Responsable: QA.* Se construye a partir de [`docs/ia_log.md`](docs/ia_log.md), que se actualiza
-en cada fase.
+*Rol responsable: QA. Redactada por Claude Code a partir de [`docs/ia_log.md`](docs/ia_log.md) (registro
+completo, fase por fase); revisión de Verónica.*
+
+### Declaración de uso y alcance
+
+- **Herramienta:** Claude Code (modelo Claude Opus 5.5, Anthropic), usado desde VS Code durante todo
+  el proyecto, del 11 al 12/11/2026.
+- **Qué hizo el asistente:** propuso el diseño (datasets candidatos, DAG, contrastes, modelos,
+  estimadores causales), escribió el código, los tests, el notebook, el informe, las slides y los
+  borradores de documentación, y ejecutó todo en el entorno local.
+- **Qué hizo el equipo:**
+  - Verónica escribió todos los prompts (en algunos casos con ayuda de otro asistente de IA para
+    redactarlos) y tomó o aprobó cada decisión.
+  - Desde el 12/11, Verónica ejecuta y valida todo el trabajo, incluidas las revisiones de QA.
+  - Lucía y Antonella no revisaron ni validaron PRs; sus roles se mantienen para la defensa oral.
+  - El log registra, para cada decisión, quién la propuso y quién la aprobó.
+- **Regla de evidencia:** ningún número del informe ni de las slides se tomó del texto del asistente.
+  Todos se leen de `models/resultados.json`, generado por el notebook ejecutado.
+
+### Prompts de diseño (resumen; detalle en el log)
+
+1. Brief del TPI: leer enunciado y rúbrica, armar el repo, proponer datasets y roles, sin descargar
+   datos antes de la aprobación.
+2. Contrato de datos, test de `random_bool` y DAG borrador, todavía sin datos.
+3. Descarga verificada, confidencialidad con mitigaciones testeadas y plan B listo para activar.
+4. Por fase: diseño propuesto, ejecución, cierre con "qué revisar" y guía de defensa por rol.
+5. Revisiones de Verónica que cambiaron el trabajo: contrastar Zc → T antes de llamarla confusor,
+   transcribir las definiciones de Kaggle, T de sensibilidad, limitación declarada sin hipótesis
+   forzada.
+
+### Errores y alucinaciones detectados (28) y su refutación determinística
+
+| Tipo | Casos (número en el log) | Cómo se detectó o previno |
+|---|---|---|
+| Afirmaciones de memoria sin fuente primaria | 1 (`random_bool`), 3 (autenticación de Kaggle), 20 (signo de `compN_rate`), 21 (dominio de `compN_inv`) | Fuente primaria transcripta por Verónica; tests de contrato (`test_comp_inv_tiene_un_valor_no_documentado`) |
+| Premisas refutadas por los datos | 10 (`random_bool` no es un RCT puro), 16 (los huecos son slots fijos), 24 (la multicolinealidad anticipada no apareció) | `xfail(strict=True)`, `test_slots_estructurales_cada_seis_posiciones`, VIF |
+| Dependencias incompatibles | 4 (pyarrow/numpy), 5 (pyzmq bloqueado por Windows), 11 (Deflate64), 26 (dowhy/networkx) | `test_environment.py`, `test_dowhy_identifica_backdoor_sin_mediador...` |
+| Errores de código o de diseño del asistente | 6 (test sin potencia), 13 (`df.T` es la transpuesta), 17 (regla de outliers incompleta), 23 (RANSAC por defecto), 27 (colinealidad intra-búsqueda), 28 (logit condicional no convergido) | Tests con verdad conocida y guardas que lanzan error |
+| Errores de reporte | 7 (figura engañosa), 18 y 25 (`p = 0`), 19 (omisión en un texto), 22 (aprobación no ocurrida) | Formateador de p-valores testeado; cotejo de cada número contra un output; una aprobación solo se registra si consta en un mensaje de Verónica |
+| Otros | 2 (atribución de cifras), 8-9 (documentación y proceso), 12 (transcripción de otro asistente), 14 (descripción incompleta de la fuente), 15 (API de pingouin) | Verificación contra el texto completo o la fuente; tests contra referencias externas |
+
+### Lecciones de gobernanza
+
+1. **El asistente se equivoca en lo que "recuerda"** (APIs, definiciones, dominios). Todo lo que viene
+   de memoria se marca como hipótesis hasta verificarlo en la fuente primaria o con un test.
+2. **Un test en verde no prueba nada si no puede fallar.** Cada regla se testea con datos sintéticos
+   donde la respuesta correcta se conoce, y en ambos sentidos (detecta lo que debe y no da falsos
+   positivos).
+3. **Las refutaciones se registran, no se borran:** `xfail(strict=True)` mantiene visible la
+   premisa que los datos refutaron.
+4. **La autoría se registra tal como ocurrió**, incluido el desvío de proceso de los primeros commits
+   y la reorganización del equipo.

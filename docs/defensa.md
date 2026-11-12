@@ -222,3 +222,155 @@
    acumulada, cargas, y Test proyectado en PC1-PC2.
 5. **App (Fase 5):** el módulo de diagnóstico va a mostrar el plano PC1-PC2 calculado con la
    rotación de Train, solo con agregados o muestras de puntos sin identificadores.
+
+---
+
+## Fase 3 — Torneo predictivo (12/11/2026; pendiente de revisión de Verónica)
+
+### Verónica — Project Lead & Scrum Master
+
+1. **Pregunta predictiva vs. causal:** la Fase 3 responde $P(Y \mid X)$ (qué hotel se va a
+   reservar); la Fase 4 responde $P(Y \mid do(T))$ (qué pasa si lo subimos).
+2. **Ganador:** Random Forest, con PR-AUC 0,154 en Test frente a una prevalencia de 0,022 (unas 7
+   veces el azar) y ROC-AUC 0,849. El holdout cronológico (último 20 % del período) da 0,146: el
+   modelo se sostiene hacia adelante.
+3. **Por qué PR-AUC y no exactitud:** con 2 % de reservas, decir siempre "no reserva" da 98 % de
+   exactitud y no sirve para nada.
+4. **Decisión de cómputo:** hiperparámetros en el 25 % de las búsquedas de Train y reentrenamiento
+   en todo Train, justificado y reportado.
+
+### Lucía — Backend & ML / Causal Engineer
+
+1. **Sin fuga:**
+   - Se excluyen el clic (pasa en la misma sesión que la reserva) y el gasto.
+   - La CV es `StratifiedGroupKFold(5)` por búsqueda.
+   - `position` sí entra porque se conoce al mostrar la lista.
+2. **Logística L1/L2:** la grilla elige L1 con C = 0,1. Los OR con IC 95 % salen de un logit sin
+   penalizar con errores por clúster, porque la penalización sesga los coeficientes.
+3. **Naive Bayes:**
+   - La independencia condicional se viola: hay correlaciones dentro de cada clase de hasta 0,72
+     (precio vs. precio histórico).
+   - Resultado: probabilidades extremas y mal calibradas (Brier 0,070 contra 0,020 de la
+     logística).
+4. **CART:** sin poda, 18.896 hojas y PR-AUC de 1,000 en Train contra 0,031 en Test (memoriza).
+   Podado por $R_\alpha(T) = R(T) + \alpha|T|$ con $\alpha$ elegido por CV, queda en 14 hojas. Regla
+   raíz: `position ≤ 4,5`.
+5. **Random Forest:** `RandomizedSearchCV` (20 combinaciones) sobre `n_estimators`, `max_depth`,
+   `min_samples_split`, `min_samples_leaf` y `max_features`. El OOB converge con la CV al crecer el
+   número de árboles.
+6. **MDI vs. permutación:**
+   - El MDI suma reducciones de impureza en Train y favorece variables con muchos puntos de corte
+     (correlación con la cardinalidad ρ = 0,749).
+   - La permutación mide cuánto cae la PR-AUC en **Test** al romper la variable, así que no premia
+     cortes que solo sirven para memorizar.
+
+### Antonella — Frontend & UI/UX + QA & Validation Engineer
+
+1. **Tests de no fuga:**
+   - `test_features_no_incluyen_variables_con_fuga`, `test_matriz_rechaza_fuga_explicita`.
+   - `test_cv_agrupado_no_parte_busquedas`.
+2. **El umbral se elige en Train, nunca en Test.** Con el umbral por defecto de 0,5, el F1 es 0 en
+   logística, CART y RF (Entrada 3).
+3. **Reliability diagrams:** Naive Bayes está fuera de la diagonal; logística y RF están cerca.
+4. **Reproducibilidad:** semilla 42 en todas las búsquedas, `n_jobs=-1`, y verificación de que el
+   pipeline reutilizable da exactamente la misma matriz que los pasos del notebook.
+
+---
+
+## Fase 4 — Inferencia causal (12/11/2026; pendiente de revisión de Verónica)
+
+### Verónica — Project Lead & Scrum Master
+
+1. **Resultado principal:** el top-5 **sí** causa reservas. Con orden aleatorio, multiplica por
+   **2,11** las chances de que el hotel sea el reservado de su lista (IC 95 % [1,90; 2,35]).
+2. **El dato del algoritmo engaña:** el ingenuo da 5,38 y, ajustado por todo lo observable, 3,38.
+   Sigue un 60 % arriba del benchmark: es el sesgo por lo que el ranker sabe y nosotros no (U).
+3. **Negocio:** no valuar el slot con datos del algoritmo. Priorizar hoteles baratos para su
+   búsqueda y bien ubicados (allí el efecto es el doble). Mantener una fracción de tráfico con orden
+   aleatorio como auditoría.
+4. **Ensayo:** la posición es la variable más predictiva del RF, pero solo en parte es una palanca;
+   el resto es selección.
+
+### Lucía — Backend & ML / Causal Engineer
+
+1. **Backdoor:** con el algoritmo, $Z$ bloquea $T \leftarrow Z \to Y$ pero no $T \leftarrow U \to Y$.
+   Con orden aleatorio alcanza el conjunto vacío. Lo demuestran los tests de d-separación.
+2. **DoWhy en 4 pasos:**
+   - Model: DAG con el clic como mediador.
+   - Identify: Backdoor.
+   - Estimate: regresión 0,0961 e IPW 0,0896, contra un ingenuo de 0,1055.
+   - Refute: tres pruebas, todas pasan.
+3. **Por qué el logit condicional:** es un modelo de elección dentro de la búsqueda. El OR es
+   invariante a la selección de listas por su resultado (lo prueba una simulación con verdad
+   conocida), mientras que la diferencia absoluta se infla.
+4. **Trampa del mediador:** ajustar por el clic baja el efecto de 0,078 a 0,004 (absorbe el 95 %).
+5. **Colisionadores:**
+   - La selección del dataset (≥ 1 clic) es un colisionador natural.
+   - C simulado sobre orden aleatorio: condicionar en C induce Berkson entre exposición y calidad.
+6. **Refutaciones:** las tres pasan, y eso indica **estabilidad**, no ausencia de confusión. Un
+   confusor simulado moderado (5 %) reduce el ATE un 48 %. La prueba que detecta la confusión es el
+   benchmark.
+7. **DML:**
+   - Cross-fitting agrupado por búsqueda, con RF como modelos de ruido y ortogonalidad de Neyman.
+   - ATE 0,083 con el algoritmo y 0,007 con orden aleatorio.
+   - CATE (Causal Forest): mayor con precio relativo bajo y buena ubicación; plano en estrellas.
+
+### Antonella — Frontend & UI/UX + QA & Validation Engineer
+
+1. **`tests/test_causal.py`:**
+   - El logit condicional recupera el OR verdadero, también después del filtro S.
+   - La diferencia absoluta se infla con S.
+   - Condicionar en C induce Berkson.
+   - DoWhy identifica Backdoor sin el mediador y recupera el efecto.
+2. **Errores de la IA atrapados en esta fase:**
+   - dowhy incompatible con networkx 3.6 (error 26).
+   - Colinealidad intra-búsqueda (error 27).
+   - Logit condicional no convergido: ahora lanza un error (error 28).
+3. **Semáforo de la app:** verde = las tres refutaciones pasan. Leyenda honesta: mide estabilidad, no
+   identificación.
+
+---
+
+## Fase 5 — App, informe y entrega (12/11/2026; pendiente de revisión de Verónica)
+
+### Verónica — Project Lead & Scrum Master
+
+1. **Entregables:**
+   - App desplegada (link en el README).
+   - Notebook ejecutado de punta a punta.
+   - Informe Quarto (HTML y PDF) y slides en PDF.
+   - BITÁCORA con 5 entradas y log de IA.
+2. **Confidencialidad:**
+   - La app no ve datos, solo agregados con supresión de celdas menores a 10 filas.
+   - El modelo de la app es un RF con hojas de al menos 100 filas.
+   - Riesgo residual (los parámetros del modelo) asumido y documentado.
+3. **Flujo Scrum:** ramas por fase, PRs con veredicto QA, merge con "Create a merge commit", CI con
+   ruff y pytest.
+
+### Lucía — Backend & ML / Causal Engineer
+
+1. **Serialización:** `models/rf_app.joblib` (≈ 5,5 MB, scikit-learn 1.5.2 fijado en
+   `app/requirements.txt`) y `models/artefactos_app.json`.
+2. **Sin reentrenar en vivo:** la grilla de CATE está precalculada, porque EconML no corre en la
+   app.
+3. **`models/resultados.json`:** fuente única de los números del informe y las slides; el notebook
+   lo regenera.
+
+### Antonella — Frontend & UI/UX + QA & Validation Engineer
+
+1. **Tres módulos:**
+   - **Diagnóstico:** filtros, histogramas agregados, CTR por posición, plano PCA de Train con
+     proyección de un caso.
+   - **What-Is:** probabilidad del RF, dispersión entre árboles, explicación local ceteris paribus
+     y calibración.
+   - **What-If:** DAG, ATE, OR observacional vs. benchmark, CATE por perfil y semáforo de
+     refutaciones.
+2. **`tests/test_app.py`:**
+   - Sin identificadores.
+   - Ninguna celda publicada describe menos de 10 filas.
+   - El modelo tiene hojas de al menos 100 filas y pesa menos de 50 MB.
+   - Las entradas fuera de rango se recortan.
+   - La app corre sin excepciones (`AppTest`).
+3. **UX:**
+   - Paleta validada; texto que explica la diferencia entre predecir e intervenir.
+   - El aviso del What-Is: "esto es una predicción, no un efecto causal".

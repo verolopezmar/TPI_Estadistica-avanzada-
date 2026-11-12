@@ -1,0 +1,135 @@
+---
+title: "¿El top-5 vende, o solo muestra lo que se vendería igual?"
+subtitle: "Retorno causal de un algoritmo de recomendación · EAyMR 2026 (UCA)"
+author: "V. López Marsico (Lead) · L. Báez (Backend/ML-Causal) · A. Robiollio (Frontend + QA)"
+date: 2026-11-18
+lang: es
+format:
+  beamer:
+    aspectratio: 169
+    theme: metropolis
+    fontsize: 10pt
+    pdf-engine: xelatex
+execute:
+  echo: false
+  warning: false
+jupyter: python3
+---
+
+```{python}
+import json
+from pathlib import Path
+
+R = json.loads(Path("../models/resultados.json").read_text("utf-8"))
+F1, F2, F3, F4 = R["fase1"], R["fase2"], R["fase3"], R["fase4"]
+
+
+def n(x, d=2):
+    s = f"{x:,.{d}f}"
+    return s.replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+orb, ora, ori = F4["or_benchmark"], F4["or_ajustado_R0"], F4["or_ingenuo_R0"]
+mejor = F3["mejor"]
+```
+
+## 1 · El problema de negocio
+
+- Unos 25 hoteles por búsqueda; la atención se concentra en los primeros. **Los slots del top son
+  escasos y de suma cero.**
+- El recomendador pone arriba hoteles que se venderían igual: ¿el slot **causa** ventas o solo
+  las **predice**?
+- La respuesta fija el precio de un slot premium y a quién conviene dárselo.
+
+## 2 · Datos y experimento natural
+
+- Expedia ICDM 2013 (Kaggle): `{python} n(R["fase0"]["filas_train_csv"], 0)` filas,
+  `{python} n(R["fase0"]["busquedas_train_csv"], 0)` búsquedas; muestra de
+  `{python} n(R["fase0"]["muestra_busquedas"], 0)` búsquedas completas.
+- `random_bool`: una parte de las búsquedas se mostró en **orden aleatorio**, lo que da un
+  benchmark para contrastar el supuesto Backdoor.
+- Hallazgos de la auditoría: centinelas, precio en dos escalas, slots fijos 5/11/17/23 fuera del
+  dataset, y un dataset seleccionado sobre el clic (colisionador natural).
+
+## 3 · Inferencia: el sesgo de posición existe
+
+```{python}
+c1 = F1["contraste1"]
+```
+
+- Con orden aleatorio, la tasa de clic del top-5 es **`{python} n(c1["ctr_top5"] / c1["ctr_resto"], 2)` veces**
+  la del resto de su lista (t pareado, $d_z$ = `{python} n(c1["efecto"], 3)`).
+- ANOVA de Welch (Levene rechaza): las estrellas explican $\eta^2$ =
+  `{python} n(F1["anova"]["welch"]["efecto"], 3)` del log precio.
+- El gasto por reserva no difiere entre recurrentes y nuevos (no se rechaza H0; efecto mínimo
+  detectable g = `{python} n(F1["contraste2"]["mde_g"], 3)`).
+
+![](figures/f1_ctr_posicion.png){height=45%}
+
+## 4 · Gauss-Markov y PCA
+
+- MCO del log precio: $R^2$ = `{python} n(F2["mco"]["r2"], 3)`. Breusch-Pagan rechaza → HC3;
+  colas pesadas (curtosis `{python} n(F2["gauss_markov"]["curtosis"], 1)`) → Huber de resguardo;
+  Durbin-Watson = `{python} n(F2["gauss_markov"]["durbin_watson"], 2)`.
+- `{python} F2["influencia"]["influyente_4n"]` influyentes ($D > 4/n$), ninguno con $D > 0,5$; más
+  frecuentes cuando la escala del precio es errónea. VIF máx. `{python} n(F2["vif_max_ampliado"], 2)`.
+- PCA solo en Train: PC1 = categoría-precio; PC2 = ubicación y promoción. **Lo reservado se separa
+  por PC2.**
+
+![](figures/f2_pca.png){height=40%}
+
+## 5 · Torneo predictivo
+
+```{python}
+t = F3["test"]
+```
+
+- Logística L1/L2, Naive Bayes, CART podado y Random Forest; CV agrupada por búsqueda; PR-AUC
+  como métrica (prevalencia $\approx$ 2 %).
+- Ganador: **`{python} mejor`**, con PR-AUC `{python} n(t[mejor]["PR_AUC"], 3)` y ROC-AUC
+  `{python} n(t[mejor]["ROC_AUC"], 3)`. El holdout cronológico da `{python} n(F3["cronologico"]["pr_auc"], 3)`.
+- El árbol sin poda memoriza Train (PR-AUC `{python} n(F3["arbol_libre"]["pr_auc_train"], 2)`
+  contra `{python} n(F3["arbol_libre"]["pr_auc_test"], 3)` en Test).
+
+## 6 · Calibración y explicabilidad
+
+![](figures/f3_evaluacion.png){height=42%}
+
+- El MDI favorece variables de alta cardinalidad ($\rho$ con la cardinalidad =
+  `{python} n(F3["rho_cardinalidad_mdi"], 2)`); la permutación en Test lo corrige.
+- **La posición es la variable más predictiva**, y en la regla raíz del árbol también.
+
+## 7 · DAG e identificación
+
+![](figures/f4_dag.png){height=55%}
+
+- Con el algoritmo, $Z$ bloquea $T \leftarrow Z \to Y$ pero no $T \leftarrow U \to Y$ ($U$ =
+  desempeño histórico que usa el ranker). Con orden aleatorio, el conjunto vacío alcanza.
+
+## 8 · El efecto causal: observacional vs. cuasi-experimento
+
+- OR intra-búsqueda (logit condicional): **benchmark `{python} n(orb, 2)`**, observacional
+  ajustado `{python} n(ora, 2)`, ingenuo `{python} n(ori, 2)`.
+- El ajuste por $Z$ explica el `{python} n(F4["pct_explicado_Z"], 0)` % del sesgo; el resto es
+  compatible con $U$. Un estudio solo observacional sobrevaluaría el slot en
+  `{python} n(100 * (ora / orb - 1), 0)` %.
+- Trampas: ajustar por el clic borra el efecto (mediador); condicionar en la selección o en $C$
+  induce Berkson.
+
+![](figures/f4_or_comparacion.png){height=35%}
+
+## 9 · Demo en vivo
+
+- **App Streamlit** (enlace en el README): Diagnóstico + PCA, What-Is (RF compacto, calibración,
+  explicación local), What-If (DAG, ATE, CATE por perfil, semáforo de refutaciones).
+- Solo agregados: celdas con menos de 10 filas suprimidas y hojas del modelo con al menos 100
+  filas.
+
+## 10 · Conclusiones y bitácora
+
+- **El top-5 sí causa reservas, pero menos de lo que muestran los datos del algoritmo.** Hay que
+  valuar el slot con el benchmark aleatorio y asignarlo donde el CATE es mayor.
+- La variable más predictiva **no es una palanca** en la misma magnitud: buena parte es selección.
+- Bitácora: 3+ experimentos fallidos documentados y 30 errores de IA detectados, con su test.
+- Limitaciones: aleatorización imperfecta, selección sobre el clic, SUTVA y riesgo de licencia
+  declarado.

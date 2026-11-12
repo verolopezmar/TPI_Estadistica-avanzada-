@@ -1,0 +1,850 @@
+{
+ "fase0": {
+  "filas_train_csv": 9917530,
+  "busquedas_train_csv": 399344,
+  "muestra_filas": 739323,
+  "muestra_busquedas": 30000
+ },
+ "fase1": {
+  "contraste1": {
+   "nombre": "Contraste 1 (CTR top-5 − resto, R = 1)",
+   "estadistico": "t",
+   "valor": 37.47233254018752,
+   "gl": 14982.0,
+   "p_valor": 7.74332644305928e-294,
+   "diferencia": 0.05605931232293053,
+   "ic95": [
+    0.053126932539805244,
+    0.058991692106055815
+   ],
+   "efecto_nombre": "d_z",
+   "efecto": 0.306133839005963,
+   "n": [
+    14983
+   ],
+   "alpha": 0.05,
+   "extra": {
+    "wilcoxon_W": 43261660.5,
+    "wilcoxon_p": 7.698748151269227e-131
+   },
+   "texto": "Contraste 1 (CTR top-5 − resto, R = 1): t(14982) = 37.47, p = 7.74e-294, IC 95 % [0.05313; 0.05899], d_z = 0.306 (α = 0.05) → se rechaza H0",
+   "ctr_top5": 0.10432935104229236,
+   "ctr_resto": 0.04827003871936185,
+   "mde_dz": 0.022889697736392895
+  },
+  "contraste2": {
+   "nombre": "Contraste 2 (log gasto, recurrentes − nuevos)",
+   "estadistico": "t",
+   "valor": 1.3033424090893724,
+   "gl": 1158.5571226049296,
+   "p_valor": 0.19271683470238665,
+   "diferencia": 0.038385136231643635,
+   "ic95": [
+    -0.019398729723469364,
+    0.09616900218675664
+   ],
+   "efecto_nombre": "g de Hedges",
+   "efecto": 0.04329521943615865,
+   "n": [
+    1025,
+    15039
+   ],
+   "alpha": 0.05,
+   "extra": {},
+   "texto": "Contraste 2 (log gasto, recurrentes − nuevos): t(1158.6) = 1.303, p = 0.193, IC 95 % [-0.0194; 0.09617], g de Hedges = 0.043 (α = 0.05) → no se rechaza H0",
+   "cociente_geom": 1.0391313629585688,
+   "ic_cociente": [
+    0.9807882148532525,
+    1.1009451104035683
+   ],
+   "mde_g": 0.09044425045923406,
+   "n_rec": 1025,
+   "n_nue": 15039
+  },
+  "contraste2_mw": {
+   "nombre": "Contraste 2b (gasto, Mann-Whitney)",
+   "estadistico": "U",
+   "valor": 7948703.5,
+   "gl": null,
+   "p_valor": 0.09312690860381477,
+   "diferencia": 8.590019226074219,
+   "ic95": null,
+   "efecto_nombre": "r biserial de rangos",
+   "efecto": 0.03129632062328991,
+   "n": [
+    1025,
+    15039
+   ],
+   "alpha": 0.05,
+   "extra": {},
+   "texto": "Contraste 2b (gasto, Mann-Whitney): U = 7.949e+06, p = 0.0931, r biserial de rangos = 0.031 (α = 0.05) → no se rechaza H0"
+  },
+  "anova": {
+   "clasico": {
+    "nombre": "ANOVA clásico",
+    "estadistico": "F",
+    "valor": 1820.384266092745,
+    "gl": [
+     3,
+     16060
+    ],
+    "p_valor": 0.0,
+    "diferencia": null,
+    "ic95": null,
+    "efecto_nombre": "η²",
+    "efecto": 0.2537574540232414,
+    "n": [
+     2301,
+     6662,
+     5849,
+     1252
+    ],
+    "alpha": 0.05,
+    "extra": {
+     "omega2": 0.2536062722406634
+    },
+    "texto": "ANOVA clásico: F(3; 16060) = 1820, p < 1e-300 (subdesborde de doble precisión), η² = 0.254 (α = 0.05) → se rechaza H0"
+   },
+   "levene": {
+    "nombre": "Levene (Brown-Forsythe)",
+    "estadistico": "F",
+    "valor": 56.5734682552813,
+    "gl": [
+     3,
+     16060
+    ],
+    "p_valor": 2.270588487441266e-36,
+    "diferencia": null,
+    "ic95": null,
+    "efecto_nombre": "razón de varianzas máx/mín",
+    "efecto": 1.5901932254242963,
+    "n": [
+     2301,
+     6662,
+     5849,
+     1252
+    ],
+    "alpha": 0.05,
+    "extra": {},
+    "texto": "Levene (Brown-Forsythe): F(3; 16060) = 56.57, p = 2.27e-36, razón de varianzas máx/mín = 1.590 (α = 0.05) → se rechaza H0"
+   },
+   "welch": {
+    "nombre": "ANOVA de Welch",
+    "estadistico": "F",
+    "valor": 1806.8540488107146,
+    "gl": [
+     3.0,
+     4431.974966386955
+    ],
+    "p_valor": 0.0,
+    "diferencia": null,
+    "ic95": null,
+    "efecto_nombre": "η²",
+    "efecto": 0.25375761126316754,
+    "n": [
+     2301,
+     6662,
+     5849,
+     1252
+    ],
+    "alpha": 0.05,
+    "extra": {},
+    "texto": "ANOVA de Welch: F(3; 4432.0) = 1807, p < 1e-300 (subdesborde de doble precisión), η² = 0.254 (α = 0.05) → se rechaza H0"
+   },
+   "kruskal": {
+    "nombre": "Kruskal-Wallis",
+    "estadistico": "H",
+    "valor": 4149.990928716996,
+    "gl": 3.0,
+    "p_valor": 0.0,
+    "diferencia": null,
+    "ic95": null,
+    "efecto_nombre": "ε²",
+    "efecto": 0.2583571517597582,
+    "n": [
+     2301,
+     6662,
+     5849,
+     1252
+    ],
+    "alpha": 0.05,
+    "extra": {},
+    "texto": "Kruskal-Wallis: H(3) = 4150, p < 1e-300 (subdesborde de doble precisión), ε² = 0.258 (α = 0.05) → se rechaza H0"
+   },
+   "omega2": 0.2536062722406634
+  },
+  "posthoc_cociente_5_vs_12": 2.650532283761129,
+  "centinelas": {
+   "prop_review_score": {
+    "centinela": 0.0,
+    "pct_filas": 5.170541157247914,
+    "media_antes": 3.757662365463197,
+    "media_despues": 3.9629090633711552,
+    "sesgo_media_pct": -5.179192724986725,
+    "desvio_antes": 1.0822187958528324,
+    "desvio_despues": 0.6494568897127415
+   },
+   "prop_starrating": {
+    "centinela": 0.0,
+    "pct_filas": 3.3730859177923587,
+    "media_antes": 3.1859457909465823,
+    "media_despues": 3.2971618944966647,
+    "sesgo_media_pct": -3.373085917792351,
+    "desvio_antes": 1.0503920385394896,
+    "desvio_despues": 0.8804207373072789
+   },
+   "prop_log_historical_price": {
+    "centinela": 0.0,
+    "pct_filas": 14.82559043882038,
+    "media_antes": 4.304762804742799,
+    "media_despues": 5.0540565258051435,
+    "sesgo_media_pct": -14.82559043882038,
+    "desvio_antes": 1.8601317400643924,
+    "desvio_despues": 0.5247674576801107
+   }
+  },
+  "escala_precio_pct": {
+   "por_noche": 87.45914538191502,
+   "incompatible": 9.333010531412661,
+   "por_estadia": 3.2078440866723157
+  },
+  "outliers_precio": {
+   "filas": 1445,
+   "pct": 0.19544907976621856,
+   "cerca_inf": 8.408025196075885,
+   "cerca_sup": 1951.1361182245107
+  },
+  "faltantes_pct": {
+   "gross_bookings_usd": 97.8230083468254,
+   "visitor_hist_starrating": 95.51819705325006,
+   "visitor_hist_adr_usd": 95.51427454576688,
+   "srch_query_affinity_score": 94.29992033252043,
+   "orig_destination_distance": 32.80420059973787,
+   "prop_location_score2": 22.04327472566118,
+   "prop_log_historical_price": 14.82559043882038,
+   "prop_review_score": 5.337585872480634,
+   "prop_starrating": 3.3730859177923587
+  },
+  "mcar_max_efecto": {
+   "orig_destination_distance": 0.304,
+   "prop_location_score2": 0.506,
+   "prop_review_score": 0.238,
+   "srch_query_affinity_score": 0.18,
+   "visitor_hist_starrating": 0.091
+  },
+  "zc": {
+   "comp_n_info": {
+    "rho_R0": -0.09862584178457126,
+    "rho_R1": -0.033221207804802914,
+    "D_R0": 0.10003856105082691,
+    "p_D_R0": 1.8831927158425627e-97,
+    "D_R1": 0.02670954730459614,
+    "p_D_R1": 1.938416348524189e-09,
+    "OR_T_R0": 0.9478872667461484,
+    "razon_OR_T_R1/R0": 1.0193434984042746,
+    "p_interaccion": 2.8374774596917464e-05,
+    "OR_click_bool": 0.9948665325849643,
+    "p_click_bool": 0.20327724344716291,
+    "OR_booking_bool": 1.1182044651979095,
+    "p_booking_bool": 2.9065823601354283e-17
+   },
+   "comp_saldo": {
+    "rho_R0": -0.037199408031255765,
+    "rho_R1": 0.007354366316027066,
+    "D_R0": 0.04875087907000807,
+    "p_D_R0": 1.0561011842679763e-59,
+    "D_R1": -0.0056889634984924695,
+    "p_D_R1": 0.07259812242230522,
+    "OR_T_R0": 1.1727500533994542,
+    "razon_OR_T_R1/R0": 0.8422994862572215,
+    "p_interaccion": 2.685413519427171e-18,
+    "OR_click_bool": 1.1467447126236505,
+    "p_click_bool": 2.0649215615409373e-08,
+    "OR_booking_bool": 1.1371466656752753,
+    "p_booking_bool": 0.04139215950491045
+   },
+   "comp_diff_max": {
+    "rho_R0": -0.01572103513120527,
+    "rho_R1": -0.0011588473205274318,
+    "D_R0": 1.2296040290224868,
+    "p_D_R0": 3.424439066724006e-19,
+    "D_R1": 0.2862255000711379,
+    "p_D_R1": 0.06276107889019139,
+    "OR_T_R0": 1.0024947814202767,
+    "razon_OR_T_R1/R0": 0.9985936682098404,
+    "p_interaccion": 0.05377826305488437,
+    "OR_click_bool": 1.000233664370686,
+    "p_click_bool": 0.7914012773200119,
+    "OR_booking_bool": 0.998497955146593,
+    "p_booking_bool": 0.5344382882520053
+   }
+  },
+  "slots_especiales": [
+   5,
+   11,
+   17,
+   23
+  ]
+ },
+ "fase2": {
+  "ingenuo": {
+   "r2": 0.00277621253099658,
+   "curtosis": 12192.827537565532,
+   "cook_max": 1.2145908230883402
+  },
+  "mco": {
+   "n": 12858,
+   "r2": 0.603714188650005,
+   "r2_aj": 0.6031895111739186,
+   "F": 1150.6386612078263,
+   "gl": [
+    17,
+    12840
+   ],
+   "coef": {
+    "Intercept": 0.4367981531591199,
+    "prop_starrating": 0.06010638853679259,
+    "prop_review_score": 0.054554036589821255,
+    "sin_resenas": -0.03483777709871334,
+    "prop_location_score1": 0.0037982295032474335,
+    "prop_location_score2": 0.04103145688578409,
+    "prop_log_historical_price": 0.7663932475361454,
+    "sin_historial_precio": 0.04632065490808962,
+    "prop_brand_bool": -0.002384405093562497,
+    "promotion_flag": -0.16107062606332986,
+    "srch_length_of_stay": 0.006173999302144994,
+    "srch_booking_window": 0.00045403256915192583,
+    "srch_adults_count": 0.019674363898597037,
+    "srch_children_count": 0.02606796583475669,
+    "srch_room_count": -0.02638818997770326,
+    "srch_saturday_night_bool": 0.01624622325672418,
+    "usuario_recurrente": 0.04566464519895147,
+    "random_bool": 0.0038044497719008016
+   },
+   "p_hc3": {
+    "Intercept": 2.806026090322679e-29,
+    "prop_starrating": 2.45386138555791e-37,
+    "prop_review_score": 3.7405498796798673e-19,
+    "sin_resenas": 0.12903495279312746,
+    "prop_location_score1": 0.11181880213855877,
+    "prop_location_score2": 0.01338733659551403,
+    "prop_log_historical_price": 0.0,
+    "sin_historial_precio": 1.0247629603375854e-05,
+    "prop_brand_bool": 0.7174417814722742,
+    "promotion_flag": 1.8037372135509105e-125,
+    "srch_length_of_stay": 0.0009671828041895254,
+    "srch_booking_window": 4.177353655522913e-11,
+    "srch_adults_count": 6.410254832791453e-07,
+    "srch_children_count": 9.698357414869191e-11,
+    "srch_room_count": 0.0011618894746028272,
+    "srch_saturday_night_bool": 0.006234045809165382,
+    "usuario_recurrente": 0.00018397144290038082,
+    "random_bool": 0.6592762810042316
+   }
+  },
+  "gauss_markov": {
+   "bp_lm": 516.9936906497906,
+   "bp_gl": 17,
+   "bp_p": 4.956812250053183e-99,
+   "white_lm": 989.8689585664101,
+   "white_p": 1.7075240777811163e-118,
+   "jb": 4209.255420961673,
+   "jb_p": 0.0,
+   "asimetria": 0.08242193191864632,
+   "curtosis": 5.798138578201021,
+   "durbin_watson": 1.9514946489423601
+  },
+  "influencia": {
+   "outlier_y": 119,
+   "alto_leverage": 843,
+   "influyente_4n": 746,
+   "influyente_05": 0,
+   "cook_max": 0.011692647272113282
+  },
+  "vif_max_modelo": 1.7414736647019067,
+  "vif_max_ampliado": 2.975812041702989,
+  "pca": {
+   "autovalores": [
+    3.264263137226107,
+    1.515398820107125,
+    1.184038465399915,
+    1.0017188421894756,
+    0.7492314251860815,
+    0.6368272884170325,
+    0.5723338683126409,
+    0.45467779476709597,
+    0.404548069824133,
+    0.216979214399719
+   ],
+   "pct_acum": [
+    32.64257612199385,
+    47.796538673726715,
+    59.63690328692681,
+    69.65407475392811,
+    77.14637632444716,
+    83.51463842980574,
+    89.23796742572317,
+    93.7847376776084,
+    97.83021152854975,
+    100.0
+   ],
+   "n_kaiser": 4
+  }
+ },
+ "fase3": {
+  "test": {
+   "Logística": {
+    "ROC_AUC": 0.843909164804716,
+    "PR_AUC": 0.1350405739773858,
+    "Brier": 0.019811512289604948,
+    "Precision": 0.1678369583832848,
+    "Recall": 0.3045369794903667,
+    "F1": 0.21640719885171691,
+    "F1_macro": 0.5958807501511303,
+    "F1_ponderado": 0.9589088888751239,
+    "umbral": 0.10892491417926577,
+    "F1 con umbral 0,5": 0.0
+   },
+   "Naive Bayes": {
+    "ROC_AUC": 0.7960386664308199,
+    "PR_AUC": 0.07404812547691451,
+    "Brier": 0.06967909407889339,
+    "Precision": 0.06944444444444445,
+    "Recall": 0.003107520198881293,
+    "F1": 0.00594883997620464,
+    "F1_macro": 0.49728408844371025,
+    "F1_ponderado": 0.967326124653798,
+    "umbral": 0.9998258924500424,
+    "F1 con umbral 0,5": 0.1411241664020324
+   },
+   "CART podado": {
+    "ROC_AUC": 0.8231758970218056,
+    "PR_AUC": 0.11970352401670134,
+    "Brier": 0.01984909503436614,
+    "Precision": 0.15114693118412895,
+    "Recall": 0.3788067122436296,
+    "F1": 0.2160772844101746,
+    "F1_macro": 0.592561014333108,
+    "F1_ponderado": 0.9527289028876126,
+    "umbral": 0.09210526315789473,
+    "F1 con umbral 0,5": 0.0
+   },
+   "Random Forest": {
+    "ROC_AUC": 0.8488941658881807,
+    "PR_AUC": 0.15403053645829629,
+    "Brier": 0.019575677686967125,
+    "Precision": 0.1872744539411206,
+    "Recall": 0.3064014916096955,
+    "F1": 0.23246492985971945,
+    "F1_macro": 0.6049496049648642,
+    "F1_ponderado": 0.9612917475031157,
+    "umbral": 0.1218752163125959,
+    "F1 con umbral 0,5": 0.0006213109661385523
+   }
+  },
+  "mejor": "Random Forest",
+  "rf_params": {
+   "n_estimators": 200,
+   "min_samples_split": 2,
+   "min_samples_leaf": 20,
+   "max_features": 0.3,
+   "max_depth": 24
+  },
+  "logit_params": {
+   "logisticregression__C": 0.1,
+   "logisticregression__penalty": "l1"
+  },
+  "arbol_libre": {
+   "hojas": 18896,
+   "pr_auc_train": 1.0,
+   "pr_auc_test": 0.030825929405588745
+  },
+  "arbol_podado": {
+   "alfa": 2.2841647319754758e-05,
+   "hojas": 14,
+   "profundidad": 6
+  },
+  "oob_pr_auc": 0.15120933571982703,
+  "cronologico": {
+   "pr_auc": 0.14576624210412104,
+   "roc_auc": 0.8412212106123647
+  },
+  "importancia": {
+   "prop_starrating": {
+    "MDI": 0.013875677631509516,
+    "Permutación (ΔPR-AUC)": 0.0025308206927773524
+   },
+   "prop_review_score": {
+    "MDI": 0.018578251234225348,
+    "Permutación (ΔPR-AUC)": 0.004233476485391463
+   },
+   "sin_resenas": {
+    "MDI": 0.0005022197999619518,
+    "Permutación (ΔPR-AUC)": -3.393042741372532e-05
+   },
+   "prop_location_score1": {
+    "MDI": 0.07128920846466907,
+    "Permutación (ΔPR-AUC)": 0.013704076013041345
+   },
+   "prop_location_score2": {
+    "MDI": 0.10556956396896369,
+    "Permutación (ΔPR-AUC)": 0.0265940775806859
+   },
+   "prop_location_score2_faltante": {
+    "MDI": 0.0051680511052891055,
+    "Permutación (ΔPR-AUC)": 0.0006919152161995124
+   },
+   "prop_log_historical_price": {
+    "MDI": 0.06317576206560684,
+    "Permutación (ΔPR-AUC)": 0.0010155968836272733
+   },
+   "sin_historial_precio": {
+    "MDI": 0.003104041785917789,
+    "Permutación (ΔPR-AUC)": -0.0001857981840022449
+   },
+   "prop_brand_bool": {
+    "MDI": 0.00801467778844173,
+    "Permutación (ΔPR-AUC)": 0.0005616568781744268
+   },
+   "promotion_flag": {
+    "MDI": 0.007428042609821459,
+    "Permutación (ΔPR-AUC)": 0.00044096605101792696
+   },
+   "log_precio": {
+    "MDI": 0.08010642324963606,
+    "Permutación (ΔPR-AUC)": 0.01077392434987473
+   },
+   "log_precio_rel": {
+    "MDI": 0.0968935483054777,
+    "Permutación (ΔPR-AUC)": 0.020056407525604104
+   },
+   "comp_n_info": {
+    "MDI": 0.02038942007341737,
+    "Permutación (ΔPR-AUC)": 9.793348478293607e-05
+   },
+   "comp_saldo": {
+    "MDI": 0.011320531318209003,
+    "Permutación (ΔPR-AUC)": 0.00016018901271847575
+   },
+   "slot_especial": {
+    "MDI": 0.00010722452979855534,
+    "Permutación (ΔPR-AUC)": 8.236059066650258e-05
+   },
+   "srch_length_of_stay": {
+    "MDI": 0.01739547629336878,
+    "Permutación (ΔPR-AUC)": 0.001417012451943378
+   },
+   "srch_booking_window": {
+    "MDI": 0.055855157026660066,
+    "Permutación (ΔPR-AUC)": 0.0004531299760195173
+   },
+   "srch_adults_count": {
+    "MDI": 0.009108225487451344,
+    "Permutación (ΔPR-AUC)": 0.00030877318376720255
+   },
+   "srch_children_count": {
+    "MDI": 0.007848057723706068,
+    "Permutación (ΔPR-AUC)": 0.0006904245721210788
+   },
+   "srch_room_count": {
+    "MDI": 0.003483453787370685,
+    "Permutación (ΔPR-AUC)": 0.0007030708377594619
+   },
+   "srch_saturday_night_bool": {
+    "MDI": 0.008922051887252553,
+    "Permutación (ΔPR-AUC)": 0.00043433913718691206
+   },
+   "usuario_recurrente": {
+    "MDI": 0.002352931586727996,
+    "Permutación (ΔPR-AUC)": 0.00024857672562463294
+   },
+   "con_afinidad": {
+    "MDI": 0.0023973142204896315,
+    "Permutación (ΔPR-AUC)": 0.00030816581266946975
+   },
+   "orig_destination_distance": {
+    "MDI": 0.06212614274851462,
+    "Permutación (ΔPR-AUC)": 0.0011911050005854462
+   },
+   "orig_destination_distance_faltante": {
+    "MDI": 0.006606208152283496,
+    "Permutación (ΔPR-AUC)": 0.00022310342875134782
+   },
+   "random_bool": {
+    "MDI": 0.10611258672087696,
+    "Permutación (ΔPR-AUC)": 0.07927077824064663
+   },
+   "position": {
+    "MDI": 0.21226975043435256,
+    "Permutación (ΔPR-AUC)": 0.10319076342453744
+   }
+  },
+  "rho_cardinalidad_mdi": 0.7488890609290908,
+  "ranking_top5": {
+   "R = 0": {
+    "búsquedas con reserva": 2829,
+    "top-5 de Expedia": 0.6051608342170378,
+    "top-5 del modelo (Random Forest)": 0.6281371509367267
+   },
+   "R = 1": {
+    "búsquedas con reserva": 389,
+    "top-5 de Expedia": 0.493573264781491,
+    "top-5 del modelo (Random Forest)": 0.5347043701799485
+   }
+  },
+  "pca_features_pr_auc": 0.11904606071731588
+ },
+ "fase4": {
+  "ate_dowhy": {
+   "R = 0 (algoritmo)": {
+    "ingenuo (Y ~ T)": 0.10547942755999135,
+    "ingenuo IC95": [
+     0.1032,
+     0.1078
+    ],
+    "regresión backdoor": 0.09611003884370409,
+    "regresión IC95": [
+     0.0944,
+     0.0978
+    ],
+    "IPW": 0.08902992484287872,
+    "tasa base P(Y|T=0)": 0.020646848055910764,
+    "sesgo de confusión (ingenuo − regresión)": 0.009369388716287258,
+    "sesgo relativo %": 9.74860569094549
+   },
+   "R = 1 (aleatorio)": {
+    "ingenuo (Y ~ T)": 0.010542381070104734,
+    "ingenuo IC95": [
+     0.0096,
+     0.0115
+    ],
+    "regresión backdoor": 0.009205250753681567,
+    "regresión IC95": [
+     0.0086,
+     0.0099
+    ],
+    "IPW": 0.007851900374669755,
+    "tasa base P(Y|T=0)": 0.0036898787187316577,
+    "sesgo de confusión (ingenuo − regresión)": 0.0013371303164231678,
+    "sesgo relativo %": 14.525734846368996
+   }
+  },
+  "or_intra": {
+   "R = 0 (algoritmo) | sin ajuste": {
+    "OR intra": 5.382601301062032,
+    "OR IC95": [
+     5.199,
+     5.573
+    ],
+    "p": 0.0,
+    "búsquedas informativas": 14124,
+    "MPL-EF (Δp)": 0.09731597676509596,
+    "Δp IC95": [
+     0.0949,
+     0.0997
+    ]
+   },
+   "R = 0 (algoritmo) | ajustado por Z": {
+    "OR intra": 3.37780832589996,
+    "OR IC95": [
+     3.247,
+     3.514
+    ],
+    "p": 0.0,
+    "búsquedas informativas": 14124,
+    "MPL-EF (Δp)": 0.07781109388276478,
+    "Δp IC95": [
+     0.0753,
+     0.0803
+    ]
+   },
+   "R = 1 (aleatorio) | sin ajuste": {
+    "OR intra": 3.0018228087105476,
+    "OR IC95": [
+     2.728,
+     3.304
+    ],
+    "p": 5.565458411084982e-112,
+    "búsquedas informativas": 1971,
+    "MPL-EF (Δp)": 0.008489563457025595,
+    "Δp IC95": [
+     0.0075,
+     0.0094
+    ]
+   },
+   "R = 1 (aleatorio) | ajustado por Z": {
+    "OR intra": 2.1125114781630088,
+    "OR IC95": [
+     1.903,
+     2.345
+    ],
+    "p": 1.2447468918565332e-44,
+    "búsquedas informativas": 1971,
+    "MPL-EF (Δp)": 0.006441229801896599,
+    "Δp IC95": [
+     0.0055,
+     0.0074
+    ]
+   }
+  },
+  "or_ingenuo_R0": 5.382601301062032,
+  "or_ajustado_R0": 3.37780832589996,
+  "or_benchmark": 2.1125114781630088,
+  "brecha_logor": 0.9352942568430279,
+  "pct_explicado_Z": 49.8179789121255,
+  "sens_top4": {
+   "or": 2.1281394417026527,
+   "ic": [
+    1.9173350497293438,
+    2.3621210512840736
+   ]
+  },
+  "mediador": {
+   "efecto total (ajuste Z)": {
+    "Δp": 0.07781109388276478,
+    "IC95": [
+     0.0753,
+     0.0803
+    ],
+    "p": 0.0
+   },
+   "ajustando además por el clic (M)": {
+    "Δp": 0.004153768843279783,
+    "IC95": [
+     0.0031,
+     0.0052
+    ],
+    "p": 9.868179551222471e-16
+   },
+   "solo hoteles clickeados (condicionar en M)": {
+    "Δp": 0.11495480386585163,
+    "IC95": [
+     0.0452,
+     0.1847
+    ],
+    "p": 0.0012457606604473347
+   }
+  },
+  "seleccion_sim": {
+   "todas las listas": {
+    "listas": 4000,
+    "OR intra": 2.320092801329165,
+    "OR IC95": [
+     2.156,
+     2.496
+    ],
+    "Δp (MPL-EF)": 0.033756049677238414,
+    "Δp IC95": [
+     0.0302,
+     0.0373
+    ]
+   },
+   "solo listas con ≥ 1 evento (S = 1)": {
+    "listas": 1964,
+    "OR intra": 2.320092801329165,
+    "OR IC95": [
+     2.156,
+     2.496
+    ],
+    "Δp (MPL-EF)": 0.06835127450218029,
+    "Δp IC95": [
+     0.0615,
+     0.0752
+    ]
+   }
+  },
+  "colisionador_C": {
+   "todas las filas (R = 1)": {
+    "n": 363126,
+    "corr(T, location_score2)": 0.10514496087332595,
+    "p corr": 0.0,
+    "Δp ingenuo": 0.010542381070104734,
+    "Δp IC95": [
+     0.0096,
+     0.0115
+    ]
+   },
+   "condicionando en C = 1": {
+    "n": 31329,
+    "corr(T, location_score2)": 0.1254951010266625,
+    "p corr": 0.0,
+    "Δp ingenuo": 0.013635182208626823,
+    "Δp IC95": [
+     0.0096,
+     0.0177
+    ]
+   }
+  },
+  "refutaciones": {
+   "Causa común aleatoria": {
+    "ATE original": 0.09611003884370409,
+    "ATE refutado": 0.09611000366658427,
+    "p": 0.48483351462576807,
+    "criterio": "estable si p > 0,05",
+    "pasa": true
+   },
+   "Placebo (T permutado)": {
+    "ATE original": 0.09611003884370409,
+    "ATE refutado": -0.0001699597834247557,
+    "p": 0.41634976246509536,
+    "criterio": "pasa si ATE ≈ 0 y p > 0,05 (no se rechaza que el placebo sea nulo)",
+    "pasa": true
+   },
+   "Subconjunto 80 %": {
+    "ATE original": 0.09611003884370409,
+    "ATE refutado": 0.09619809508041306,
+    "p": 0.4426719849296009,
+    "criterio": "pasa si queda en el IC original [0.0944; 0.0978]",
+    "pasa": true
+   }
+  },
+  "sens_u": [
+   {
+    "fuerza sobre T (fracción de T invertida)": 0.01,
+    "fuerza sobre Y": 0.01,
+    "ATE con U simulado": 0.08926178237721308,
+    "cambio %": -7.125433044125362
+   },
+   {
+    "fuerza sobre T (fracción de T invertida)": 0.02,
+    "fuerza sobre Y": 0.02,
+    "ATE con U simulado": 0.08005548982285696,
+    "cambio %": -16.7043414132371
+   },
+   {
+    "fuerza sobre T (fracción de T invertida)": 0.05,
+    "fuerza sobre Y": 0.05,
+    "ATE con U simulado": 0.05012014424582932,
+    "cambio %": -47.851291239892625
+   },
+   {
+    "fuerza sobre T (fracción de T invertida)": 0.1,
+    "fuerza sobre Y": 0.1,
+    "ATE con U simulado": -0.014724068315785363,
+    "cambio %": -115.32001078444046
+   }
+  ],
+  "dml": {
+   "R = 0": {
+    "ATE": 0.08327916620402309,
+    "IC95": [
+     0.07883924455472029,
+     0.0877190878533259
+    ],
+    "tasa_base": 0.0202119792950456
+   },
+   "R = 1": {
+    "ATE": 0.0073357703815100095,
+    "IC95": [
+     0.005897183455689263,
+     0.008774357307330756
+    ],
+    "tasa_base": 0.0036581174198405814
+   }
+  },
+  "gasto_medio": 383.4863586425781,
+  "gasto_mediana": 223.26998901367188,
+  "p_top5_R1": 0.014232259788854737,
+  "p_resto_R1": 0.0036898787187316577
+ }
+}

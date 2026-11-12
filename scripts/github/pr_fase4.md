@@ -9,7 +9,10 @@ Cierra la **Fase 4** (inferencia causal, Causal ML y el choque causal vs. predic
 - `requirements.txt`: `networkx==3.4.2` (dowhy 0.12 rompe con networkx ≥ 3.5; ia_log, error 26).
 
 ### Resultados principales (notebook, sección 4; llegan con el PR de la Fase 5)
-RESULTADOS_F4
+- OR intra-búsqueda del top-5: **benchmark (orden aleatorio, ajustado) 2,11 [1,90; 2,35]**; observacional ajustado 3,38 [3,25; 3,51]; ingenuo 5,38. El observacional sobreestima un 60 % aun ajustado: el Backdoor con Z observado se rechaza empíricamente.
+- DoWhy (R = 0): ingenuo 0,1055; regresión 0,0961; IPW 0,0890. Las 3 refutaciones pasan; un U simulado moderado reduce el ATE un 48 %.
+- Mediador: el clic absorbe el 94,7 % del efecto. Selección S: el OR se conserva y la Δp se duplica (simulación con verdad conocida).
+- DML: ATE 0,083 (R = 0) y 0,007 (R = 1). CATE mayor con precio relativo bajo y buena ubicación.
 
 ### A revisar con atención
 1. Que la conclusión causal (benchmark con orden aleatorio vs. observacional ajustado) esté bien planteada y declarada en sus límites.
@@ -22,7 +25,7 @@ RESULTADOS_F4
 
 ## Evidencia
 - [x] `ruff check .` y `ruff format --check .` sin errores
-- [x] `pytest` en verde: TESTS
+- [x] `pytest` en verde: 116 passed, 1 skipped, 2 xfailed (con la muestra real; en CI los tests de datos se saltean)
 - [x] Sin datos en el diff
 - [x] Uso de IA registrado en `docs/ia_log.md`
 

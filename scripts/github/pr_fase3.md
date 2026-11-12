@@ -10,7 +10,10 @@ Cierra la **Fase 3** (torneo predictivo, calibración y explicabilidad). Milesto
 - `compN_inv = −1` como faltante con indicador (aprobado por Verónica el 12/11).
 
 ### Resultados principales
-RESULTADOS_F3
+- Ganador: **Random Forest**, con PR-AUC 0,154 en Test (prevalencia 0,022), ROC-AUC 0,849 y Brier 0,0196. Le siguen la logística L1 (0,135) y el CART podado (0,120); Naive Bayes queda último (0,074; Brier 0,0697).
+- CART sin poda: 18.896 hojas, PR-AUC Train 1,000 vs. Test 0,031. Podado: 14 hojas, regla raíz `position <= 4,5`.
+- OOB (0,1512) y CV convergen al crecer el número de árboles. Holdout cronológico: PR-AUC 0,146.
+- MDI vs. cardinalidad: rho = 0,749. Por permutación, la variable más importante es `position` (caída de PR-AUC de 0,103).
 
 ### A revisar con atención
 1. Búsqueda de hiperparámetros en una submuestra del 25 % de las búsquedas de Train (justificación de cómputo) con reentrenamiento en todo Train.
@@ -23,7 +26,7 @@ RESULTADOS_F3
 
 ## Evidencia
 - [x] `ruff check .` y `ruff format --check .` sin errores
-- [x] `pytest` en verde (local, con datos): TESTS
+- [x] `pytest` en verde (local, con datos): 116 passed, 1 skipped, 2 xfailed (con la muestra real; en CI los tests de datos se saltean)
 - [x] Sin datos en el diff (`test_ningun_archivo_de_datos_trackeado`)
 - [x] Notebook ejecutado de punta a punta
 - [x] Uso de IA registrado en `docs/ia_log.md`
