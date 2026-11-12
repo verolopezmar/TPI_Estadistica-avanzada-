@@ -1,6 +1,8 @@
 # DAG causal — borrador para revisión (Fase 0)
 
-> Para: Lucía (Backend & ML/Causal) y Verónica (Lead). Código: `src/tpi/dag.py`.
+> Borrador de Claude Code (11/11/2026) para revisión. Código: `src/tpi/dag.py`.
+> **Resuelto el 12/11/2026 por Verónica:** las preguntas abiertas de la sección 5 se respondieron en
+> `docs/ia_log.md` ("Decisiones (12/11/2026)"); las amenazas nuevas están en la BITÁCORA, Entrada 4.
 > Propiedades verificadas por d-separación: `tests/test_dag.py` (9 tests en verde).
 > Todavía **sin datos**: los arcos son supuestos de dominio que la Fase 1 puede contradecir.
 
@@ -81,7 +83,7 @@ queda como análisis de sensibilidad (curva dosis-respuesta), porque el umbral 5
 - **Precio por noche vs. por estadía.** Si `price_usd` mezcla unidades, Zh tiene error de
   medición (se audita en la Fase 1).
 
-## 5. Preguntas abiertas para Lucía
+## 5. Preguntas abiertas (respondidas por Verónica el 12/11)
 
 1. ¿T binaria (top-5) o continua (posición)? ¿Top-3 / top-5 / top-10 como sensibilidad?
 2. ¿Y principal = conversión (`booking_bool`) o gasto (`gross_bookings_usd`, solo condicional

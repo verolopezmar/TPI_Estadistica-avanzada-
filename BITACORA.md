@@ -12,9 +12,13 @@ commits: registra **qué decidimos, por qué, y qué salió mal**.
 | Antonella Robiollio | Frontend & UI/UX Engineer + QA & Validation Engineer | `— A. Robiollio (Frontend/QA)` |
 
 Asignación (Fase 0, 11/11/2026): somos tres para cuatro roles. QA se combina con Frontend porque
-la app recién se construye en la Fase 5; hasta entonces la carga de Antonella es auditar los PRs del
-backend. Para evitar que se autoapruebe, en los PRs de la app el veredicto lo emite Lucía como QA
-suplente.
+la app recién se construye en la Fase 5. La asignación la propuso Claude Code y la aprobó Verónica.
+
+**Reorganización (12/11/2026, decisión de Verónica).** Desde esta fecha Verónica ejecuta y valida
+todo el trabajo con asistencia de Claude Code, incluidos los veredictos de QA en los PRs. Los roles
+de la tabla se mantienen porque la defensa oral es por rol; Lucía y Antonella no revisan ni validan
+PRs. Cada PR registra quién lo revisó realmente, y `docs/ia_log.md` registra quién propuso y quién
+aprobó cada decisión.
 
 ---
 
@@ -85,17 +89,16 @@ random_bool (R) = 1: el ranker se reemplaza por un orden (casi) aleatorio
 **Verificación de la premisa experimental.** La definición se cumple en el mecanismo, pero no en
 forma pura: con R = 1 la asociación intra-búsqueda posición–atributo cae entre 71 % y 87 %
 respecto del algoritmo, aunque sigue siendo distinta de cero para `prop_starrating`
-(ρ̄ = −0,0743) y `prop_location_score2` (ρ̄ = −0,0651). **Decisión:** R = 1 se usa como
-cuasi-experimento con ajuste por Z y efectos fijos por búsqueda (detalle en `docs/ia_log.md`,
-error 10).
+(ρ̄ = −0,0743) y `prop_location_score2` (ρ̄ = −0,0651). **Decisión** (propuesta por Claude Code, aprobada por Verónica el 12/11):
+R = 1 se usa como cuasi-experimento con ajuste por Z y efectos fijos por búsqueda (detalle en
+`docs/ia_log.md`, error 10).
 
 **Restricción legal y plan B.** Las reglas de la competencia declaran confidenciales los datos y
-los "resulting model parameters", y el TP exige repo y app públicos. Consultamos al profesor.
+los "resulting model parameters", y el TP exige repo y app públicos. Verónica envía la consulta a
+la cátedra el 12/11; si el 14/11 no hay respuesta o es negativa, se activa el plan B.
 Mientras tanto: ningún dato en el repo (lo garantiza un test), crudo fuera de OneDrive, la app
 solo muestra agregados, y el plan B (Online Shoppers, UCI #468, CC BY 4.0, con tratamiento
 semisintético) queda evaluado y activable con una variable de entorno (`docs/plan_b.md`).
-
-_Firma: pendiente — V. López Marsico (Lead)._
 
 ## Entrada 2 — Matriz de decisiones estadísticas y supuestos
 *Responsables: Backend/ML + QA.* Pendiente (Fases 1 y 2).
@@ -137,8 +140,8 @@ búsquedas). Consecuencias:
   que incluye a los usuarios que no hacen clic, **no está identificado** con estos datos, y así
   hay que decirlo en las recomendaciones de negocio.
 
-**(c) ¿Mitiga la comparación dentro de la búsqueda?** En parte, y por eso la elegimos (decisión
-del 12/11):
+**(c) ¿Mitiga la comparación dentro de la búsqueda?** En parte, y por eso la elegimos (propuesta
+de Claude Code, aprobada por Verónica el 12/11; el planteo de los puntos a-c es de Verónica):
 
 - *Lo que resuelve.* Como $M_{is} = 1 \Rightarrow S_s = 1$, para cada hotel
   $\Pr(M_{is}=1 \mid T_{is}=t, S_s=1, L_s) = \Pr(M_{is}=1 \mid T_{is}=t, L_s) / \Pr(S_s=1 \mid T_{is}=t, L_s)$,
