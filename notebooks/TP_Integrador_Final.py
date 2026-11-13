@@ -865,3 +865,472 @@ plt.show()
 # | $Z_c$ = {`comp_n_info`, `comp_saldo`} son confusores | Tabla 1.4 | Entran al ajuste en la Fase 4 |
 # | Slots estructurales 5/11/17/23 fuera del dataset | Presencia por posición | T = top-5 en pantalla ≈ 4 hoteles del dataset |
 # | Faltantes MAR y MNAR estructurales, ninguno MCAR | Tabla 1.3 | Imputación por grupo + indicadores; los MNAR no se imputan |
+
+# %% [markdown]
+# ---
+# # Fase 2 — Diagnóstico de Gauss-Markov, puntos influyentes y reducción PCA
+#
+# ## 2.0 Partición Train/Test (única para las Fases 2 a 4)
+#
+# 80/20 **agrupada por búsqueda** (ninguna lista queda partida entre Train y Test) y
+# **estratificada por `random_bool`**, con `SEED = 42` (`tpi.particion`). Toda la Fase 2 se estima
+# **solo con Train**; Test queda intacto para el torneo de la Fase 3. La partición es aleatoria y no
+# cronológica porque el período es corto (8 meses) y el objetivo es generalizar a búsquedas nuevas
+# del mismo período (ver Durbin-Watson en 2.2).
+
+# %%
+import statsmodels.api as sm
+from sklearn.linear_model import HuberRegressor, RANSACRegressor
+
+from tpi.particion import es_train
+from tpi.regresion import ajustar_pca, diagnostico_gauss_markov, influencia, resumen_pca, tabla_vif
+
+df["train"] = es_train(df)
+print(
+    df.groupby("train").agg(
+        busquedas=("srch_id", "nunique"), filas=("srch_id", "size"), pct_R1=("random_bool", "mean")
+    )
+)
+
+# %% [markdown]
+# ## 2.1 Modelo lineal de referencia (MCO): precio hedónico del hotel reservado
+#
+# **Unidad:** la reserva (una por búsqueda, así que las observaciones son independientes), en Train
+# y sin precios outlier. **Respuesta:** $Y = \log(\text{precio por noche})$. Las pendientes se leen
+# como semielasticidades: $100\,(e^{\beta_j}-1)$ % de cambio en el precio por unidad de $X_j$.
+#
+# $$\log(\text{precio})_i = \beta_0 + \sum_{j=1}^{p} \beta_j X_{ij} + \varepsilon_i, \qquad
+#   \mathbb{E}[\varepsilon \mid X] = 0,\; \operatorname{Var}(\varepsilon \mid X) = \sigma^2 I$$
+#
+# Bajo Gauss-Markov (linealidad, exogeneidad, homocedasticidad, no autocorrelación, rango completo)
+# el estimador MCO $\hat\beta = (X^\top X)^{-1}X^\top y$ es el de mínima varianza entre los lineales
+# insesgados. La normalidad de $\varepsilon$ solo hace falta para que las pruebas t y F sean exactas
+# en muestras chicas; con $n$ en miles valen asintóticamente.
+#
+# **Contrastes:** $F$ global, $H_0: \beta_1 = \dots = \beta_p = 0$; $t$ individual,
+# $H_0: \beta_j = 0$.
+#
+# **Experimento previo (fallido, Entrada 3).** Primero ajustamos la especificación ingenua: precio
+# crudo en USD, sin log y sin quitar outliers.
+
+# %%
+X_MCO = [
+    "prop_starrating", "prop_review_score", "sin_resenas", "prop_location_score1",
+    "prop_location_score2", "prop_log_historical_price", "sin_historial_precio", "prop_brand_bool",
+    "promotion_flag", "srch_length_of_stay", "srch_booking_window", "srch_adults_count",
+    "srch_children_count", "srch_room_count", "srch_saturday_night_bool", "usuario_recurrente",
+    "random_bool",
+]  # fmt: skip
+reservas_tr = df[df.train & (df.booking_bool == 1)].sort_values("date_time").copy()
+ingenuo = smf.ols("price_usd ~ " + " + ".join(X_MCO), reservas_tr).fit()
+dg_ing = diagnostico_gauss_markov(ingenuo)
+inf_ing = influencia(ingenuo)
+print(
+    f"INGENUO (precio crudo, con outliers): n = {int(ingenuo.nobs)}, R² = {ingenuo.rsquared:.4f}, "
+    f"JB = {dg_ing.jb:.4g}, curtosis = {dg_ing.curtosis:.1f}, Cook máx = {inf_ing.cook.max():.3f}, "
+    f"obs. con D > 0,5: {int(inf_ing.influyente_05.sum())}"
+)
+
+rtr = reservas_tr[reservas_tr.precio_outlier == 0].copy()
+rtr["log_precio_noche"] = np.log(rtr["price_usd"])
+FORMULA = "log_precio_noche ~ " + " + ".join(X_MCO)
+mco = smf.ols(FORMULA, rtr).fit()
+print(mco.summary().tables[0])
+from tpi.inferencia import _p as formato_p
+
+print(
+    f"F global: F({int(mco.df_model)}; {int(mco.df_resid)}) = {mco.fvalue:.2f}, {formato_p(mco.f_pvalue)}"
+)
+ic_mco = mco.conf_int()
+pd.DataFrame(
+    {
+        "coef": mco.params,
+        "ee": mco.bse,
+        "t": mco.tvalues,
+        "p": mco.pvalues,
+        "IC95_inf": ic_mco[0],
+        "IC95_sup": ic_mco[1],
+        "efecto_%": 100 * (np.exp(mco.params) - 1),
+    }
+).round(4)
+
+# %% [markdown]
+# **Experimento fallido (Entrada 3).** El modelo ingenuo sobre el precio crudo explica el 0,28 % de la
+# varianza (R² = 0,0028, n = 12.877). Sus residuos tienen curtosis 12.192,8 (JB = 7,975·10¹⁰) y una
+# sola observación tiene distancia de Cook 1,215 (> 0,5): un precio imposible domina la estimación.
+# Las dos correcciones de la Fase 1 (log y outliers) lo resuelven.
+#
+# **Modelo corregido** (n = 12.858 reservas de Train): R² = 0,604, R² ajustado = 0,603. El F global
+# rechaza $H_0$ de que todas las pendientes son nulas: F(17; 12840) = 1151 (p-valor exacto en la
+# salida). Lectura de los coeficientes significativos, como cambio porcentual del precio por noche:
+#
+# * **Precio histórico del hotel** ($\beta$ = 0,766, t = 91,46): es casi una elasticidad. Un 1 % más
+#   de precio histórico se asocia con un 0,77 % más de precio actual; es el regresor dominante.
+# * **Estrellas** (+6,2 % por estrella, t = 13,36) y **reseñas** (+5,6 % por punto, t = 9,06),
+#   netos del precio histórico.
+# * **Promoción:** −14,9 % (t = −24,91), el descuento visible.
+# * **Usuario recurrente:** +4,7 % (t = 3,94). Los recurrentes reservan hoteles algo más caros por
+#   noche (compatible con el contraste 2 de la Fase 1, que no encontró diferencias en el gasto
+#   total).
+# * **No se rechaza $H_0$** para `random_bool` (p = 0,661): el precio del hotel reservado no
+#   difiere entre orden aleatorio y orden del algoritmo, condicional a sus atributos. Tampoco para
+#   marca (p = 0,705), ausencia de reseñas (p = 0,066) ni `location_score1` (p = 0,082).
+#
+# Es un modelo **descriptivo** del precio, no causal: sirve de referencia para auditar los supuestos
+# de Gauss-Markov sobre datos reales.
+
+# %% [markdown]
+# ## 2.2 Auditoría de los supuestos de Gauss-Markov
+#
+# * **Homocedasticidad:** Breusch-Pagan ($H_0$: $\operatorname{Var}(\varepsilon\mid X) = \sigma^2$;
+#   LM $= nR^2$ de la regresión auxiliar de $\hat\varepsilon^2$ sobre $X$, $\chi^2_p$) y White
+#   (agrega cuadrados y productos cruzados).
+# * **Normalidad:** Jarque-Bera, $JB = \frac{n}{6}\left(S^2 + \frac{(K-3)^2}{4}\right) \sim \chi^2_2$, y Q-Q.
+# * **Independencia:** las reservas están ordenadas por fecha, así que el Durbin-Watson
+#   $d = \sum (\hat\varepsilon_t - \hat\varepsilon_{t-1})^2 / \sum \hat\varepsilon_t^2 \approx 2(1-\hat\rho)$
+#   mide autocorrelación temporal de primer orden.
+
+# %%
+dg = diagnostico_gauss_markov(mco)
+print(f"Breusch-Pagan: LM = {dg.bp_lm:.2f}, gl = {dg.bp_gl}, {formato_p(dg.bp_p)}")
+print(f"White: LM = {dg.white_lm:.2f}, {formato_p(dg.white_p)}")
+print(
+    f"Jarque-Bera: JB = {dg.jb:.2f}, {formato_p(dg.jb_p)} | asimetría = {dg.asimetria:.3f}, "
+    f"curtosis = {dg.curtosis:.3f}"
+)
+print(f"Durbin-Watson (orden temporal): d = {dg.durbin_watson:.4f}")
+mco_hc3 = smf.ols(FORMULA, rtr).fit(cov_type="HC3")
+comp_ee = pd.DataFrame(
+    {"coef": mco.params, "ee_MCO": mco.bse, "ee_HC3": mco_hc3.bse, "p_HC3": mco_hc3.pvalues}
+)
+comp_ee["razon_ee"] = comp_ee["ee_HC3"] / comp_ee["ee_MCO"]
+comp_ee.round(4)
+
+# %%
+fig, ax = plt.subplots(1, 3, figsize=(13, 3.6))
+hb = ax[0].hexbin(
+    mco.fittedvalues, mco.resid, gridsize=60, cmap=gr.SECUENCIAL, mincnt=1, bins="log"
+)
+ax[0].axhline(0, color=gr.NARANJA, lw=1.5)
+ax[0].set(xlabel="Valor ajustado ŷ (log USD)", ylabel="Residuo", title="Residuos vs. ajustados")
+fig.colorbar(hb, ax=ax[0], label="observaciones (log)")
+sm.qqplot(
+    mco.resid,
+    line="s",
+    ax=ax[1],
+    markersize=2,
+    alpha=0.4,
+    markerfacecolor=gr.AZUL,
+    markeredgecolor=gr.AZUL,
+)
+ax[1].get_lines()[1].set(color=gr.NARANJA, lw=1.5)
+ax[1].set(title="Q-Q de residuos", xlabel="Cuantil teórico N(0,1)", ylabel="Cuantil muestral")
+cuantiles = pd.qcut(mco.fittedvalues, 20)
+disp = mco.resid.groupby(cuantiles, observed=True).std()
+ax[2].plot(
+    mco.fittedvalues.groupby(cuantiles, observed=True).mean(), disp, "o-", color=gr.AZUL, ms=5
+)
+ax[2].set(
+    xlabel="ŷ (media del ventil)",
+    ylabel="Desvío de los residuos",
+    title="Dispersión por ventil de ŷ",
+)
+fig.tight_layout()
+gr.guardar(fig, "f2_residuos")
+plt.show()
+
+# %% [markdown]
+# **Homocedasticidad: se rechaza.** Breusch-Pagan LM = 516,99 (gl = 17, p = 4,96·10⁻⁹⁹) y White
+# LM = 989,87 (p = 1,71·10⁻¹¹⁸). El panel derecho lo muestra: el desvío de los residuos va de 0,26 a
+# 0,37 según el nivel de precio ajustado. (El aviso de "matriz de rango incompleto" del test de White
+# viene de elevar al cuadrado regresores binarios, que son iguales a sí mismos: statsmodels lo
+# resuelve con pseudoinversa y no afecta el estadístico.)
+# **Remediación:** errores estándar robustos **HC3**. Los EE suben hasta un 31 %
+# (`sin_historial_precio`) y un 21 % (`sin_resenas`, cuyo p pasa de 0,066 a 0,129). Las
+# conclusiones sustantivas no cambian; los coeficientes MCO siguen siendo insesgados, solo era
+# incorrecta su varianza.
+#
+# **Normalidad: se rechaza** (JB = 4209,26; p < 10⁻³⁰⁰), pero con asimetría 0,082 y **curtosis
+# 5,798**: colas pesadas y simétricas, visibles en los extremos del Q-Q. Con n = 12.858, los
+# contrastes t y F siguen siendo válidos asintóticamente (TCL); las colas pesadas motivan los
+# estimadores robustos de 2.3.
+#
+# **Independencia:** Durbin-Watson = 1,9515 con las reservas en orden temporal, compatible con
+# ausencia de autocorrelación de primer orden ($\hat\rho \approx 1 - d/2 = 0{,}024$). Respalda la
+# partición aleatoria (no cronológica) de 2.0.
+
+# %% [markdown]
+# ## 2.3 Observaciones extremas y puntos influyentes
+#
+# * Residuo estudentizado externo: $r_i = \hat\varepsilon_i / (\hat\sigma_{(i)}\sqrt{1-h_{ii}})$; outlier de respuesta si $|r_i| > 3$.
+# * Leverage $h_{ii}$ (diagonal de $H = X(X^\top X)^{-1}X^\top$): extremo en $X$ si $h_{ii} > 2(p+1)/n$.
+# * Cook: $D_i = \frac{\hat\varepsilon_i^2}{(p+1)\,\mathrm{MSE}}\left[\frac{h_{ii}}{(1-h_{ii})^2}\right]$; influyente si $D_i > 4/n$ o $D_i > 0{,}5$.
+#
+# **¿Error de medición o caso real?** Cruzamos los influyentes con el diagnóstico de escala del precio
+# de la Fase 1 (reservas cuyo gasto es compatible con precio por noche, por estadía o con ninguno).
+
+# %%
+inf = influencia(mco)
+n_obs, k = int(mco.nobs), mco.model.exog.shape[1]
+print(f"n = {n_obs}, p + 1 = {k} | umbrales: h > {2 * k / n_obs:.5f}, D > {4 / n_obs:.6f}")
+print(
+    inf[["outlier_y", "alto_leverage", "influyente_4n", "influyente_05"]].sum().to_dict(),
+    f"| D máx = {inf.cook.max():.4f}",
+)
+esc_tr = diagnostico_escala_precio(rtr)[["escala"]]
+cruce = (
+    rtr[[]]
+    .join(esc_tr)
+    .fillna({"escala": "1 noche (sin ambigüedad)"})
+    .join(inf[["influyente_4n", "outlier_y"]])
+)
+cruce.groupby("escala")[["influyente_4n", "outlier_y"]].agg(["mean", "size"]).round(4)
+
+# %%
+y_r, X_r = rtr["log_precio_noche"], rtr[X_MCO].astype(float)
+huber = HuberRegressor(epsilon=1.35, max_iter=1000).fit(X_r, y_r)
+# RANSAC con el umbral por defecto (MAD de y, no de los residuos): experimento fallido (Entrada 3)
+ransac = RANSACRegressor(random_state=SEED).fit(X_r, y_r)
+# RANSAC corregido: umbral = 3 · σ robusto de los residuos MCO (1,4826 · MAD)
+sigma_rob = 1.4826 * np.median(np.abs(mco.resid - np.median(mco.resid)))
+ransac3 = RANSACRegressor(residual_threshold=3 * sigma_rob, random_state=SEED).fit(X_r, y_r)
+sin_inf = smf.ols(FORMULA, rtr[~inf["influyente_4n"].to_numpy()]).fit()
+robustez = pd.DataFrame(
+    {
+        "MCO": mco.params[X_MCO],
+        "MCO sin D>4/n": sin_inf.params[X_MCO],
+        "Huber": pd.Series(huber.coef_, index=X_MCO),
+        "RANSAC (defecto)": pd.Series(ransac.estimator_.coef_, index=X_MCO),
+        "RANSAC (3σ rob.)": pd.Series(ransac3.estimator_.coef_, index=X_MCO),
+    }
+)
+print(
+    f"RANSAC defecto: {ransac.inlier_mask_.mean():.2%} de inliers | RANSAC 3σ: "
+    f"{ransac3.inlier_mask_.mean():.2%} | Huber: {np.mean(huber.outliers_):.2%} marcados como outliers"
+)
+print(
+    "Máx. |coef − MCO sin influyentes|:",
+    (robustez.drop(columns="MCO sin D>4/n").sub(robustez["MCO sin D>4/n"], axis=0))
+    .abs()
+    .max()
+    .round(4)
+    .to_dict(),
+)
+print(f"R² MCO sin influyentes: {sin_inf.rsquared:.4f} (n = {int(sin_inf.nobs)})")
+robustez.round(4)
+
+# %%
+fig, ax = plt.subplots(figsize=(7.5, 4.2))
+tam = 4 + 400 * inf["cook"] / inf["cook"].max()
+ax.scatter(inf["leverage"], inf["r_ext"], s=tam, color=gr.AZUL, alpha=0.35, lw=0)
+ax.axhline(3, color=gr.TEXTO_2, ls="--", lw=1)
+ax.axhline(-3, color=gr.TEXTO_2, ls="--", lw=1)
+ax.axvline(2 * k / n_obs, color=gr.NARANJA, ls="--", lw=1)
+ax.annotate("|r| = 3", xy=(inf.leverage.max() * 0.6, 3.3), fontsize=8, color=gr.TEXTO_2)
+ax.annotate(
+    "h = 2(p+1)/n",
+    xy=(2 * k / n_obs, inf.r_ext.max() * 0.97),
+    xytext=(6, 0),
+    textcoords="offset points",
+    fontsize=8,
+    color=gr.TEXTO_2,
+)
+ax.set(
+    xscale="log",
+    xlabel="Leverage h_ii (escala log)",
+    ylabel="Residuo estudentizado externo",
+    title="Influencia (tamaño ∝ distancia de Cook)",
+)
+fig.tight_layout()
+gr.guardar(fig, "f2_influencia")
+plt.show()
+
+# %% [markdown]
+# **Diagnóstico** (n = 12.858, p + 1 = 18): 119 outliers de respuesta (|r| > 3), 843 puntos de alto
+# leverage (h > 0,0028) y 746 influyentes según D > 4/n = 0,000311. **Ningún punto supera
+# D = 0,5** (D máx = 0,0117). No hay un punto que, por sí solo, mueva la recta; hay un grupo de
+# puntos moderadamente influyentes.
+#
+# **¿Error de medición o caso real?** Cruzado con el diagnóstico de escala del precio (Fase 1), la
+# tasa de influyentes es del 4,85 % en reservas de 1 noche y del 6,37 % en las compatibles con
+# precio por noche, pero sube al **7,91 %** en las de precio por estadía y al **9,51 %** en las
+# incompatibles con ambas escalas. Lo mismo ocurre con los outliers de respuesta: 0,82-0,83 %
+# contra 1,86 % y 2,62 %. **Parte de la influencia es error de medición** (precio informado en la
+# escala equivocada). El resto son casos reales de colas pesadas.
+#
+# **Regresión robusta:**
+# * Quitar los 746 influyentes sube el R² a 0,6857 y cambia los coeficientes a lo sumo en 0,023
+#   (estrellas: 0,060 → 0,045).
+# * **Huber** ($\epsilon$ = 1,35) llega casi a los mismos coeficientes que MCO sin influyentes
+#   (diferencia máxima 0,012) sin descartar datos: es la especificación de resguardo.
+# * **RANSAC con el umbral por defecto: experimento fallido (Entrada 3).** El umbral por defecto es
+#   la MAD de *y*, no de los residuos, y con 17 regresores deja solo el 55,02 % de inliers. Los
+#   coeficientes se vuelven inestables: estrellas −0,046, habitaciones +0,312; diferencia máxima con
+#   MCO sin influyentes, 0,341.
+# * Con el umbral corregido (3 σ̂ robustos de los residuos MCO) retiene el 89,03 % y la diferencia
+#   máxima baja a 0,058.
+#
+# **Decisión:** MCO con errores HC3 como especificación principal, y Huber como resguardo. Los
+# influyentes no se eliminan: la mayoría son casos reales, y la parte que es error de medición ya
+# está neutralizada en las fases siguientes por el precio relativo a la búsqueda.
+
+# %% [markdown]
+# ## 2.4 Multicolinealidad (VIF)
+#
+# $\mathrm{VIF}_j = 1/(1-R_j^2)$, donde $R_j^2$ es el de la regresión de $X_j$ sobre los demás
+# regresores. Mide cuánto se infla $\operatorname{Var}(\hat\beta_j)$ respecto de regresores
+# ortogonales. Umbrales: 5 (atención) y 10 (severa). Lo calculamos para el modelo de 2.1 y para el
+# conjunto ampliado que usará el torneo de la Fase 3 (agrega precio, precio relativo, competidores y
+# posición).
+
+# %%
+X_AMPLIADO = X_MCO + [
+    "log_precio",
+    "log_precio_rel",
+    "comp_n_info",
+    "position",
+    "prop_location_score2_faltante",
+]
+vif = pd.concat(
+    {
+        "VIF modelo 2.1": tabla_vif(rtr[X_MCO]),
+        "VIF conjunto ampliado (Fase 3)": tabla_vif(df.loc[df.train, X_AMPLIADO]),
+    },
+    axis=1,
+)
+vif.sort_values("VIF conjunto ampliado (Fase 3)", ascending=False).round(2).head(10)
+
+# %% [markdown]
+# **No hay multicolinealidad relevante.** En el modelo de 2.1 el VIF máximo es 1,74 (precio
+# histórico) y 1,70 (estrellas). En el conjunto ampliado de la Fase 3 el máximo es 2,98
+# (`log_precio`), seguido por 2,63 (precio histórico) y 1,97 (estrellas). Ninguna variable se acerca a
+# 5. **Corrige una anticipación de la Fase 1:** las correlaciones de a pares de hasta 0,62 entre
+# estrellas y precio histórico hacían esperar multicolinealidad, pero un $R^2_j$ auxiliar de a lo sumo
+# 1 − 1/2,98 = 0,66 no infla las varianzas en forma preocupante (se registra en la Entrada 3).
+# **Decisión:** no se eliminan ni combinan regresores por colinealidad. La regularización Ridge/Lasso
+# de la Fase 3 se justifica por selección y estabilidad predictiva, no por un VIF alto.
+
+# %% [markdown]
+# ## 2.5 Reducción de dimensionalidad con PCA (sin fuga de datos)
+#
+# **Regla estricta:** la estandarización (media y desvío) y la descomposición espectral de la matriz
+# de correlaciones se calculan **solo con las filas de Train**; Test se proyecta con esa misma
+# rotación (`pipe.transform`), sin reajustar. `tests/test_fase2.py::test_pca_se_ajusta_solo_con_train`
+# lo verifica.
+#
+# Variables: atributos continuos del hotel en la fila búsqueda × hotel (la unidad del torneo de la
+# Fase 3). Criterios de retención: codo del scree plot y Kaiser ($\lambda_k > 1$ sobre variables
+# estandarizadas).
+
+# %%
+X_PCA = [
+    "prop_starrating", "prop_review_score", "prop_location_score1", "prop_location_score2",
+    "prop_log_historical_price", "log_precio", "log_precio_rel", "promotion_flag",
+    "prop_brand_bool", "comp_n_info",
+]  # fmt: skip
+pca_pipe = ajustar_pca(df[df.train], X_PCA, seed=SEED)
+var_pca, cargas = resumen_pca(pca_pipe, X_PCA)
+n_kaiser = int((var_pca["autovalor"] > 1).sum())
+print(
+    f"Kaiser (λ > 1): {n_kaiser} componentes, {var_pca['pct_acum'].iloc[n_kaiser - 1]:.1f} % de la varianza"
+)
+Z_test = pca_pipe.transform(df.loc[~df.train, X_PCA].astype(float))
+print(f"Test proyectado con la rotación de Train: {Z_test.shape}")
+var_pca.round(3)
+
+# %%
+cargas.iloc[:, :4].round(3)
+
+# %%
+fig, ax = plt.subplots(1, 3, figsize=(14, 4), gridspec_kw={"width_ratios": [1, 1, 1.1]})
+pcs = np.arange(1, len(var_pca) + 1)
+ax[0].plot(pcs, var_pca["autovalor"], "o-", color=gr.AZUL, ms=6)
+ax[0].axhline(1, color=gr.NARANJA, ls="--", lw=1)
+ax[0].annotate("Kaiser: λ = 1", xy=(len(pcs) - 2.5, 1.06), fontsize=8, color=gr.TEXTO_2)
+ax[0].set(xlabel="Componente", ylabel="Autovalor λ_k", title="Scree plot (Train)", xticks=pcs)
+ax[1].bar(pcs, var_pca["pct_var"], color=gr.AZUL, alpha=0.35, width=0.6)
+ax[1].plot(pcs, var_pca["pct_acum"], "o-", color=gr.AZUL, ms=5)
+ax[1].set(
+    xlabel="Componente",
+    ylabel="% de varianza (barras) y acumulado (línea)",
+    title="Varianza explicada",
+    xticks=pcs,
+    ylim=(0, 105),
+)
+sns.heatmap(
+    cargas.iloc[:, :4],
+    cmap=gr.DIVERGENTE,
+    vmin=-1,
+    vmax=1,
+    center=0,
+    annot=True,
+    fmt=".2f",
+    annot_kws={"size": 8},
+    linewidths=1,
+    linecolor=gr.SUPERFICIE,
+    ax=ax[2],
+)
+ax[2].set_title("Cargas (autovectores) PC1-PC4")
+ax[2].grid(False)
+fig.tight_layout()
+gr.guardar(fig, "f2_pca")
+plt.show()
+
+# %%
+proy = pd.DataFrame(Z_test[:, :2], columns=["PC1", "PC2"]).assign(
+    reserva=df.loc[~df.train, "booking_bool"].to_numpy()
+)
+muestra_proy = pd.concat(
+    [proy[proy.reserva == 0].sample(4000, random_state=SEED), proy[proy.reserva == 1]]
+)
+fig, ax = plt.subplots(figsize=(7, 4.6))
+for r, color, nombre in [
+    (0, gr.AZUL, "Sin reserva (muestra de 4.000)"),
+    (1, gr.NARANJA, "Reservado"),
+]:
+    d = muestra_proy[muestra_proy.reserva == r]
+    ax.scatter(d.PC1, d.PC2, s=8, color=color, alpha=0.35 if r == 0 else 0.6, lw=0, label=nombre)
+ax.set(
+    xlabel=f"PC1 ({var_pca.pct_var.iloc[0]:.1f} %)",
+    ylabel=f"PC2 ({var_pca.pct_var.iloc[1]:.1f} %)",
+    title="Test proyectado en el plano PC1-PC2 de Train",
+)
+ax.legend(loc="upper right", markerscale=2)
+fig.tight_layout()
+gr.guardar(fig, "f2_pca_plano")
+plt.show()
+proy.groupby("reserva")[["PC1", "PC2"]].mean()
+
+# %% [markdown]
+# **Retención.** Kaiser retiene **4 componentes** (λ = 3,264; 1,515; 1,184; 1,002), que explican el
+# 69,7 % de la varianza. El cuarto está en el límite (λ = 1,002). El codo del scree plot está en la
+# 2.ª componente (de 3,26 a 1,52, y después la caída se suaviza). **Decisión:** 2 componentes para la
+# visualización (plano PC1-PC2 de la app, módulo de diagnóstico) y 4 para el conjunto alternativo de
+# features que se pone a prueba en la Fase 3.
+#
+# **Interpretación de negocio de las cargas:**
+# * **PC1 (32,6 %): "categoría y precio".** Cargas positivas y parecidas en estrellas (0,44), precio
+#   histórico (0,47), precio (0,47), precio relativo (0,39) y reseñas (0,35). Ordena los hoteles de
+#   económicos a premium.
+# * **PC2 (15,2 %): "buena ubicación a buen precio, independiente".** Ubicación (0,55 y 0,48) y
+#   promoción (0,38), con signo opuesto al de cadena (−0,41) y al precio relativo (−0,30).
+# * PC3 (11,8 %): cobertura de competidores (0,77) y pertenencia a cadena (0,58).
+#   PC4 (10,0 %): promoción (0,75) frente a `location_score2` (−0,54).
+#
+# **Proyección ciega de Test.** Los hoteles reservados tienen PC2 medio = 0,270, contra −0,0035 de
+# los no reservados. En PC1 la diferencia es mínima (0,0070 vs. −0,0063). **Lo que se reserva no es
+# lo más caro ni lo de mayor categoría, sino lo bien ubicado, en promoción y barato para su
+# búsqueda.** Es un hallazgo predictivo, no causal (Fase 4).
+
+# %% [markdown]
+# ## 2.6 Síntesis de la Fase 2
+#
+# | Supuesto / análisis | Resultado | Remediación |
+# |---|---|---|
+# | Especificación | Precio crudo: R² = 0,0028, Cook máx 1,215 (fallido) | log(precio) sin outliers: R² = 0,604 |
+# | Homocedasticidad | Se rechaza (BP p = 4,96·10⁻⁹⁹; White p = 1,71·10⁻¹¹⁸) | Errores HC3 (EE hasta +31 %) |
+# | Normalidad | Se rechaza (JB), curtosis 5,80, asimetría 0,08 | TCL (n = 12.858) + estimador robusto de Huber |
+# | Independencia | DW = 1,95 | Ninguna; respalda la partición aleatoria |
+# | Influyentes | 746 con D > 4/n, ninguno con D > 0,5; más frecuentes con escala de precio errónea | Huber como resguardo; RANSAC con umbral 3σ̂ (el de defecto falla) |
+# | Multicolinealidad | VIF máx 1,74 (modelo) y 2,98 (conjunto Fase 3) | Ninguna |
+# | PCA (solo Train) | 4 comp. por Kaiser (69,7 %), codo en 2; PC1 = categoría-precio, PC2 = ubicación/promoción | 2 PCs para la app, 4 como features alternativas en la Fase 3 |
