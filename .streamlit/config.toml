@@ -1,0 +1,16 @@
+# Configuración de la app (Streamlit Community Cloud la lee desde la raíz del repo; Docker también)
+[server]
+headless = true
+runOnSave = false
+maxUploadSize = 5
+
+[browser]
+gatherUsageStats = false
+
+[theme]
+base = "light"
+primaryColor = "#2a78d6"
+backgroundColor = "#ffffff"
+secondaryBackgroundColor = "#f3f5f8"
+textColor = "#1f2328"
+font = "sans serif"

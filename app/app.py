@@ -96,7 +96,7 @@ with tab1:
         xaxis_title=variables[var]["etiqueta"],
         yaxis_title="proporción" if normalizar else "filas",
     )
-    st.plotly_chart(fig_base(fig), use_container_width=True)
+    st.plotly_chart(fig_base(fig), width="stretch")
 
     c1, c2 = st.columns(2)
     fig = go.Figure()
@@ -125,7 +125,7 @@ with tab1:
     fig.update_layout(
         title="Tasa de clic por posición", xaxis_title="posición", yaxis_title="tasa de clic"
     )
-    c1.plotly_chart(fig_base(fig), use_container_width=True)
+    c1.plotly_chart(fig_base(fig), width="stretch")
     c1.caption(
         "Con orden aleatorio la caída es sesgo de posición puro; con el algoritmo se le suma la calidad de lo que pone arriba. Los pozos en 5, 11, 17 y 23 son slots ocupados por listados que no están en los datos."
     )
@@ -167,14 +167,14 @@ with tab1:
         xaxis_title="PC1: categoría y precio",
         yaxis_title="PC2: ubicación y promoción",
     )
-    c2.plotly_chart(fig_base(fig), use_container_width=True)
+    c2.plotly_chart(fig_base(fig), width="stretch")
     cargas = pd.DataFrame(
         p["componentes"],
         index=[f"PC{i + 1}" for i in range(len(p["componentes"]))],
         columns=p["variables"],
     ).T.round(2)
     with c2.expander("Cargas de las componentes"):
-        st.dataframe(cargas, use_container_width=True)
+        st.dataframe(cargas, width="stretch")
 
 # ------------------------------------------------------------------------------ What-Is
 with tab2:
@@ -234,7 +234,7 @@ with tab2:
         xaxis_title="puntos porcentuales",
         yaxis={"autorange": "reversed"},
     )
-    c1.plotly_chart(fig_base(fig), use_container_width=True)
+    c1.plotly_chart(fig_base(fig), width="stretch")
     cal = art["modelo"]["calibracion_app"]
     fig = go.Figure()
     fig.add_scatter(
@@ -257,7 +257,7 @@ with tab2:
         xaxis_title="probabilidad predicha",
         yaxis_title="frecuencia observada",
     )
-    c2.plotly_chart(fig_base(fig), use_container_width=True)
+    c2.plotly_chart(fig_base(fig), width="stretch")
     st.warning(
         "Esta es una predicción, no un efecto causal: subir la posición en este simulador no dice cuánto vendería el hotel si lo subiéramos de verdad. Para eso, el módulo 3."
     )
@@ -288,14 +288,14 @@ with tab3:
     )
     with st.expander("Valuación del slot: escenarios por cada 1.000 exposiciones en el top-5"):
         esc = pd.DataFrame(ca["escenarios"]).set_index("escenario")
-        st.dataframe(esc, use_container_width=True)
+        st.dataframe(esc, width="stretch")
         st.caption(
             "Población: búsquedas con al menos un clic (la única que contiene el dataset). Las cifras absolutas dependen de esa selección."
         )
     c1, c2 = st.columns([1.1, 1])
     with c1:
         st.markdown("**DAG causal** (orden del algoritmo; U e I son latentes)")
-        st.graphviz_chart(ca["dag_dot"], use_container_width=True)
+        st.graphviz_chart(ca["dag_dot"], width="stretch")
     with c2:
         st.markdown("**Semáforo de refutaciones** (regresión backdoor, R = 0)")
         for rr in ca["refutaciones"]:
@@ -306,7 +306,7 @@ with tab3:
         ate = pd.DataFrame(ca["ate_dowhy"]).set_index("estrato")[
             ["ingenuo (Y ~ T)", "regresión backdoor", "IPW", "tasa base P(Y|T=0)"]
         ]
-        st.dataframe(ate.style.format("{:.4f}"), use_container_width=True)
+        st.dataframe(ate.style.format("{:.4f}"), width="stretch")
         st.caption(
             "Las tasas absolutas no son comparables entre estratos: el dataset sobrerrepresenta búsquedas con compra cuando el orden lo decide el algoritmo. La comparación válida es el OR dentro de la búsqueda."
         )
@@ -360,10 +360,10 @@ with tab3:
         fig.update_layout(
             title=f"CATE según {nombres[v]}", xaxis_title=nombres[v], yaxis_title="Δ P(reserva)"
         )
-        col.plotly_chart(fig_base(fig, 280), use_container_width=True)
+        col.plotly_chart(fig_base(fig, 280), width="stretch")
     with st.expander("Sensibilidad a un confusor no observado y trampa del mediador"):
-        st.dataframe(pd.DataFrame(ca["sensibilidad_u"]), use_container_width=True)
-        st.dataframe(pd.DataFrame(ca["mediador"]), use_container_width=True)
+        st.dataframe(pd.DataFrame(ca["sensibilidad_u"]), width="stretch")
+        st.dataframe(pd.DataFrame(ca["mediador"]), width="stretch")
 
 # ------------------------------------------------------------------------------ Copiloto (bonus)
 with tab4:
