@@ -41,6 +41,7 @@ número de un texto sale de un output; ningún dato en el diff; decisiones y err
 | 3 — Torneo predictivo | 12/11 | 4 familias, CV agrupada, calibración, MDI vs. permutación; aceptación: sin fuga (tests) | Revisión conjunta con las Fases 4 y 5 (cambio de ritmo pedido por la PO) | El umbral de decisión se elige en Train; PR-AUC con prevalencia baja |
 | 4 — Inferencia causal | 12/11 | DAG, DoWhy, DML/CATE, refutaciones, ensayo | **Revisión de robustez**: balance, diferencia de riesgos, bootstrap con 1000 réplicas, redacción prudente, embudo, escenarios | Una conclusión central se somete a todas las objeciones razonables antes de presentarla |
 | 5 — App y entrega | 12/11 | App con solo agregados (tests), informe, slides, README, BITÁCORA | "Solo agregados" al 100 % también en el notebook; deploy y merges a cargo de la PO | Los controles de confidencialidad se testean, no se declaran |
+| 6 — Cierre y Quality Gate | 13/11 | Auditoría contra enunciado y rúbrica (`docs/estado_cierre.md`); cada criterio en "Excelente"; PRs por fase con veredicto de QA | QA **bloqueó** los PRs de las Fases 3-5: fuga Train/Test en la preparación y app que no arrancaba en un entorno limpio; ambos se corrigieron con tests antes del merge | Un CI verde no prueba lo que no testea: cada regla metodológica necesita un test que pueda fallar |
 
 **Ceremonias, tal como ocurrieron:**
 - *Planning:* el prompt de inicio de cada fase (log de IA).
@@ -139,6 +140,8 @@ no consultar a la cátedra y seguir con Expedia**, con estas mitigaciones ya imp
 **Riesgo residual que asumimos:** los resultados publicados (ATE, CATE, coeficientes) pueden
 considerarse "resulting model parameters" en sentido estricto.
 
+**Firmas.** Responsable de rol: Project Lead. Ejecutó y validó: — V. López Marsico (Lead), 13/11/2026. Co-firma del rol para la defensa: — V. López Marsico (Lead).
+
 ## Entrada 2 — Matriz de decisiones estadísticas y supuestos
 *Roles responsables: Backend/ML + QA. Fase 1 (12/11/2026): análisis ejecutado por Claude Code con
 el diseño aprobado por Verónica; revisión a cargo de Verónica. La Fase 2 se agrega al cerrarla.*
@@ -154,13 +157,14 @@ por Verónica el 12/11**.
 | Contrastes sobre **unidades independientes** (búsquedas o reservas) | Filas búsqueda × hotel | Las filas de una lista comparten usuario y contexto; tratarlas como independientes subestima los errores estándar |
 | α = 0,05 fijado a priori + **efecto mínimo detectable** con 1 − β = 0,80 | Solo p-valor | Con n en miles todo es "significativo"; el MDE dice qué no puede ver la muestra |
 | **Precio relativo** a la mediana de la búsqueda (winsorizado 1-99 %) | `price_usd` crudo | Desplazamiento de escala: 3,2 % de las reservas de ≥ 2 noches tienen precio por estadía, disperso entre sitios (1,9-7,5 %), así que no se puede corregir por sitio |
-| Outliers de precio con **dos reglas**: cercas extremas de Tukey sobre log (8,41-1951,14 USD) **o** > 10× / < 1/10 de la mediana de la búsqueda | Solo regla relativa | La relativa sola no detectó una búsqueda entera con precios de millones de USD por noche (su mediana también era absurda) |
+| Outliers de precio con **dos reglas**: cercas extremas de Tukey sobre log, ajustadas en Train (8,43-1947,77 USD) **o** > 10× / < 1/10 de la mediana de la búsqueda | Solo regla relativa | La relativa sola no detectó una búsqueda entera con precios de millones de USD por noche (su mediana también era absurda) |
 | Centinelas (0) → NaN + indicador | Dejarlos como valores | El 0 de `prop_log_historical_price` (14,8 % de filas) sesga la media −14,8 % e infla el desvío de 0,525 a 1,860 |
 
 ### Supuestos contrastados, violaciones y remediación
 
 | Análisis | Supuesto | Prueba y resultado | Remediación |
 |---|---|---|---|
+| Faltantes (conjunto) | MCAR multivariado | Test de Little (EM, 7 variables, 16 patrones): d² = 75.952, gl = 73, p < 10⁻³⁰⁰: **se rechaza** | Coherente con la lectura por variable; la decisión se apoya en los tamaños de efecto, porque con n = 739.323 Little rechaza ante desvíos chicos |
 | Faltantes | MCAR | Indicador de faltante vs. variables observadas: MCAR se rechaza en las 5 variables (p ajustado por Bonferroni < 0,05); dependencia apreciable para `location_score2` (SMD −0,506), `orig_destination_distance` (0,304), `review_score` (−0,238), `query_affinity` (0,180) | MAR → mediana por grupo + indicador; MNAR estructural (historial del usuario, afinidad) → **no se imputa**, se usa un indicador |
 | Contraste 1 (pareado) | Normalidad de $D_s$ | Asimetría −0,540, curtosis en exceso 3,608; n = 14.983 | TCL + Wilcoxon de resguardo (coincide: p = 7,7·10⁻¹³¹) |
 | Contraste 2 (dos grupos) | Varianzas iguales | Levene F(1; 16062) = 3,19, p = 0,074 (no se rechaza H0) | Igual se usa **Welch**: grupos muy desbalanceados (1.025 vs. 15.039), donde un error de tipo II de Levene sería costoso; Mann-Whitney de resguardo |
@@ -201,16 +205,40 @@ quedó fijada con la fuente.
 
 | Supuesto | Prueba y resultado | Remediación y justificación |
 |---|---|---|
-| Homocedasticidad | Breusch-Pagan LM = 516,99 (gl 17, p = 4,96·10⁻⁹⁹); White LM = 989,87 (p = 1,71·10⁻¹¹⁸): **se rechaza** | Errores **HC3**: los coeficientes MCO siguen insesgados, lo incorrecto era su varianza. HC3 es el más conservador con puntos de alto leverage (843 en la muestra) |
-| Normalidad de residuos | JB = 4209,26 (p < 10⁻³⁰⁰), asimetría 0,082, curtosis 5,798: **se rechaza** (colas pesadas, simétricas) | TCL con n = 12.858 para t y F; **Huber** como estimador de resguardo ante colas pesadas |
+| Homocedasticidad | Breusch-Pagan LM = 515,92 (gl 17, p = 8,34·10⁻⁹⁹); White LM = 985,44 (p = 1,09·10⁻¹¹⁷): **se rechaza** | Errores **HC3**: los coeficientes MCO siguen insesgados, lo incorrecto era su varianza. HC3 es el más conservador con puntos de alto leverage (841 en la muestra) |
+| Normalidad de residuos | JB = 4235,60 (p < 10⁻³⁰⁰), asimetría 0,081, curtosis 5,807: **se rechaza** (colas pesadas, simétricas) | TCL con n = 12.858 para t y F; **Huber** como estimador de resguardo ante colas pesadas |
 | Independencia | Durbin-Watson = 1,9515 en orden temporal | Ninguna; respalda la partición aleatoria (no cronológica) |
-| Influyentes | 746 con D > 4/n; ninguno con D > 0,5 (máx 0,0117). Tasa de influyentes 9,51 % con escala de precio incompatible vs. 4,85 % en reservas de 1 noche | No se eliminan: parte es error de medición (escala del precio, ya neutralizada con el precio relativo) y parte son casos reales de cola pesada. Huber coincide con MCO sin influyentes (diferencia máx. 0,012) |
+| Influyentes | 748 con D > 4/n; ninguno con D > 0,5 (máx 0,0117). Tasa de influyentes 9,51 % con escala de precio incompatible vs. 4,87 % en reservas de 1 noche | No se eliminan: parte es error de medición (escala del precio, ya neutralizada con el precio relativo) y parte son casos reales de cola pesada. Huber coincide con MCO sin influyentes (diferencia máx. 0,014) |
 | Multicolinealidad | VIF máx 1,74 (modelo) y 2,98 (conjunto de la Fase 3) | Ninguna; ningún VIF se acerca a 5 |
+| Positividad del IPW (Fase 4) | Propensión por grupo: con R = 0, 0,0098 % del resto y 0,0017 % del top-5 fuera de [0,01; 0,99]; peso máximo 120 | Overlap suficiente. Resguardo: IPW de Hájek **excluyendo** las unidades sin overlap (truncar sesga, test con verdad conocida); IC por bootstrap de búsquedas. El recorte no cambia el ATE (0,0882 en ambos) |
 | PCA sin fuga | Escalado y autovectores ajustados solo con Train (test automatizado) | Kaiser: 4 componentes (69,7 %); codo: 2. Se usan 2 para la visualización y 4 como features alternativas |
 
 Diseño (propuesto por Claude Code; pendiente de revisión por Verónica): partición 80/20 agrupada por
 búsqueda y estratificada por `random_bool`, única para las Fases 2-4; MCO sobre reservas (una por
 búsqueda) con log del precio por noche.
+
+### Experimento 6 — Fuga de información en la preparación (Fases 3-4; detectado en el cierre)
+
+- **Qué hicimos.** `preparar()` imputaba los faltantes MAR con medianas por grupo, winsorizaba el
+  precio relativo y fijaba las cercas de Tukey con **toda** la muestra, y recién después definía la
+  partición 80/20.
+- **Qué pasó.** La auditoría de cierre (13/11) lo detectó y QA bloqueó los PRs de las Fases 3-5
+  (#41-#43). Prueba: con 3.000 búsquedas, perturbar **solo** las filas de Test cambiaba 11.957
+  filas de Train en `prop_location_score2`, 8.077 en el precio histórico y 1.149 en el precio
+  relativo. Los tests existentes no podían detectarlo: verificaban el PCA y la partición, no la
+  preparación.
+- **Corrección.** La partición depende solo de `srch_id`, `random_bool` y la semilla, así que se fija
+  antes de transformar; cercas, cuantiles y medianas se ajustan con Train y se aplican a Test a
+  ciegas. Cinco tests marcados `leakage` (uno sobre la muestra real) corren en un paso propio del CI.
+- **Impacto medido** (notebook re-ejecutado): ninguna conclusión cambia. El OR benchmark pasa de
+  2,11246 a 2,11244; el OR observacional ajustado, de 3,3777 a 3,3778; el cociente bootstrap
+  queda en 1,60 [1,42; 1,80]. Lo que más se movió es el Random Forest: la búsqueda aleatoria
+  eligió otros hiperparámetros (`min_samples_leaf` 20 → 50, `max_features` 0,3 → `log2`) y la
+  PR-AUC de Test pasó de 0,1540 a 0,1534.
+- **Aprendizaje.** Un CI en verde solo prueba lo que testea. "Ajustar en Train" no se declara: se
+  verifica con un test que perturba Test y exige que Train no cambie.
+
+**Firmas.** Responsable de rol: Backend/ML + QA. Ejecutó y validó: — V. López Marsico (Lead), 13/11/2026. Co-firma del rol para la defensa: — L. Báez (Backend/ML) ______ · — A. Robiollio (QA) ______
 
 ## Entrada 3 — Autopsia de experimentos fallidos (Data Autopsy)
 *Rol responsable: Backend/ML. Ejecutado por Claude Code; revisión de Verónica.*
@@ -232,13 +260,13 @@ búsqueda) con log del precio por noche.
 
 - **Qué hicimos.** `RANSACRegressor` de scikit-learn con su configuración por defecto, como
   estimador robusto de comparación.
-- **Qué pasó.** Retuvo solo el 55,02 % de las observaciones como inliers y dio coeficientes
-  inestables: estrellas −0,046 (MCO: +0,060), habitaciones +0,312 (MCO: −0,026); diferencia máxima
-  con MCO sin influyentes, 0,341.
+- **Qué pasó.** Retuvo solo el 55,01 % de las observaciones como inliers y dio coeficientes
+  inestables: estrellas −0,046 (MCO: +0,060), habitaciones +0,311 (MCO: −0,026); diferencia máxima
+  con MCO sin influyentes, 0,340.
 - **Diagnóstico.** El umbral por defecto es la MAD de la **variable respuesta**, no de los
   residuos. Con un R² de 0,6 es demasiado estricto, y con 17 regresores cada subconjunto mínimo es
   muy ruidoso.
-- **Corrección y aprendizaje.** Umbral = 3 σ̂ robusto de los residuos MCO (1,4826 · MAD): 89,03 %
+- **Corrección y aprendizaje.** Umbral = 3 σ̂ robusto de los residuos MCO (1,4826 · MAD): 89,07 %
   de inliers y diferencia máxima 0,058. Un estimador "robusto" mal parametrizado es menos robusto
   que MCO; los parámetros por defecto se auditan.
 
@@ -255,10 +283,10 @@ búsqueda) con log del precio por noche.
 ### Experimento 4 — Umbral de clasificación por defecto (Fase 3)
 
 - **Qué hicimos.** Clasificar con el umbral 0,5 de `predict`.
-- **Qué pasó.** F1 = 0 en logística y CART, y 0,0006 en Random Forest: con 2 % de reservas, ninguna
+- **Qué pasó.** F1 = 0 en logística, CART y Random Forest: con 2 % de reservas, ninguna
   probabilidad supera 0,5 y todo se clasifica como "no reserva".
 - **Corrección y aprendizaje.** Umbral elegido en Train (máximo F1 en predicciones fuera de
-  pliegue): ≈ 0,12 en RF, con F1 = 0,23 en Test. En problemas desbalanceados, el umbral es una
+  pliegue): ≈ 0,09 en RF, con F1 = 0,23 en Test. En problemas desbalanceados, el umbral es una
   decisión de negocio y se elige sin mirar Test.
 
 ### Experimento 5 — Naive Bayes gaussiano (Fase 3)
@@ -272,6 +300,8 @@ búsqueda) con log del precio por noche.
 - **Aprendizaje.** NB puede ordenar razonablemente (ROC-AUC 0,796) aun con probabilidades
   inutilizables. Cuando importan las probabilidades (la app muestra una probabilidad calibrada), se
   descarta.
+
+**Firmas.** Responsable de rol: Backend/ML. Ejecutó y validó: — V. López Marsico (Lead), 13/11/2026. Co-firma del rol para la defensa: — L. Báez (Backend/ML) ______
 
 ## Entrada 4 — Formalización del debate causal
 *Roles responsables: Backend/ML + Project Lead. DAG propuesto por Claude Code; definiciones de T, Y,
@@ -387,6 +417,8 @@ Fijado por `test_slots_estructurales_cada_seis_posiciones`.
 Ver Entrada 1. Decisión de Verónica: seguir con Expedia sin consultar a la cátedra, con
 mitigaciones verificadas por tests; el plan B queda disponible y no se activa.
 
+**Firmas.** Responsable de rol: Backend/ML + Project Lead. Ejecutó y validó: — V. López Marsico (Lead), 13/11/2026. Co-firma del rol para la defensa: — L. Báez (Backend/ML) ______
+
 ## Entrada 5 — Trazabilidad y uso ético de asistentes de IA
 *Rol responsable: QA. Redactada por Claude Code a partir de [`docs/ia_log.md`](docs/ia_log.md) (registro
 completo, fase por fase); revisión de Verónica.*
@@ -452,3 +484,6 @@ completo, fase por fase); revisión de Verónica.*
    de convergencia) atraparon errores de cómputo. Las objeciones de fondo (comparabilidad de
    poblaciones, no colapsabilidad, incertidumbre de un cociente, mediación mecánica) vinieron de la
    revisión de Verónica.
+
+**Firmas.** Responsable de rol: QA. Ejecutó y validó: — V. López Marsico (Lead), 13/11/2026. Co-firma del rol para la defensa: — A. Robiollio (QA) ______
+

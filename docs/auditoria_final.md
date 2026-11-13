@@ -1,5 +1,9 @@
 # Auto-auditoría final contra el enunciado y la rúbrica (12/11/2026)
 
+> **Reemplazada** por [`estado_cierre.md`](estado_cierre.md) (auditoría del 13/11, que encontró y corrigió
+> una fuga Train/Test en la preparación y completó IPW con overlap, CATE por segmento, deploy y
+> PRs). Se conserva como registro histórico.
+
 > Redactada por Claude Code; revisión de Verónica. Estados: ✅ cumplido con evidencia · ⚠️ cumplido
 > con salvedad · ❌ falta. "NB x.y" = sección del notebook `notebooks/TP_Integrador_Final.ipynb`.
 

@@ -14,6 +14,138 @@
 
 ---
 
+## Guion de la exposición (12 slides, 13-14 minutos)
+
+Las cifras están en las slides (`report/slides.pdf`), leídas de `models/resultados.json`. Este guion
+dice **qué decir** y **quién lo dice**; no repite los números.
+
+| Min. | Slide | Quién | Qué decir (idea central) |
+|---|---|---|---|
+| 0:00-1:30 | 1 · Problema | Verónica | Los slots son de suma cero. El recomendador pone arriba lo que se vendería igual. Pregunta: ¿el slot causa ventas o solo las predice? De eso depende el precio de un slot premium. |
+| 1:30-2:30 | 2 · Datos | Verónica | Expedia ICDM 2013. `random_bool` = orden aleatorio: es nuestro benchmark. La auditoría encontró centinelas, precio en dos escalas, slots fijos y un dataset seleccionado sobre el clic. MCAR se rechaza (Little); la imputación se ajusta solo con Train. |
+| 2:30-3:45 | 3 · Inferencia | Lucía | Contraste pareado: el sesgo de posición existe (arco T → M). ANOVA: Levene rechaza, por eso Welch; Shapiro no sirve con n grande. El segundo contraste no rechaza H0, y el MDE dice qué no podemos ver. |
+| 3:45-4:45 | 4 · Gauss-Markov y PCA | Lucía | BP rechaza → HC3; colas pesadas → Huber; ningún Cook > 0,5; VIF bajo. PCA solo en Train: PC1 categoría, PC2 conveniencia; lo reservado se separa por PC2. |
+| 4:45-6:00 | 5 · Torneo | Lucía | Cuatro familias, CV agrupada por búsqueda, PR-AUC porque la prevalencia es 2 %. El árbol sin poda memoriza. Gana el Random Forest. |
+| 6:00-6:45 | 6 · Calibración y MDI | Antonella | Reliability diagrams: NB descalibrado por violar la independencia condicional. MDI favorece la cardinalidad; la permutación en Test lo corrige. La posición es la más predictiva: ¿es una palanca? |
+| 6:45-8:00 | 7 · DAG | Lucía | Z bloquea los caminos por Z, no el de U. Con orden aleatorio, el conjunto vacío alcanza. Clic = mediador; S y C = colisionadores. Overlap bueno: la positividad no es el problema, U sí. |
+| 8:00-9:30 | 8 · Efecto causal | Lucía | Benchmark vs. observacional ajustado vs. ingenuo. El ajuste explica la mitad del sesgo. El bootstrap por búsqueda excluye 1. Trampas: ajustar por el clic "borra" el efecto; condicionar en C induce Berkson. |
+| 9:30-10:30 | 9 · CATE y refutaciones | Lucía | La heterogeneidad se confirma con orden aleatorio. Las refutaciones pasan, pero miden estabilidad, no U. |
+| 10:30-12:30 | 10 · Demo | Antonella | En vivo: Diagnóstico (filtro + PCA), What-Is (un hotel barato y bien ubicado en posición 12), What-If (mismo perfil: ATE, CATE y semáforo). Si sobra tiempo, una pregunta al copiloto. Si falla la red: Docker local. |
+| 12:30-13:30 | 11 · Conclusiones | Verónica | Valuar con el efecto causal; asignar por segmento (reservas y USD por 1.000 exposiciones); mantener tráfico aleatorio como auditoría. |
+| 13:30-14:00 | 12 · Scrum y QA | Antonella | Un sprint por fase, PR con veredicto de QA, Quality Gate con no-fuga y Docker. Bitácora con 6 experimentos fallidos, incluida la fuga que encontramos y corregimos. |
+
+**Checklist antes de exponer:** abrir la app desplegada y el contenedor local de respaldo
+(`docker run -p 8501:8501 tpi-eaymr-app`); tener el PDF de las slides en pantalla completa; tener
+abierto el informe en la sección de recomendaciones por si piden detalle.
+
+## Banco de preguntas del tribunal con respuestas cortas
+
+### Para todas
+
+**¿Por qué no usan Shapiro-Wilk?** Con miles de observaciones su potencia tiende a 1 contra
+cualquier desvío fijo, por chico que sea: rechaza siempre. Lo que necesitan $t$ y $F$ es que la
+**media muestral** sea aproximadamente normal, y por el TCL la asimetría de $\bar x$ decae como
+$\gamma_1/\sqrt{n}$. Por eso miramos asimetría (criterio $|\gamma_1| \le 1$), curtosis y Q-Q, y
+dejamos Kruskal-Wallis de resguardo.
+
+**¿Por qué "no se rechaza H0" y no "se acepta"?** Porque un p-valor alto no prueba la igualdad: solo
+dice que los datos son compatibles con ella. Por eso informamos el efecto mínimo detectable: lo que
+la muestra no puede ver.
+
+**¿Quién hizo el trabajo?** Lo que dice la BITÁCORA: Verónica lo ejecutó y validó con Claude Code;
+los roles se mantienen para la defensa. Cada decisión tiene autor en `docs/ia_log.md`.
+
+### Verónica — Project Lead & Scrum Master
+
+**¿Por qué esta pregunta de negocio?** Porque el slot es un recurso escaso que se vende y se
+asigna; si se valúa con la tasa observada, se paga el sesgo de selección del algoritmo.
+
+**¿Cuánto vale un slot? ¿Por qué un rango?** Depende del efecto supuesto (IC del benchmark), del
+gasto por reserva (mediana o media) y de cuánto de la reserva ganada se le saca a otro hotel (suma
+cero). Damos tres escenarios con supuestos explícitos; sirve para ordenar decisiones, no para
+presupuestar.
+
+**¿Qué recomiendan concretamente?** Valuar con el efecto causal, asignar la exposición a hoteles
+baratos y bien ubicados (la tabla por segmento da reservas y USD por 1.000 exposiciones), y mantener
+una fracción de tráfico con orden aleatorio como auditoría.
+
+**¿Cómo funcionó Scrum?** Un sprint por fase con criterios de aceptación y Definition of Done; PR
+por fase con veredicto de QA antes del merge; revisiones de la PO que cambiaron el análisis (la de
+robustez). Sin dailies ni revisión cruzada entre integrantes, y así lo declaramos.
+
+**¿Qué experimento fallido les enseñó más?** La fuga de información en la imputación: las medianas
+se calculaban con toda la muestra. La encontramos en la auditoría de cierre, la corregimos ajustando
+todo con Train y agregamos un test que perturba Test y exige que Train no cambie.
+
+### Lucía — Backend & ML / Causal Engineer
+
+**Demostrá Backdoor con el DAG.** Todo camino trasero entra a $T$ por $Z$ o por $U$. Condicionar en
+$Z$ bloquea los primeros y no abre caminos, porque $Z$ no tiene colisionadores ni descendientes de
+$T$. El camino $T \leftarrow U \to Y$ queda abierto: con el orden del algoritmo Backdoor no se cumple.
+Con orden aleatorio, la cirugía de grafo deja solo $R \to T$ y el conjunto vacío alcanza.
+
+**¿Qué pasa si incluyen el mediador (clic)?** Bloquean el canal por el que opera el efecto y estiman
+solo el efecto directo: el modelo concluye que la posición casi no importa. Lo mostramos: el efecto
+ajustado por $Z$ cae casi a cero al agregar el clic.
+
+**¿Y si condicionan en un colisionador?** Abren un camino espurio entre sus causas (Berkson). Con $C$
+= "destacado en el reporte" ($T \to C \leftarrow Y$), la $\Delta p$ cambia, y en la simulación con
+verdad conocida hasta se invierte el signo. Nuestro colisionador natural es la selección del dataset
+($S$ depende del clic): por eso usamos el OR condicional, que sobrevive al filtro.
+
+**¿Qué hace DML?** Predice $Y$ y $T$ con modelos flexibles (Random Forest) a partir de los
+confusores, con cross-fitting, y regresa el residuo de $Y$ sobre el residuo de $T$. Por la
+ortogonalidad de Neyman, los errores de esos modelos afectan al efecto solo en segundo orden, así que
+se puede usar ML sin sesgar $\hat\tau$. `LinearDML` da $\tau(x)$ lineal con IC; el Causal Forest, la
+forma no paramétrica.
+
+**¿Qué significa cada refutación?** *Causa común aleatoria:* agrego una variable de ruido al DAG; si
+el ATE se moviera, la estimación dependería de detalles accidentales del ajuste. *Placebo:* permuto
+$T$; el efecto tiene que caer a cero, si no el procedimiento "fabrica" efectos. *Subconjunto 80 %:*
+re-estimo en submuestras; el ATE tiene que quedar en el IC original (estabilidad). Ninguna detecta
+$U$: eso lo hace el benchmark aleatorio.
+
+**¿Por qué el MDI está sesgado?** Suma reducciones de impureza en Train. Una variable continua ofrece
+muchos más cortes que una dummy, así que gana splits por azar en nodos profundos y acumula
+importancia aunque no generalice. La permutación mide la caída de PR-AUC en Test al romper la
+variable: no premia cortes espurios.
+
+**¿Cómo chequearon la positividad del IPW?** Distribución de la propensión por grupo, fracción fuera
+de $[0{,}01; 0{,}99]$, peso máximo y tamaño efectivo de Kish. El overlap es bueno y el IPW recortado
+coincide con el completo; el IC sale de un bootstrap por búsqueda.
+
+**¿Por qué el OR y no la diferencia de probabilidades?** Porque el dataset está seleccionado sobre el
+clic y, con el algoritmo, sobre la compra: la escala absoluta se infla y no es comparable entre
+estratos. El OR condicional se cancela con la selección (lógica de caso-control). Igual chequeamos la
+conclusión en diferencia de riesgos.
+
+### Antonella — Frontend & UI/UX + QA & Validation Engineer
+
+**¿Cómo garantizan que no hay fuga Train/Test?** La partición es por búsqueda (ninguna lista queda
+partida) y se fija antes de transformar. Cercas, winsorización, imputación, escalado y PCA se ajustan
+solo en Train. Los tests marcados `leakage` lo verifican, incluido uno que perturba Test sobre la
+muestra real y exige que Train no cambie, y corren en un paso propio del CI.
+
+**¿Qué muestra el semáforo de la app y qué no garantiza?** Muestra si las tres refutaciones pasan.
+No garantiza ausencia de confusión no observada: para eso la app muestra también la brecha con el
+benchmark aleatorio.
+
+**¿Cómo evita el copiloto inventar cifras?** Solo puede responder con números que devuelven sus
+herramientas (consultas de solo lectura a los artefactos agregados); un guardarraíl exige que cada
+cifra de la respuesta aparezca en algún resultado de herramienta o en la pregunta. Si alguna no
+aparece, bloquea la respuesta y muestra los resultados crudos. No garantiza que la interpretación sea correcta, solo que
+las cifras salen del motor.
+
+**¿Cómo se reproduce todo?** README, "Reproducción paso a paso": entorno con versiones fijadas,
+descarga desde Kaggle, `pytest`, notebook de punta a punta, `quarto render`. La app levanta con
+`streamlit run app/app.py` o con Docker.
+
+**¿Qué es un `xfail(strict=True)`?** Un test que esperamos que falle porque los datos refutaron una
+premisa (el orden aleatorio no es perfectamente aleatorio). Si un día pasara, el `strict` lo marca
+como error: la refutación queda visible en lugar de borrarse.
+
+---
+
 ## Fase 0 — Setup, datos y contrato (cerrada el 12/11/2026)
 
 ### Verónica — Project Lead & Scrum Master
@@ -197,11 +329,11 @@
    - JB rechaza normalidad (curtosis 5,8), pero con n grande t y F valen por TCL.
    - DW = 1,95.
 3. **Influencia:**
-   - Umbrales: |r| > 3 (119 casos), h > 2(p+1)/n (843), D > 4/n (746) y D > 0,5 (ninguno).
+   - Umbrales: |r| > 3 (121 casos), h > 2(p+1)/n (841), D > 4/n (748) y D > 0,5 (ninguno).
    - Los influyentes son el doble de frecuentes cuando la escala del precio es incompatible (9,5 %
      vs. 4,9 %): **error de medición**.
 4. **Robustez:**
-   - Huber coincide con MCO sin influyentes (diferencia máx. 0,012).
+   - Huber coincide con MCO sin influyentes (diferencia máx. 0,014).
    - RANSAC por defecto falla (umbral = MAD de *y*, 55 % de inliers, signos invertidos); con
      umbral 3σ̂ de los residuos queda bien.
 5. **VIF:** máx 1,74 (modelo) y 2,98 (conjunto de la Fase 3). Una correlación de a pares alta
@@ -239,8 +371,8 @@
 
 1. **Pregunta predictiva vs. causal:** la Fase 3 responde $P(Y \mid X)$ (qué hotel se va a
    reservar); la Fase 4 responde $P(Y \mid do(T))$ (qué pasa si lo subimos).
-2. **Ganador:** Random Forest, con PR-AUC 0,154 en Test frente a una prevalencia de 0,022 (unas 7
-   veces el azar) y ROC-AUC 0,849. El holdout cronológico (último 20 % del período) da 0,146: el
+2. **Ganador:** Random Forest, con PR-AUC 0,153 en Test frente a una prevalencia de 0,022 (unas 7
+   veces el azar) y ROC-AUC 0,854. El holdout cronológico (último 20 % del período) da 0,144: el
    modelo se sostiene hacia adelante.
 3. **Por qué PR-AUC y no exactitud:** con 2 % de reservas, decir siempre "no reserva" da 98 % de
    exactitud y no sirve para nada.
@@ -268,7 +400,7 @@
    número de árboles.
 6. **MDI vs. permutación:**
    - El MDI suma reducciones de impureza en Train y favorece variables con muchos puntos de corte
-     (correlación con la cardinalidad ρ = 0,749).
+     (correlación con la cardinalidad ρ = 0,701).
    - La permutación mide cuánto cae la PR-AUC en **Test** al romper la variable, así que no premia
      cortes que solo sirven para memorizar.
 
@@ -399,7 +531,7 @@
 
 ---
 
-## Preguntas de práctica (respondé sin mirar; la respuesta está en la fuente indicada)
+## Preguntas de práctica (respondé sin mirar; la respuesta está en la fuente indicada o en el banco de arriba)
 
 ### Verónica — Project Lead & Scrum Master
 1. ¿Por qué el top-5 "vende" y a la vez el dato del algoritmo lo sobreestima? (notebook 4.3 y 4.3 bis)

@@ -572,3 +572,55 @@ aislado.
 **Limitación declarada:** el guardarraíl verifica que cada cifra *exista* en un resultado de
 herramienta, no que esté usada en el sentido correcto. La interpretación sigue requiriendo
 criterio humano.
+
+## Sesión de cierre (13/11/2026)
+
+**Prompt (Verónica, texto completo en [`prompt_cierre.md`](prompt_cierre.md)).** Cerrar el TPI con
+cada criterio de la rúbrica en "Excelente": auditar antes de tocar (matriz de trazabilidad), corregir
+todo error metodológico y registrarlo, cero números escritos a mano, Quality Gate con no-fuga en CI,
+PRs por fase con veredicto de QA, deploy listo (Streamlit Cloud y Docker) y la entrega completa.
+Prohibido: force push a `main` y borrar ramas sin preguntar.
+
+**Cómo se trabajó con el agente.** Claude Code en modo autónomo dentro del repo (lectura, escritura y
+ejecución de Python, pytest, ruff, Quarto, Docker, git y gh). Orden: auditoría escrita primero
+(`docs/estado_cierre.md`), prototipo de cada análisis nuevo en un script aparte, textos redactados
+recién después de ver los outputs, notebook re-ejecutado de punta a punta y PRs con evidencia.
+
+**Qué produjo la IA (propuesto por Claude Code en ejecución de la consigna de Verónica):**
+- Corrección de la fuga en la preparación: partición fijada antes de transformar; cercas, cuantiles
+  y medianas ajustados solo con Train (`tpi.auditoria`, `tpi.preparacion`).
+- Test de Little (EM) con verdad conocida; IPW de Hájek con diagnóstico de overlap, recorte y
+  bootstrap por búsqueda; CATE por segmento con IC y heterogeneidad con orden aleatorio; valuación
+  por segmento.
+- Quality Gate: marcador `leakage` y paso propio en CI; build de Docker en CI; test de coherencia de
+  dependencias de la app; README con cifras generadas desde `resultados.json` y test que lo verifica.
+- Informe reescrito (portada, marco formal, ensayo, recomendaciones por segmento, anexos), 12 slides,
+  guion y banco de respuestas de la defensa, `Dockerfile` probado.
+- Veredictos de QA: [APROBADO] en las Fases 0-2 (#38-#40) y [BLOQUEADO] en las Fases 3-5 (#41-#43),
+  con evidencia; esas fases se integran solo con el PR de cierre.
+
+**Errores / alucinaciones detectados.**
+33. *Fuga Train/Test en la preparación (error de diseño del asistente, Fase 3; detectado en la
+    auditoría de cierre).* `preparar()` imputaba con medianas de toda la muestra y winsorizaba con
+    cuantiles de toda la muestra antes de partir. Perturbando solo Test cambiaban 11.957 filas de
+    Train en `prop_location_score2`. **Corrección:** ajuste solo en Train. **Tests:**
+    `test_preparar_no_fuga_informacion_de_test_a_train` (muestra real) y 4 tests sintéticos
+    marcados `leakage`, con un paso propio en el CI. Impacto en BITÁCORA, Entrada 3, experimento 6.
+34. *Dependencia sin fijar que rompía el deploy (Fase 5).* `app/requirements.txt` no fijaba
+    `pyarrow`; en un entorno limpio pip traía una versión que exige NumPy ≥ 2 y `st.dataframe`
+    fallaba. Pasaba inadvertido porque los tests corrían en el entorno de desarrollo. **Detectado**
+    al construir y ejecutar la imagen Docker con `AppTest` adentro. **Test:**
+    `test_requirements_de_la_app_fijados_y_coherentes_con_la_raiz`; el CI construye la imagen.
+35. *Expectativa estadística equivocada del asistente.* Al escribir el test del IPW recortado,
+    supuso que **truncar** la propensión a [0,01; 0,99] mantenía el ATE con confusión fuerte. El
+    test con verdad conocida falló (0,157 contra 0,10). **Corrección:** el recorte principal
+    **excluye** las unidades sin overlap; el test ahora fija que excluir no sesga y truncar sí
+    (`test_excluir_sin_overlap_no_sesga_y_truncar_si`).
+36. *Ruido en las salidas.* Tres `SingularMatrixWarning` (White con dummies al cuadrado; MPL
+    within con covariables constantes en la búsqueda). **Corrección en origen:** las covariables
+    sin variación within se descartan (`test_efectos_fijos_descarta_covariables_constantes_en_el_grupo`
+    exige que no haya avisos y que el coeficiente de T no cambie); en White, el aviso se silencia
+    con la justificación (los gl salen del rango).
+
+**Decisiones que quedan para Verónica:** el deploy en Streamlit Cloud (requiere su login), las
+co-firmas de Lucía y Antonella en la BITÁCORA y la subida a EVA.
