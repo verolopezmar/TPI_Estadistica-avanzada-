@@ -5,6 +5,8 @@
 #     text_representation:
 #       extension: .py
 #       format_name: percent
+#       format_version: '1.3'
+#       jupytext_version: 1.19.6
 #   kernelspec:
 #     display_name: Python 3
 #     language: python
@@ -54,6 +56,7 @@ from tpi.auditoria import (
     contraste_mcar,
     diagnostico_escala_precio,
     imputar_con_indicador,
+    little_mcar,
     precio_relativo,
     resumen_distribucion,
 )
@@ -69,6 +72,8 @@ from tpi.inferencia import (
     potencia,
     welch_dos_grupos,
 )
+from tpi.particion import es_train
+from tpi.preparacion import IMPUTACIONES
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 warnings.filterwarnings("ignore", category=pd.errors.SettingWithCopyWarning)  # interno de DoWhy
@@ -163,6 +168,13 @@ presencia.loc[[p for p in range(1, 13)]].T.round(3)
 # tratamiento. Cuatro familias: **centinelas**, **desplazamiento de escala del precio**,
 # **valores extremos** y **faltantes** (sección 1.3).
 #
+# **Sin fuga desde el primer paso.** La partición Train/Test (justificada en 2.0) depende solo de
+# `srch_id`, `random_bool` y la semilla, así que la fijamos acá. Toda estadística que transforma los
+# datos (cercas de Tukey, cuantiles de winsorización, medianas de imputación) se ajusta **solo con
+# Train** y se aplica a Test a ciegas (`tests/test_cierre.py`, marcados `leakage`). La descripción
+# de la Fase 1 usa toda la muestra; lo que se ajusta, solo Train. *Corrección del 13/11: la versión
+# anterior calculaba esas estadísticas con toda la muestra (BITÁCORA, Entrada 3, experimento 6).*
+#
 # ### Centinelas
 #
 # Tres variables usan el 0 como código de "no hay dato": `prop_review_score` (hotel sin reseñas),
@@ -173,6 +185,9 @@ presencia.loc[[p for p in range(1, 13)]].T.round(3)
 
 # %%
 df, tabla_centinelas = aplicar_centinelas(crudo)
+df["train"] = es_train(
+    df
+)  # partición fija desde acá (2.0): las transformaciones se ajustan en Train
 df["slot_especial"] = df["position"].isin(SLOTS_ESPECIALES).astype("int8")  # ver 1.1
 tabla_centinelas
 
@@ -228,10 +243,10 @@ tabla_escala
 # búsqueda*.
 
 # %%
-df = precio_relativo(df)
-lo_abs, hi_abs = cerca_tukey_log(df["price_usd"])
+df = precio_relativo(df, ajuste=df["train"])
+lo_abs, hi_abs = cerca_tukey_log(df.loc[df["train"], "price_usd"])
 print(
-    f"Cercas absolutas: [{lo_abs:.2f}; {hi_abs:.2f}] USD | outliers: {df.precio_outlier.sum():,} filas ({100 * df.precio_outlier.mean():.3f} %)"
+    f"Cercas absolutas (ajustadas en Train): [{lo_abs:.2f}; {hi_abs:.2f}] USD | outliers: {df.precio_outlier.sum():,} filas ({100 * df.precio_outlier.mean():.3f} %)"
 )
 distorsion = pd.DataFrame(
     {
@@ -337,6 +352,32 @@ resumen_mcar["max_|efecto|"] = resumen_mcar.abs().max(axis=1)
 resumen_mcar
 
 # %% [markdown]
+# **Contraste multivariado: test de Little (1988).** Los contrastes anteriores miran una variable
+# por vez. Little contrasta MCAR en forma conjunta: con $\hat\mu$ y $\hat\Sigma$ de máxima
+# verosimilitud (algoritmo EM) y $J$ patrones de faltantes,
+#
+# $$d^2 = \sum_{j=1}^{J} n_j\,(\bar y_j - \hat\mu_{o_j})^\top\,\hat\Sigma_{o_j}^{-1}\,(\bar y_j - \hat\mu_{o_j})
+#   \;\overset{H_0}{\sim}\; \chi^2_{\sum_j p_j - p},$$
+#
+# donde $\bar y_j$ es la media de las $p_j$ variables observadas en el patrón $j$. Bajo
+# $H_0$ (MCAR) la media de cada patrón coincide con la global. Supone normalidad multivariada y,
+# como todo contraste con $n$ en cientos de miles, rechaza ante desvíos chicos: la decisión de
+# tratamiento sigue apoyándose en los tamaños de efecto de la tabla anterior.
+
+# %%
+from tpi.inferencia import _p as formato_p
+
+COLS_LITTLE = [
+    "prop_location_score2", "orig_destination_distance", "prop_review_score", "prop_starrating",
+    "log_precio_rel", "prop_location_score1", "srch_booking_window",
+]  # fmt: skip
+little = little_mcar(df, COLS_LITTLE)
+print(
+    f"Test de Little: d² = {little['d2']:,.1f}, gl = {little['gl']}, {formato_p(little['p_valor'])} "
+    f"| {little['patrones']} patrones de faltantes, n = {little['n']:,} (α = 0,05)"
+)
+
+# %% [markdown]
 # **Lectura (efectos de la tabla; ver `contraste_mcar` para p-valores con Bonferroni):**
 #
 # | Variable | % faltante | Dependencia observada | Mecanismo | Tratamiento |
@@ -350,6 +391,8 @@ resumen_mcar
 #
 # **MCAR se rechaza para las cinco variables contrastadas** (en todas hay al menos una dependencia
 # con p ajustado < 0,05), aunque para `visitor_hist_starrating` ninguna dependencia es apreciable.
+# El test de Little lo confirma en forma conjunta: $d^2$ es varios órdenes de magnitud mayor que sus
+# grados de libertad y se rechaza $H_0$ (MCAR).
 # La imputación por mediana dentro de grupos es coherente con MAR condicional al grupo, y el
 # indicador evita que el modelo trate el valor imputado como observado. Un faltante MNAR
 # estructural **no se imputa**: imputar un historial que no existe inventaría información.
@@ -357,13 +400,9 @@ resumen_mcar
 # %%
 df["usuario_recurrente"] = df["visitor_hist_starrating"].notna().astype("int8")
 df["con_afinidad"] = df["srch_query_affinity_score"].notna().astype("int8")
-df = imputar_con_indicador(df, "prop_location_score2", por=["prop_country_id"])
-df = imputar_con_indicador(df, "prop_review_score", por=["prop_starrating"])
-df = imputar_con_indicador(df, "prop_starrating")
-df = imputar_con_indicador(df, "prop_log_historical_price", por=["prop_country_id"])
-df = imputar_con_indicador(
-    df, "orig_destination_distance", por=["visitor_location_country_id", "prop_country_id"]
-)
+# Medianas calculadas solo con Train y aplicadas a todas las filas (sin fuga)
+for col, por in IMPUTACIONES:
+    df = imputar_con_indicador(df, col, por=por, ajuste=df["train"])
 print(
     "NaN restantes en variables de ajuste:",
     int(
@@ -892,7 +931,7 @@ from sklearn.linear_model import HuberRegressor, RANSACRegressor
 from tpi.particion import es_train
 from tpi.regresion import ajustar_pca, diagnostico_gauss_markov, influencia, resumen_pca, tabla_vif
 
-df["train"] = es_train(df)
+assert df["train"].equals(es_train(df))  # fijada en 1.2, antes de cualquier transformación
 print(
     df.groupby("train").agg(
         busquedas=("srch_id", "nunique"), filas=("srch_id", "size"), pct_R1=("random_bool", "mean")
@@ -971,17 +1010,17 @@ pd.DataFrame(
 # rechaza $H_0$ de que todas las pendientes son nulas: F(17; 12840) = 1151 (p-valor exacto en la
 # salida). Lectura de los coeficientes significativos, como cambio porcentual del precio por noche:
 #
-# * **Precio histórico del hotel** ($\beta$ = 0,766, t = 91,46): es casi una elasticidad. Un 1 % más
+# * **Precio histórico del hotel** ($\beta$ = 0,767, t = 91,48): es casi una elasticidad. Un 1 % más
 #   de precio histórico se asocia con un 0,77 % más de precio actual; es el regresor dominante.
-# * **Estrellas** (+6,2 % por estrella, t = 13,36) y **reseñas** (+5,6 % por punto, t = 9,06),
+# * **Estrellas** (+6,2 % por estrella, t = 13,35) y **reseñas** (+5,6 % por punto, t = 9,06),
 #   netos del precio histórico.
 # * **Promoción:** −14,9 % (t = −24,91), el descuento visible.
-# * **Usuario recurrente:** +4,7 % (t = 3,94). Los recurrentes reservan hoteles algo más caros por
+# * **Usuario recurrente:** +4,7 % (t = 3,93). Los recurrentes reservan hoteles algo más caros por
 #   noche (compatible con el contraste 2 de la Fase 1, que no encontró diferencias en el gasto
 #   total).
 # * **No se rechaza $H_0$** para `random_bool` (p = 0,661): el precio del hotel reservado no
 #   difiere entre orden aleatorio y orden del algoritmo, condicional a sus atributos. Tampoco para
-#   marca (p = 0,705), ausencia de reseñas (p = 0,066) ni `location_score1` (p = 0,082).
+#   marca (p = 0,709), ausencia de reseñas (p = 0,067) ni `location_score1` (p = 0,083).
 #
 # Es un modelo **descriptivo** del precio, no causal: sirve de referencia para auditar los supuestos
 # de Gauss-Markov sobre datos reales.
@@ -1047,18 +1086,18 @@ gr.guardar(fig, "f2_residuos")
 plt.show()
 
 # %% [markdown]
-# **Homocedasticidad: se rechaza.** Breusch-Pagan LM = 516,99 (gl = 17, p = 4,96·10⁻⁹⁹) y White
-# LM = 989,87 (p = 1,71·10⁻¹¹⁸). El panel derecho lo muestra: el desvío de los residuos va de 0,26 a
-# 0,37 según el nivel de precio ajustado. (El aviso de "matriz de rango incompleto" del test de White
-# viene de elevar al cuadrado regresores binarios, que son iguales a sí mismos: statsmodels lo
-# resuelve con pseudoinversa y no afecta el estadístico.)
+# **Homocedasticidad: se rechaza.** Breusch-Pagan LM = 515,92 (gl = 17, p = 8,34·10⁻⁹⁹) y White
+# LM = 985,44 (p = 1,09·10⁻¹¹⁷). El panel derecho lo muestra: el desvío de los residuos va de 0,26 a
+# 0,37 según el nivel de precio ajustado. (En la regresión auxiliar de White, el cuadrado de un regresor
+# binario es el mismo regresor: la matriz tiene rango incompleto por construcción y statsmodels toma
+# los grados de libertad del rango, así que el estadístico es válido.)
 # **Remediación:** errores estándar robustos **HC3**. Los EE suben hasta un 31 %
-# (`sin_historial_precio`) y un 21 % (`sin_resenas`, cuyo p pasa de 0,066 a 0,129). Las
+# (`sin_historial_precio`) y un 21 % (`sin_resenas`, cuyo p pasa de 0,067 a 0,131). Las
 # conclusiones sustantivas no cambian; los coeficientes MCO siguen siendo insesgados, solo era
 # incorrecta su varianza.
 #
-# **Normalidad: se rechaza** (JB = 4209,26; p < 10⁻³⁰⁰), pero con asimetría 0,082 y **curtosis
-# 5,798**: colas pesadas y simétricas, visibles en los extremos del Q-Q. Con n = 12.858, los
+# **Normalidad: se rechaza** (JB = 4235,60; p < 10⁻³⁰⁰), pero con asimetría 0,081 y **curtosis
+# 5,807**: colas pesadas y simétricas, visibles en los extremos del Q-Q. Con n = 12.858, los
 # contrastes t y F siguen siendo válidos asintóticamente (TCL); las colas pesadas motivan los
 # estimadores robustos de 2.3.
 #
@@ -1156,28 +1195,28 @@ gr.guardar(fig, "f2_influencia")
 plt.show()
 
 # %% [markdown]
-# **Diagnóstico** (n = 12.858, p + 1 = 18): 119 outliers de respuesta (|r| > 3), 843 puntos de alto
-# leverage (h > 0,0028) y 746 influyentes según D > 4/n = 0,000311. **Ningún punto supera
+# **Diagnóstico** (n = 12.858, p + 1 = 18): 121 outliers de respuesta (|r| > 3), 841 puntos de alto
+# leverage (h > 0,0028) y 748 influyentes según D > 4/n = 0,000311. **Ningún punto supera
 # D = 0,5** (D máx = 0,0117). No hay un punto que, por sí solo, mueva la recta; hay un grupo de
 # puntos moderadamente influyentes.
 #
 # **¿Error de medición o caso real?** Cruzado con el diagnóstico de escala del precio (Fase 1), la
-# tasa de influyentes es del 4,85 % en reservas de 1 noche y del 6,37 % en las compatibles con
+# tasa de influyentes es del 4,87 % en reservas de 1 noche y del 6,38 % en las compatibles con
 # precio por noche, pero sube al **7,91 %** en las de precio por estadía y al **9,51 %** en las
-# incompatibles con ambas escalas. Lo mismo ocurre con los outliers de respuesta: 0,82-0,83 %
+# incompatibles con ambas escalas. Lo mismo ocurre con los outliers de respuesta: 0,82-0,86 %
 # contra 1,86 % y 2,62 %. **Parte de la influencia es error de medición** (precio informado en la
 # escala equivocada). El resto son casos reales de colas pesadas.
 #
 # **Regresión robusta:**
-# * Quitar los 746 influyentes sube el R² a 0,6857 y cambia los coeficientes a lo sumo en 0,023
+# * Quitar los 748 influyentes sube el R² a 0,6858 y cambia los coeficientes a lo sumo en 0,024
 #   (estrellas: 0,060 → 0,045).
 # * **Huber** ($\epsilon$ = 1,35) llega casi a los mismos coeficientes que MCO sin influyentes
-#   (diferencia máxima 0,012) sin descartar datos: es la especificación de resguardo.
+#   (diferencia máxima 0,014) sin descartar datos: es la especificación de resguardo.
 # * **RANSAC con el umbral por defecto: experimento fallido (Entrada 3).** El umbral por defecto es
-#   la MAD de *y*, no de los residuos, y con 17 regresores deja solo el 55,02 % de inliers. Los
-#   coeficientes se vuelven inestables: estrellas −0,046, habitaciones +0,312; diferencia máxima con
-#   MCO sin influyentes, 0,341.
-# * Con el umbral corregido (3 σ̂ robustos de los residuos MCO) retiene el 89,03 % y la diferencia
+#   la MAD de *y*, no de los residuos, y con 17 regresores deja solo el 55,01 % de inliers. Los
+#   coeficientes se vuelven inestables: estrellas −0,046, habitaciones +0,311; diferencia máxima con
+#   MCO sin influyentes, 0,340.
+# * Con el umbral corregido (3 σ̂ robustos de los residuos MCO) retiene el 89,07 % y la diferencia
 #   máxima baja a 0,058.
 #
 # **Decisión:** MCO con errores HC3 como especificación principal, y Huber como resguardo. Los
@@ -1338,7 +1377,7 @@ proy.groupby("reserva")[["PC1", "PC2"]].mean()
 #   PC4 (10,0 %): promoción (0,75) frente a `location_score2` (−0,54).
 #
 # **Proyección ciega de Test.** Los hoteles reservados tienen PC2 medio = 0,270, contra −0,0035 de
-# los no reservados. En PC1 la diferencia es mínima (0,0070 vs. −0,0063). **Lo que se reserva no es
+# los no reservados. En PC1 la diferencia es mínima (0,0069 vs. −0,0063). **Lo que se reserva no es
 # lo más caro ni lo de mayor categoría, sino lo bien ubicado, en promoción y barato para su
 # búsqueda.** Es un hallazgo predictivo, no causal (Fase 4).
 
@@ -1348,10 +1387,10 @@ proy.groupby("reserva")[["PC1", "PC2"]].mean()
 # | Supuesto / análisis | Resultado | Remediación |
 # |---|---|---|
 # | Especificación | Precio crudo: R² = 0,0028, Cook máx 1,215 (fallido) | log(precio) sin outliers: R² = 0,604 |
-# | Homocedasticidad | Se rechaza (BP p = 4,96·10⁻⁹⁹; White p = 1,71·10⁻¹¹⁸) | Errores HC3 (EE hasta +31 %) |
-# | Normalidad | Se rechaza (JB), curtosis 5,80, asimetría 0,08 | TCL (n = 12.858) + estimador robusto de Huber |
+# | Homocedasticidad | Se rechaza (BP p = 8,34·10⁻⁹⁹; White p = 1,09·10⁻¹¹⁷) | Errores HC3 (EE hasta +31 %) |
+# | Normalidad | Se rechaza (JB), curtosis 5,81, asimetría 0,08 | TCL (n = 12.858) + estimador robusto de Huber |
 # | Independencia | DW = 1,95 | Ninguna; respalda la partición aleatoria |
-# | Influyentes | 746 con D > 4/n, ninguno con D > 0,5; más frecuentes con escala de precio errónea | Huber como resguardo; RANSAC con umbral 3σ̂ (el de defecto falla) |
+# | Influyentes | 748 con D > 4/n, ninguno con D > 0,5; más frecuentes con escala de precio errónea | Huber como resguardo; RANSAC con umbral 3σ̂ (el de defecto falla) |
 # | Multicolinealidad | VIF máx 1,74 (modelo) y 2,98 (conjunto Fase 3) | Ninguna |
 # | PCA (solo Train) | 4 comp. por Kaiser (69,7 %), codo en 2; PC1 = categoría-precio, PC2 = ubicación/promoción | 2 PCs para la app, 4 como features alternativas en la Fase 3 |
 
@@ -1624,9 +1663,9 @@ plt.show()
 print(export_text(arbol, feature_names=FEATURES, max_depth=1))
 
 # %% [markdown]
-# **Sobreajuste.** El árbol sin restricciones crece hasta 18.896 hojas y profundidad 44. Memoriza Train
-# (PR-AUC = 1,000) y fracasa en Test (PR-AUC = 0,031; ROC-AUC = 0,549, casi azar). La poda elige
-# $\alpha_{\text{opt}}$ = 2,28·10⁻⁵ entre 1.174 valores del camino y deja **14 hojas** (profundidad 6),
+# **Sobreajuste.** El árbol sin restricciones crece hasta 18.863 hojas y profundidad 45. Memoriza Train
+# (PR-AUC = 1,000) y fracasa en Test (PR-AUC = 0,031; ROC-AUC = 0,550, casi azar). La poda elige
+# $\alpha_{\text{opt}}$ = 2,25·10⁻⁵ entre 1.202 valores del camino y deja **14 hojas** (profundidad 6),
 # con PR-AUC de 0,120 en CV.
 #
 # **Regla del nodo raíz:** `position ≤ 4,5`. El primer corte separa los hoteles de las posiciones 1-4
@@ -1711,11 +1750,11 @@ plt.show()
 conv.round(4)
 
 # %% [markdown]
-# **Búsqueda.** La mejor combinación es 200 árboles, `max_depth` = 24, `min_samples_leaf` = 20,
-# `min_samples_split` = 2 y `max_features` = 0,3, con PR-AUC de 0,1574 en CV. **OOB vs. CV:** en Train
-# completo, el OOB da PR-AUC 0,1512 y ROC-AUC 0,8458, en línea con la CV. En la curva de
-# convergencia, ambas crecen con el número de árboles y se estabilizan desde ≈ 200 (OOB: 0,1504 →
-# 0,1512 de 200 a 300 árboles; CV: 0,1548 → 0,1551). El OOB queda algo por debajo de la CV con pocos
+# **Búsqueda.** La mejor combinación es 200 árboles, `max_depth` = 24, `min_samples_leaf` = 50,
+# `min_samples_split` = 10 y `max_features` = `log2`, con PR-AUC de 0,1569 en CV. **OOB vs. CV:** en Train
+# completo, el OOB da PR-AUC 0,1511 y ROC-AUC 0,8499, en línea con la CV. En la curva de
+# convergencia, ambas crecen con el número de árboles y se estabilizan desde ≈ 100-200 (OOB: 0,1488 →
+# 0,1496 de 200 a 300 árboles; CV: 0,1538 → 0,1533). El OOB queda algo por debajo de la CV con pocos
 # árboles porque cada fila se evalúa solo con el ≈ 37 % de los árboles que no la vieron. La
 # diferencia se cierra al crecer B: es la convergencia que pide el enunciado.
 
@@ -1793,7 +1832,7 @@ gr.guardar(fig, "f3_evaluacion")
 plt.show()
 
 # %% [markdown]
-# **Ganador: Random Forest**, con PR-AUC 0,154 (unas 7 veces la prevalencia de 0,022), ROC-AUC 0,849 y
+# **Ganador: Random Forest**, con PR-AUC 0,153 (unas 7 veces la prevalencia de 0,022), ROC-AUC 0,854 y
 # el menor Brier (0,0196). Le siguen la logística (PR-AUC 0,135) y el CART podado (0,120). Naive
 # Bayes queda último (0,074) y con un Brier de 0,0697: la violación de la independencia condicional
 # **destruye la calibración**. Su umbral elegido en Train (0,9998) no se traslada a Test (recall
@@ -1802,9 +1841,9 @@ plt.show()
 # **Calibración (reliability diagram).** Logística, CART y RF quedan cerca de la diagonal; Naive Bayes
 # se aleja en los extremos.
 #
-# **Umbral.** Con el umbral por defecto de 0,5, el F1 es 0 en logística y CART, y 0,0006 en RF: con
-# 2 % de positivos nada supera 0,5. Con el umbral elegido en Train, el F1 de RF es 0,233 (precisión
-# 0,187, recall 0,306). Es un experimento fallido documentado en la Entrada 3.
+# **Umbral.** Con el umbral por defecto de 0,5, el F1 es 0 en logística, CART y RF: con
+# 2 % de positivos nada supera 0,5. Con el umbral elegido en Train, el F1 de RF es 0,230 (precisión
+# 0,164, recall 0,390). Es un experimento fallido documentado en la Entrada 3.
 
 # %% [markdown]
 # ## 3.6 Explicabilidad: MDI vs. importancia por permutación
@@ -1864,11 +1903,11 @@ plt.show()
 
 # %% [markdown]
 # **El dilema MDI vs. permutación, con los datos.**
-# - El MDI correlaciona fuertemente con la cardinalidad de las variables (ρ de Spearman = 0,749,
-#   p = 7·10⁻⁶); la permutación, bastante menos (0,567).
+# - El MDI correlaciona fuertemente con la cardinalidad de las variables (ρ de Spearman = 0,701,
+#   p = 4,7·10⁻⁵); la permutación, bastante menos (0,346).
 # - Ejemplos:
-#   - `orig_destination_distance` (178.299 valores distintos) es 8.ª en MDI y 10.ª por permutación,
-#     con una caída de PR-AUC de apenas 0,0012.
+#   - `orig_destination_distance` (178.306 valores distintos) es 8.ª en MDI, pero por permutación
+#     la PR-AUC de Test no cae (−0,0005): sus cortes no generalizan.
 #   - `prop_log_historical_price` es 7.ª en MDI y 11.ª por permutación.
 #   - `prop_starrating` (5 valores) sube del 13.° puesto en MDI al 8.° por permutación.
 #
@@ -1878,8 +1917,8 @@ plt.show()
 # de desempeño **en Test** cuando se rompe la variable: los cortes que solo servían para memorizar no
 # generalizan y no cuentan.
 #
-# **Las dos más importantes por ambos criterios:** `position` (caída de PR-AUC de 0,103) y
-# `random_bool` (0,079). La Fase 4 discute por qué ninguna de las dos es una palanca en la magnitud
+# **Las dos más importantes por ambos criterios:** `position` (caída de PR-AUC de 0,099) y
+# `random_bool` (0,075). La Fase 4 discute por qué ninguna de las dos es una palanca en la magnitud
 # que sugiere su importancia.
 
 # %% [markdown]
@@ -1944,15 +1983,15 @@ print(
 
 # %% [markdown]
 # 1. **Holdout cronológico.** Entrenado con el 80 % inicial del período y evaluado en las búsquedas
-#    posteriores al 21/05/2013, el RF da PR-AUC 0,146 y ROC-AUC 0,841, contra 0,154 y 0,849 en el
+#    posteriores al 21/05/2013, el RF da PR-AUC 0,144 y ROC-AUC 0,845, contra 0,153 y 0,854 en el
 #    holdout aleatorio. La pérdida es chica: el modelo no depende de patrones que no se repiten en el
 #    tiempo.
 # 2. **¿Ordena mejor que Expedia?** En las búsquedas de Test con reserva, el hotel reservado está en
-#    el top-5 del RF en el 62,8 % de los casos con R = 0, contra 60,5 % del top-5 de Expedia, y en el
-#    53,5 % con R = 1, contra 49,4 %.
+#    el top-5 del RF en el 63,0 % de los casos con R = 0, contra 60,5 % del top-5 de Expedia, y en el
+#    56,8 % con R = 1, contra 49,4 %.
 #    - Con orden aleatorio, el top-5 de Expedia **no** debería anticipar nada. Que acierte el 49 % es
 #      el efecto causal de la posición: el usuario reserva más lo que ve arriba.
-#    - El modelo, que usa la posición, hereda ese efecto y lo mejora apenas.
+#    - El modelo, que usa la posición, hereda ese efecto y lo mejora con los atributos del hotel.
 # 3. **PCA como features.** Reemplazar las 10 variables de hotel por las 4 componentes de Train baja
 #    la PR-AUC de la logística de 0,135 a 0,119: la compresión pierde información predictiva. Se
 #    mantienen las variables originales.
@@ -1962,7 +2001,7 @@ print(
 #
 # | Modelo | PR-AUC (Test) | ROC-AUC | Brier | Lectura |
 # |---|---|---|---|---|
-# | Random Forest | 0,154 | 0,849 | 0,0196 | Ganador; OOB y CV convergen |
+# | Random Forest | 0,153 | 0,854 | 0,0196 | Ganador; OOB y CV convergen |
 # | Logística L1 | 0,135 | 0,844 | 0,0198 | Interpretable (OR con IC); bien calibrada |
 # | CART podado | 0,120 | 0,823 | 0,0198 | 14 hojas; regla raíz `position ≤ 4,5` |
 # | Naive Bayes | 0,074 | 0,796 | 0,0697 | Viola la independencia condicional; mal calibrado |
@@ -2154,6 +2193,123 @@ tabla_ate
 # 0,0037 porque el proveedor sobremuestreó búsquedas con compra solo en R = 0 (Entrada 4, amenaza A).
 # Además, el ajuste agrupado no controla los confusores de nivel búsqueda. Por eso la comparación
 # principal es la de 4.3.
+
+# %% [markdown]
+# ## 4.2 bis Positividad, overlap e IPW recortado
+#
+# El IPW identifica $\tau$ solo si todo hotel tiene probabilidad positiva de recibir cada nivel del
+# tratamiento: $0 < e(z) = P(T=1 \mid Z=z) < 1$ (**positividad**). Con propensiones cercanas a 0 o
+# a 1, los pesos $1/\hat e$ y $1/(1-\hat e)$ explotan y unos pocos hoteles dominan la estimación.
+# Diagnosticamos el overlap con la distribución de $\hat e$ por grupo, la fracción de unidades
+# fuera de $[0{,}01;\,0{,}99]$, el peso máximo y el tamaño efectivo de Kish,
+# $\mathrm{ESS} = (\sum_i w_i)^2/\sum_i w_i^2$.
+#
+# Usamos el estimador normalizado de Hájek,
+#
+# $$\hat\tau_{\text{IPW}} = \frac{\sum_i T_i Y_i/\hat e_i}{\sum_i T_i/\hat e_i}
+#   - \frac{\sum_i (1-T_i)\,Y_i/(1-\hat e_i)}{\sum_i (1-T_i)/(1-\hat e_i)},$$
+#
+# con la misma propensión que DoWhy (logística escalada sobre $Z$). Como resguardo, **excluimos** las
+# unidades con $\hat e \notin [0{,}01;\,0{,}99]$ (Crump et al., 2009) y lo contrastamos con
+# **truncar** $\hat e$ a ese intervalo; `tests/test_cierre.py` muestra con verdad conocida que truncar
+# sesga y excluir no. El IC 95 % sale de un bootstrap por búsqueda (B = 1000) con $\hat e$ fijo,
+# que es conservador (Hirano, Imbens y Ridder, 2003).
+
+# %%
+from tpi.causal import LIMITES_PS, bootstrap_ipw, diagnostico_overlap, ipw_hajek
+
+propension, filas_ov, filas_ipw = {}, [], []
+for nombre, d in [("R = 0 (algoritmo)", R0), ("R = 1 (aleatorio)", R1)]:
+    modelo_ps = make_pipeline(StandardScaler(), LogisticRegression(max_iter=3000))
+    modelo_ps.fit(d[Z_TODAS], d["top5"])
+    ps = modelo_ps.predict_proba(d[Z_TODAS])[:, 1]
+    y_, t_, g_ = d["booking_bool"].to_numpy(), d["top5"].to_numpy(), d["srch_id"].to_numpy()
+    propension[nombre] = (ps, t_)
+    filas_ov.append({"estrato": nombre} | diagnostico_overlap(ps, t_))
+    filas_ipw.append({"estrato": nombre, "estimador": "IPW de DoWhy", "ATE": ate[nombre]["IPW"]})
+    for variante, kw in [
+        ("IPW Hájek", {}),
+        ("IPW Hájek, excluye ê fuera de [0,01; 0,99]", {"limites": LIMITES_PS}),
+    ]:
+        filas_ipw.append(
+            {"estrato": nombre, "estimador": variante}
+            | bootstrap_ipw(y_, t_, ps, g_, B=1000, seed=SEED, **kw)
+        )
+    filas_ipw.append(
+        {
+            "estrato": nombre,
+            "estimador": "IPW Hájek, ê truncado a [0,01; 0,99]",
+            "ATE": ipw_hajek(y_, t_, ps, limites=LIMITES_PS, modo="truncar"),
+        }
+    )
+tabla_overlap = pd.DataFrame(filas_ov).set_index("estrato")
+tabla_ipw = pd.DataFrame(filas_ipw).set_index(["estrato", "estimador"])
+tabla_overlap.T.round(4)
+
+# %%
+tabla_ipw.round(4)
+
+# %%
+fig, ax = plt.subplots(1, 3, figsize=(15, 3.8), gridspec_kw={"width_ratios": [1, 1, 1.15]})
+bins = np.linspace(0, 1, 101)
+for a, (nombre, (ps, t_)) in zip(ax[:2], propension.items(), strict=True):
+    a.hist(ps[t_ == 0], bins=bins, density=True, alpha=0.55, color=gr.AZUL, label="T = 0 (resto)")
+    a.hist(
+        ps[t_ == 1], bins=bins, density=True, alpha=0.55, color=gr.NARANJA, label="T = 1 (top-5)"
+    )
+    for lim in LIMITES_PS:
+        a.axvline(lim, color=gr.TEXTO_2, ls="--", lw=1)
+    a.axvspan(0, LIMITES_PS[0], color=gr.TEXTO_2, alpha=0.08, lw=0)
+    a.axvspan(LIMITES_PS[1], 1, color=gr.TEXTO_2, alpha=0.08, lw=0)
+    a.set(
+        xlabel="Propensión estimada ê(z)",
+        ylabel="Densidad",
+        title=f"Overlap: {nombre}",
+        xlim=(0, 1),
+    )
+    a.legend(fontsize=8, frameon=False)
+ax[0].annotate(
+    "zona recortada\n(ê < 0,01 o > 0,99)",
+    xy=(0.995, ax[0].get_ylim()[1] * 0.5),
+    xytext=(0.62, ax[0].get_ylim()[1] * 0.7),
+    fontsize=8,
+    color=gr.TEXTO_2,
+    arrowprops={"arrowstyle": "->", "color": gr.TEXTO_2},
+)
+r0 = "R = 0 (algoritmo)"
+puntos = [
+    ("Ingenuo Y ~ T", ate[r0]["ingenuo (Y ~ T)"], *ate[r0]["ingenuo IC95"]),
+    ("Regresión backdoor", ate[r0]["regresión backdoor"], *ate[r0]["regresión IC95"]),
+    ("IPW Hájek", *tabla_ipw.loc[(r0, "IPW Hájek"), ["ATE", "IC95_inf", "IC95_sup"]]),
+    (
+        "IPW recortado",
+        *tabla_ipw.loc[
+            (r0, "IPW Hájek, excluye ê fuera de [0,01; 0,99]"), ["ATE", "IC95_inf", "IC95_sup"]
+        ],
+    ),
+]
+for i, (_lab, est, lo, hi) in enumerate(puntos):
+    ax[2].errorbar(est, i, xerr=[[est - lo], [hi - est]], fmt="o", color=gr.AZUL, capsize=3)
+ax[2].set_yticks(range(len(puntos)), [p[0] for p in puntos])
+ax[2].invert_yaxis()
+ax[2].set(xlabel="ATE: Δ P(reserva) por top-5 (IC 95 %)", title="Estimadores, orden del algoritmo")
+fig.tight_layout()
+gr.guardar(fig, "f4_overlap")
+plt.show()
+
+# %% [markdown]
+# **Lectura.**
+# - **Positividad: se cumple en los dos estratos.** Las propensiones del top-5 y del resto se
+#   superponen en todo su rango y casi ninguna unidad cae fuera de $[0{,}01;\,0{,}99]$, así que el
+#   IPW recortado coincide con el completo. Con orden aleatorio, las distribuciones de los dos grupos
+#   casi coinciden: $Z$ apenas predice la exposición, que es la huella de la aleatorización.
+# - **Pesos.** Con el orden del algoritmo, el peso máximo y la caída del tamaño efectivo del grupo
+#   tratado muestran que $Z$ predice más la exposición: el ranker usa esas variables.
+# - **Estimadores.** El IPW de Hájek queda del mismo lado que la regresión backdoor respecto del
+#   ingenuo: ajustar por $Z$ reduce el efecto aparente. El IPW de DoWhy difiere del de Hájek recién en
+#   la cuarta cifra (otra normalización de los pesos), no en la identificación.
+# - **Límite.** Un buen overlap en $Z$ no protege contra $U$: ningún reponderado por lo observado
+#   corrige la confusión que revela el benchmark (4.3).
 
 # %% [markdown]
 # ## 4.3 Escala relativa dentro de la búsqueda: observacional vs. cuasi-experimento
@@ -2469,7 +2625,7 @@ plt.show()
 # | Efecto marginal, algoritmo (p.p.) | 5,35 | [5,14; 5,55] |
 # | Efecto marginal, benchmark (p.p.) | 3,24 | [2,72; 3,78] |
 # | **Cociente de efectos marginales** | **1,65** | **[1,41; 1,98]** |
-# | Diferencia de efectos marginales (p.p.) | 2,10 | [1,52; 2,69] |
+# | Diferencia de efectos marginales (p.p.) | 2,10 | [1,53; 2,69] |
 # | Diferencia de riesgos con EF, algoritmo − benchmark | 0,035 | [0,028; 0,042] |
 #
 # En **ninguna** de las 1000 réplicas el cociente cae a 1 o menos (ni en OR, ni en efecto marginal,
@@ -2681,7 +2837,7 @@ print(
 #   y **cambia el signo** del efecto ingenuo (de +0,093 a −0,089).
 # - *Sobre los datos reales con orden aleatorio*, el mismo mecanismo produce un sesgo más chico: la Δp
 #   ingenua pasa de 0,0105 a 0,0136 (+29 %, con IC superpuestos) y la correlación de $T$ con
-#   `location_score2` cambia poco (0,105 → 0,126).
+#   `location_score2` cambia poco (0,105 → 0,125).
 # - La diferencia se explica porque con orden aleatorio la reserva es rara (≈ 0,5 %) y depende poco de
 #   cada atributo por separado. El sesgo de Berkson es proporcional a cuánto causan $T$ e $Y$ al
 #   colisionador y a cuánto causa el atributo a $Y$.
@@ -2922,16 +3078,149 @@ plt.show()
 pd.concat(curvas, names=["variable"]).round(4)
 
 # %% [markdown]
+# **CATE por segmento: ¿para quién rinde el slot?** Definimos los segmentos por terciles del precio
+# relativo y de `location_score2` dentro de cada muestra, y reportamos el efecto promedio del
+# segmento, $\tau_S = \mathbb{E}[\tau(X) \mid X \in S]$, con su IC 95 %. Lo estimamos con dos
+# modelos que se complementan:
+#
+# * **LinearDML con orden aleatorio (R = 1):** no hereda el sesgo de $U$; es la magnitud causal que
+#   usamos para valuar (4.9).
+# * **Causal Forest DML con el orden del algoritmo (R = 0):** forma no paramétrica de la
+#   heterogeneidad, con más eventos pero con el nivel sesgado por $U$.
+
+
+# %%
+def segmentos(d: pd.DataFrame) -> dict[str, pd.Series]:
+    qp = d["log_precio_rel"].quantile([1 / 3, 2 / 3]).to_numpy()
+    ql = d["prop_location_score2"].quantile([1 / 3, 2 / 3]).to_numpy()
+    precio = pd.cut(d["log_precio_rel"], [-np.inf, *qp, np.inf], labels=["barato", "medio", "caro"])
+    ubic = pd.cut(
+        d["prop_location_score2"], [-np.inf, *ql, np.inf], labels=["baja", "media", "alta"]
+    )
+    return {
+        "barato y bien ubicado": (precio == "barato") & (ubic == "alta"),
+        "barato para su búsqueda": precio == "barato",
+        "bien ubicado": ubic == "alta",
+        "todos": pd.Series(True, index=d.index),
+        "mal ubicado": ubic == "baja",
+        "caro para su búsqueda": precio == "caro",
+        "caro y mal ubicado": (precio == "caro") & (ubic == "baja"),
+    }
+
+
+s1 = dml["R = 1"]["datos"]
+m1 = dml["R = 1"]["modelo"]
+filas_seg = []
+seg1, seg0 = segmentos(s1), segmentos(s0)
+for nombre in seg1:
+    i1 = m1.ate_inference(X=s1.loc[seg1[nombre], X_CATE])
+    i0 = cf.ate_inference(X=s0.loc[seg0[nombre], X_CATE])
+    filas_seg.append(
+        {
+            "segmento": nombre,
+            "τ R=1 (LinearDML)": i1.mean_point,
+            "IC95_inf R=1": i1.conf_int_mean()[0],
+            "IC95_sup R=1": i1.conf_int_mean()[1],
+            "τ R=0 (Causal Forest)": i0.mean_point,
+            "IC95_inf R=0": i0.conf_int_mean()[0],
+            "IC95_sup R=0": i0.conf_int_mean()[1],
+            "hoteles R=1": int(seg1[nombre].sum()),
+            "hoteles R=0": int(seg0[nombre].sum()),
+        }
+    )
+tabla_cate_seg = pd.DataFrame(filas_seg).set_index("segmento")
+for r in ("R=1", "R=0"):
+    col = "τ R=1 (LinearDML)" if r == "R=1" else "τ R=0 (Causal Forest)"
+    tabla_cate_seg[f"relativo a todos ({r})"] = (
+        tabla_cate_seg[col] / tabla_cate_seg.loc["todos", col]
+    )
+coefs_R1 = pd.DataFrame(
+    {
+        "θ (efecto de x sobre τ)": m1.coef_,
+        "IC95_inf": m1.coef__interval()[0],
+        "IC95_sup": m1.coef__interval()[1],
+        "p": m1.coef__inference().pvalue(),
+    },
+    index=X_CATE,
+)
+print("LinearDML con orden aleatorio (R = 1): τ(x) = θ0 + xᵀθ")
+print(coefs_R1.round(4).to_string())
+tabla_cate_seg.round(4)
+
+# %%
+fig, ax = plt.subplots(1, 2, figsize=(14, 4), sharey=True)
+orden = list(tabla_cate_seg.index)
+for a, (col, lo, hi, titulo, color) in zip(
+    ax,
+    [
+        (
+            "τ R=1 (LinearDML)",
+            "IC95_inf R=1",
+            "IC95_sup R=1",
+            "Orden aleatorio (R = 1), LinearDML",
+            gr.AZUL,
+        ),
+        (
+            "τ R=0 (Causal Forest)",
+            "IC95_inf R=0",
+            "IC95_sup R=0",
+            "Orden del algoritmo (R = 0), Causal Forest",
+            gr.NARANJA,
+        ),
+    ],
+    strict=True,
+):
+    t_ = tabla_cate_seg
+    a.errorbar(
+        100 * t_[col],
+        range(len(orden)),
+        xerr=[100 * (t_[col] - t_[lo]), 100 * (t_[hi] - t_[col])],
+        fmt="o",
+        color=color,
+        capsize=3,
+    )
+    a.axvline(100 * t_.loc["todos", col], color=gr.TEXTO_2, ls="--", lw=1)
+    a.axvline(0, color=gr.TEXTO_2, lw=0.6)
+    a.set(xlabel="τ_S: puntos porcentuales de P(reserva) por estar en el top-5", title=titulo)
+ax[0].set_yticks(range(len(orden)), orden)
+ax[0].invert_yaxis()
+ax[0].annotate(
+    "promedio de la muestra",
+    xy=(100 * tabla_cate_seg.loc["todos", "τ R=1 (LinearDML)"], len(orden) - 0.6),
+    xytext=(8, 0),
+    textcoords="offset points",
+    fontsize=8,
+    color=gr.TEXTO_2,
+)
+fig.suptitle("CATE del top-5 por segmento de hotel (IC 95 %)", y=1.02)
+fig.tight_layout()
+gr.guardar(fig, "f4_cate_segmentos")
+plt.show()  # fmt: skip
+
+# %% [markdown]
+# **Lectura de los segmentos.**
+# - **La heterogeneidad se confirma con orden aleatorio.** Los coeficientes del LinearDML de R = 1
+#   tienen el mismo signo que las curvas del Causal Forest de R = 0: el efecto del slot baja con el
+#   precio relativo y sube con la ubicación. Lo que sugería el dato del algoritmo no es un artefacto
+#   de $U$.
+# - **Magnitud.** El orden de los segmentos es el mismo en los dos estratos: "barato y bien
+#   ubicado" arriba, "caro y mal ubicado" abajo. Los niveles absolutos no son comparables entre
+#   estratos (selección del dataset, Entrada 4); los cocientes "relativo a todos" sí lo son.
+# - **Incertidumbre.** Los IC de segmentos vecinos se superponen; los extremos son los que separan.
+#   La recomendación de asignación se apoya en los extremos y en el signo de los coeficientes, no en
+#   el orden fino de los segmentos intermedios.
+
+# %% [markdown]
 # **DML.**
-# - Con el orden del algoritmo, `LinearDML` estima un ATE de 0,0833 (IC 95 % [0,0788; 0,0877]),
+# - Con el orden del algoritmo, `LinearDML` estima un ATE de 0,0833 (IC 95 % [0,0789; 0,0877]),
 #   consistente con la regresión backdoor (0,0961) y el IPW (0,0890).
 # - Con orden aleatorio, 0,0073 [0,0059; 0,0088].
 # - Relativos a sus tasas base (0,0202 y 0,0037), los cocientes son 4,1 y 2,0: el mismo patrón que
 #   el logit condicional. El observacional casi duplica la amplificación relativa del benchmark.
 #
 # **CATE (Causal Forest DML, orden del algoritmo).** El efecto del top-5 es heterogéneo:
-# - **Mayor para hoteles baratos relativos a su búsqueda:** CATE ≈ 0,10-0,12 con precio relativo
-#   bajo, contra ≈ 0,05-0,06 con precio relativo alto.
+# - **Mayor para hoteles baratos relativos a su búsqueda:** CATE ≈ 0,09-0,12 con precio relativo
+#   bajo, contra ≈ 0,05-0,07 con precio relativo alto.
 # - **Mayor para hoteles mejor ubicados:** de 0,076 a 0,111 entre los percentiles 5 y 95 de
 #   `location_score2`.
 # - Casi plano en estrellas (0,082-0,088) y en usuario recurrente (0,083 vs. 0,085).
@@ -2994,9 +3283,11 @@ pd.concat(curvas, names=["variable"]).round(4)
 # 2. **No pagar el sesgo.** Valuar el slot con datos del algoritmo, aun ajustados, sobreestima su
 #    efecto relativo en un 60 % (OR 3,38 vs. 2,11). Un contrato de posicionamiento pago calculado así
 #    sobreprecia el inventario.
-# 3. **Asignación.** El slot rinde más con hoteles baratos para su búsqueda y bien ubicados (CATE ≈ el
-#    doble que con hoteles caros). Si el objetivo es maximizar reservas incrementales, se prioriza la
-#    exposición de esos perfiles.
+# 3. **Asignación por segmento.** Con el efecto causal del benchmark (segunda tabla de abajo), el
+#    slot rinde más con hoteles baratos para su búsqueda y bien ubicados, y menos con hoteles caros y
+#    mal ubicados. Si el objetivo es maximizar reservas incrementales, se prioriza la exposición de
+#    los primeros: la celda siguiente cuantifica cuántas reservas y USD suma reasignar 1.000
+#    exposiciones del peor segmento al mejor.
 # 4. **Experimentar en forma continua.** El orden aleatorio es la única fuente de verdad que permitió
 #    detectar el sesgo. Mantener una fracción chica de tráfico con orden aleatorio funciona como
 #    auditoría permanente del valor causal del ranking.
@@ -3037,6 +3328,33 @@ escenarios["USD incrementales / 1.000"] = escenarios["reservas incrementales / 1
     "gasto por reserva (USD)"
 ].astype(float)
 escenarios
+
+# %%
+# Valuación por segmento con el efecto causal del benchmark (R = 1, LinearDML): por 1.000
+# exposiciones en el top-5, sin desplazamiento y con el gasto mediano por reserva
+negocio_seg = pd.DataFrame(
+    {
+        "Δp por exposición": tabla_cate_seg["τ R=1 (LinearDML)"],
+        "reservas incrementales / 1.000": 1000 * tabla_cate_seg["τ R=1 (LinearDML)"],
+        "IC95_inf reservas": 1000 * tabla_cate_seg["IC95_inf R=1"],
+        "IC95_sup reservas": 1000 * tabla_cate_seg["IC95_sup R=1"],
+    }
+)
+negocio_seg["USD incrementales / 1.000"] = (
+    negocio_seg["reservas incrementales / 1.000"] * gasto_medio.median()
+)
+negocio_seg["relativo a todos"] = tabla_cate_seg["relativo a todos (R=1)"]
+mejor_seg, peor_seg = "barato y bien ubicado", "caro y mal ubicado"
+ganancia_reasignar = (
+    negocio_seg.loc[mejor_seg, "reservas incrementales / 1.000"]
+    - negocio_seg.loc[peor_seg, "reservas incrementales / 1.000"]
+)
+print(
+    f"Reasignar 1.000 exposiciones de '{peor_seg}' a '{mejor_seg}': "
+    f"{ganancia_reasignar:+.2f} reservas incrementales "
+    f"({ganancia_reasignar * gasto_medio.median():+,.0f} USD con el gasto mediano)"
+)
+negocio_seg.round(3)
 
 # %% [markdown]
 # ## 4.10 Síntesis de la Fase 4
@@ -3325,6 +3643,7 @@ resultados = {
             "cerca_sup": hi_abs,
         },
         "faltantes_pct": faltantes["pct_faltante"].to_dict(),
+        "little": little | {"variables": COLS_LITTLE},
         "mcar_max_efecto": resumen_mcar["max_|efecto|"].to_dict(),
         "zc": tabla_zc.to_dict(orient="index"),
         "slots_especiales": SLOTS_ESPECIALES,
@@ -3365,6 +3684,7 @@ resultados = {
         "mejor": mejor,
         "rf_params": busqueda_rf.best_params_,
         "logit_params": grid_log.best_params_,
+        "logit_or": tabla_or.sort_values("p").head(12).to_dict(orient="index"),
         "arbol_libre": {
             "hojas": int(arbol_libre.get_n_leaves()),
             "pr_auc_train": float(average_precision_score(y_tr, p_libre_tr)),
@@ -3423,6 +3743,17 @@ resultados = {
         },
         "embudo": tabla_emb.to_dict(orient="index"),
         "escenarios": escenarios.to_dict(orient="index"),
+        "overlap": tabla_overlap.to_dict(orient="index"),
+        "ipw": {f"{e} | {v}": fila for (e, v), fila in tabla_ipw.to_dict(orient="index").items()},
+        "cate_segmentos": tabla_cate_seg.to_dict(orient="index"),
+        "het_R1": coefs_R1.to_dict(orient="index"),
+        "negocio_segmentos": negocio_seg.to_dict(orient="index"),
+        "reasignacion": {
+            "desde": peor_seg,
+            "hacia": mejor_seg,
+            "reservas_por_1000": float(ganancia_reasignar),
+            "usd_por_1000": float(ganancia_reasignar * gasto_medio.median()),
+        },
     },
 }
 ruta_res = guardar_json(resultados, MODELS_DIR / "resultados.json")
