@@ -1,0 +1,20 @@
+{
+  "fuente": "kaggle competitions: expedia-personalized-sort/data.zip -> train.csv",
+  "bytes_data_zip": 434573097,
+  "sha256_data_zip": "f16b9622a73c015e2693284a5939a82817417f23f284bfd69081f1f35cdd0602",
+  "bytes_train_csv": 2358114793,
+  "sha256_train_csv": "84a53139ea92df1e9400f84852facbd78f3136f366a08440f4ab4518e71a49a9",
+  "seed": 42,
+  "n_por_estrato": 15000,
+  "train_n_filas": 9917530,
+  "train_n_busquedas": 399344,
+  "train_busquedas_por_random_bool": {
+    "0": 277798,
+    "1": 121546
+  },
+  "train_busquedas_random_bool_inconsistente": 0,
+  "muestra_n_filas": 739323,
+  "muestra_n_busquedas": 30000,
+  "columnas_faltantes": [],
+  "violaciones_contrato": []
+}
