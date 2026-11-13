@@ -8,9 +8,12 @@
 ## Evidencia
 - [ ] `ruff check .` sin errores
 - [ ] `ruff format --check .` sin cambios
+- [ ] `pytest -m leakage` en verde (no-fuga Train/Test)
 - [ ] `pytest` en verde (pegar resumen abajo)
 - [ ] Sin datos crudos ni credenciales en el diff
 - [ ] Si toca el notebook: "Restart & Run All" sin errores
+- [ ] Si toca la app: `docker build` y prueba de los 3 módulos
+- [ ] Ninguna cifra escrita a mano: informe, slides y README leen `models/resultados.json`
 - [ ] Si hubo uso de IA: entrada agregada en `docs/ia_log.md`
 
 ```

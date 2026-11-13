@@ -21,5 +21,9 @@ jobs:
         run: ruff check .
       - name: Formato (ruff format)
         run: ruff format --check .
-      - name: Tests (pytest)
+      - name: No-fuga Train/Test (tests marcados `leakage`)
+        run: pytest -m leakage -v
+      - name: Tests (pytest, suite completa)
         run: pytest
+      - name: Imagen Docker de la app (plan B de deploy)
+        run: docker build -t tpi-eaymr-app .
