@@ -1,0 +1,13 @@
+# Dependencias mínimas de la app (Streamlit Community Cloud lee este archivo, junto a app.py).
+# Mismas versiones que requirements.txt: el modelo se serializó con scikit-learn 1.5.2.
+streamlit==1.67.0
+pandas==2.2.3
+numpy==1.26.4
+# st.dataframe necesita pyarrow; sin fijarlo, pip trae una versión que exige numpy>=2 y la app
+# falla en un entorno limpio (detectado al probar el contenedor Docker, 13/11)
+pyarrow==19.0.1
+scikit-learn==1.5.2
+joblib==1.6.0
+plotly==7.1.0
+# Copiloto (bonus): SDK oficial de Anthropic; requiere ANTHROPIC_API_KEY en los secrets
+anthropic==2.8.0

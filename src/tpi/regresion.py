@@ -6,6 +6,7 @@ D_i > 4/n o D_i > 0,5 (Cook), VIF > 5 o > 10.
 
 from __future__ import annotations
 
+import warnings
 from dataclasses import dataclass
 
 import numpy as np
@@ -18,6 +19,7 @@ from statsmodels.regression.linear_model import RegressionResultsWrapper
 from statsmodels.stats.diagnostic import het_breuschpagan, het_white
 from statsmodels.stats.outliers_influence import OLSInfluence, variance_inflation_factor
 from statsmodels.stats.stattools import durbin_watson, jarque_bera
+from statsmodels.tools.sm_exceptions import SingularMatrixWarning
 
 
 @dataclass(frozen=True)
@@ -38,7 +40,12 @@ def diagnostico_gauss_markov(m: RegressionResultsWrapper) -> DiagnosticoGM:
     """Breusch-Pagan y White (homocedasticidad), Jarque-Bera (normalidad) y Durbin-Watson
     (independencia; los residuos deben estar en el orden temporal de las observaciones)."""
     bp = het_breuschpagan(m.resid, m.model.exog)
-    wh = het_white(m.resid, m.model.exog)
+    # En la regresión auxiliar de White el cuadrado de una dummy es la misma dummy: la matriz es
+    # de rango incompleto por construcción. statsmodels toma los gl del rango (df_model), así que
+    # el contraste es válido y el aviso es ruido.
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore", SingularMatrixWarning)
+        wh = het_white(m.resid, m.model.exog)
     jb, jb_p, asim, curt = jarque_bera(m.resid)
     return DiagnosticoGM(
         bp_lm=float(bp[0]),

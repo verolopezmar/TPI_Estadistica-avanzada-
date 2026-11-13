@@ -28,6 +28,7 @@ def filas() -> pd.DataFrame:
     return pd.DataFrame({"srch_id": ids, "random_bool": (ids % 3 == 0).astype(int)})
 
 
+@pytest.mark.leakage
 def test_particion_agrupada_sin_busquedas_compartidas(filas):
     m = es_train(filas)
     assert set(filas.loc[m, "srch_id"]).isdisjoint(set(filas.loc[~m, "srch_id"]))
@@ -71,6 +72,7 @@ def test_vif_detecta_colinealidad():
 
 
 # ------------------------------------------------------------------------------------ PCA
+@pytest.mark.leakage
 def test_pca_se_ajusta_solo_con_train():
     """Regla estricta del enunciado: media, desvío y autovectores salen solo de Train."""
     d = pd.DataFrame(rng.normal(size=(1000, 3)), columns=["a", "b", "c"])

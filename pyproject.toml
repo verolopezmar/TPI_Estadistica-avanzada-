@@ -31,4 +31,5 @@ addopts = "-ra --strict-markers"
 markers = [
     "data: requiere los datos descargados en data/ (se saltea si no están)",
     "slow: tests que entrenan modelos",
+    "leakage: tests de no-fuga de información entre Train y Test (paso propio en el Quality Gate)",
 ]

@@ -30,5 +30,7 @@ report/.quarto/
 Thumbs.db
 desktop.ini
 .vscode/settings.json
-report/informe.html
-report/informe.pdf
+
+# Paquete de entrega (se arma localmente; no se versiona)
+entrega/
+*.zip

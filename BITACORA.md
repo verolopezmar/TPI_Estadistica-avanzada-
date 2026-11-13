@@ -20,6 +20,37 @@ de la tabla se mantienen porque la defensa oral es por rol; Lucía y Antonella n
 PRs. Cada PR registra quién lo revisó realmente, y `docs/ia_log.md` registra quién propuso y quién
 aprobó cada decisión.
 
+### Proceso Scrum (registro real)
+
+**Cómo trabajamos.** Un sprint por fase del enunciado. Verónica actuó como Product Owner: definió
+el objetivo y los criterios de aceptación de cada sprint, revisó cada incremento y aprobó o pidió
+cambios. Claude Code ejecutó el trabajo técnico. La revisión de QA la hizo Verónica sobre lo que
+produjo el asistente. El control sistemático de los errores de la IA (32 registrados, cada uno con
+su test o guarda) funcionó como práctica de QA.
+
+**Definition of Done (aplicada a cada sprint):** `ruff check` y `ruff format --check` sin errores;
+`pytest` en verde (con los tests de datos locales); notebook ejecutable de punta a punta; todo
+número de un texto sale de un output; ningún dato en el diff; decisiones y errores de IA en
+`docs/ia_log.md`; PR con veredicto de QA antes del merge.
+
+| Sprint | Fecha | Objetivo y criterio de aceptación | Revisión de la PO (qué cambió) | Retro: aprendizaje aplicado al sprint siguiente |
+|---|---|---|---|---|
+| 0 — Setup y datos | 11-12/11 | Repo, CI, contrato de datos, descarga verificada; aceptación: N real = N citado, sin datos en git | Confirmó dataset y roles; transcribió `random_bool` y las reglas de Kaggle; pidió mitigaciones de confidencialidad; registró el desvío de commits sin PR | Lo que el asistente "recuerda" se verifica en la fuente primaria antes de usarlo |
+| 1 — Inferencia y auditoría | 12/11 | Contrastes con estadístico, gl, p, IC y efecto; MCAR/MAR/MNAR; Zc clasificada | Pidió contrastar Zc → T, T de sensibilidad, limitación sin hipótesis forzada; transcribió `compN_*`; aprobó la auditoría | Una clasificación causal exige contrastar las dos flechas del criterio |
+| 2 — Gauss-Markov y PCA | 12/11 | Supuestos con remediación; PCA sin fuga (test) | Aprobó la partición, HC3 + Huber y la retención de componentes | Los parámetros por defecto (RANSAC) se auditan |
+| 3 — Torneo predictivo | 12/11 | 4 familias, CV agrupada, calibración, MDI vs. permutación; aceptación: sin fuga (tests) | Revisión conjunta con las Fases 4 y 5 (cambio de ritmo pedido por la PO) | El umbral de decisión se elige en Train; PR-AUC con prevalencia baja |
+| 4 — Inferencia causal | 12/11 | DAG, DoWhy, DML/CATE, refutaciones, ensayo | **Revisión de robustez**: balance, diferencia de riesgos, bootstrap con 1000 réplicas, redacción prudente, embudo, escenarios | Una conclusión central se somete a todas las objeciones razonables antes de presentarla |
+| 5 — App y entrega | 12/11 | App con solo agregados (tests), informe, slides, README, BITÁCORA | "Solo agregados" al 100 % también en el notebook; deploy y merges a cargo de la PO | Los controles de confidencialidad se testean, no se declaran |
+| 6 — Cierre y Quality Gate | 13/11 | Auditoría contra enunciado y rúbrica (`docs/estado_cierre.md`); cada criterio en "Excelente"; PRs por fase con veredicto de QA | QA **bloqueó** los PRs de las Fases 3-5: fuga Train/Test en la preparación y app que no arrancaba en un entorno limpio; ambos se corrigieron con tests antes del merge | Un CI verde no prueba lo que no testea: cada regla metodológica necesita un test que pueda fallar |
+
+**Ceremonias, tal como ocurrieron:**
+- *Planning:* el prompt de inicio de cada fase (log de IA).
+- *Review:* los mensajes de revisión de Verónica, punto por punto, con aprobaciones registradas
+  como "propuesto por Claude Code, aprobado por Verónica".
+- *Retro:* la columna de aprendizajes y las lecciones de gobernanza de la Entrada 5.
+
+No hubo dailies ni revisión cruzada entre integrantes, y así se declara.
+
 ---
 
 ## Entrada 1 — Marco estratégico e hipótesis
@@ -109,6 +140,8 @@ no consultar a la cátedra y seguir con Expedia**, con estas mitigaciones ya imp
 **Riesgo residual que asumimos:** los resultados publicados (ATE, CATE, coeficientes) pueden
 considerarse "resulting model parameters" en sentido estricto.
 
+**Firmas.** Responsable de rol: Project Lead. Ejecutó y validó: — V. López Marsico (Lead), 13/11/2026. Co-firma del rol para la defensa: — V. López Marsico (Lead).
+
 ## Entrada 2 — Matriz de decisiones estadísticas y supuestos
 *Roles responsables: Backend/ML + QA. Fase 1 (12/11/2026): análisis ejecutado por Claude Code con
 el diseño aprobado por Verónica; revisión a cargo de Verónica. La Fase 2 se agrega al cerrarla.*
@@ -124,13 +157,14 @@ por Verónica el 12/11**.
 | Contrastes sobre **unidades independientes** (búsquedas o reservas) | Filas búsqueda × hotel | Las filas de una lista comparten usuario y contexto; tratarlas como independientes subestima los errores estándar |
 | α = 0,05 fijado a priori + **efecto mínimo detectable** con 1 − β = 0,80 | Solo p-valor | Con n en miles todo es "significativo"; el MDE dice qué no puede ver la muestra |
 | **Precio relativo** a la mediana de la búsqueda (winsorizado 1-99 %) | `price_usd` crudo | Desplazamiento de escala: 3,2 % de las reservas de ≥ 2 noches tienen precio por estadía, disperso entre sitios (1,9-7,5 %), así que no se puede corregir por sitio |
-| Outliers de precio con **dos reglas**: cercas extremas de Tukey sobre log (8,41-1951,14 USD) **o** > 10× / < 1/10 de la mediana de la búsqueda | Solo regla relativa | La relativa sola no detectó una búsqueda entera con precios de 4,1 millones (su mediana también era absurda) |
+| Outliers de precio con **dos reglas**: cercas extremas de Tukey sobre log, ajustadas en Train (8,43-1947,77 USD) **o** > 10× / < 1/10 de la mediana de la búsqueda | Solo regla relativa | La relativa sola no detectó una búsqueda entera con precios de millones de USD por noche (su mediana también era absurda) |
 | Centinelas (0) → NaN + indicador | Dejarlos como valores | El 0 de `prop_log_historical_price` (14,8 % de filas) sesga la media −14,8 % e infla el desvío de 0,525 a 1,860 |
 
 ### Supuestos contrastados, violaciones y remediación
 
 | Análisis | Supuesto | Prueba y resultado | Remediación |
 |---|---|---|---|
+| Faltantes (conjunto) | MCAR multivariado | Test de Little (EM, 7 variables, 16 patrones): d² = 75.952, gl = 73, p < 10⁻³⁰⁰: **se rechaza** | Coherente con la lectura por variable; la decisión se apoya en los tamaños de efecto, porque con n = 739.323 Little rechaza ante desvíos chicos |
 | Faltantes | MCAR | Indicador de faltante vs. variables observadas: MCAR se rechaza en las 5 variables (p ajustado por Bonferroni < 0,05); dependencia apreciable para `location_score2` (SMD −0,506), `orig_destination_distance` (0,304), `review_score` (−0,238), `query_affinity` (0,180) | MAR → mediana por grupo + indicador; MNAR estructural (historial del usuario, afinidad) → **no se imputa**, se usa un indicador |
 | Contraste 1 (pareado) | Normalidad de $D_s$ | Asimetría −0,540, curtosis en exceso 3,608; n = 14.983 | TCL + Wilcoxon de resguardo (coincide: p = 7,7·10⁻¹³¹) |
 | Contraste 2 (dos grupos) | Varianzas iguales | Levene F(1; 16062) = 3,19, p = 0,074 (no se rechaza H0) | Igual se usa **Welch**: grupos muy desbalanceados (1.025 vs. 15.039), donde un error de tipo II de Levene sería costoso; Mann-Whitney de resguardo |
@@ -171,16 +205,40 @@ quedó fijada con la fuente.
 
 | Supuesto | Prueba y resultado | Remediación y justificación |
 |---|---|---|
-| Homocedasticidad | Breusch-Pagan LM = 516,99 (gl 17, p = 4,96·10⁻⁹⁹); White LM = 989,87 (p = 1,71·10⁻¹¹⁸): **se rechaza** | Errores **HC3**: los coeficientes MCO siguen insesgados, lo incorrecto era su varianza. HC3 es el más conservador con puntos de alto leverage (843 en la muestra) |
-| Normalidad de residuos | JB = 4209,26 (p < 10⁻³⁰⁰), asimetría 0,082, curtosis 5,798: **se rechaza** (colas pesadas, simétricas) | TCL con n = 12.858 para t y F; **Huber** como estimador de resguardo ante colas pesadas |
+| Homocedasticidad | Breusch-Pagan LM = 515,92 (gl 17, p = 8,34·10⁻⁹⁹); White LM = 985,44 (p = 1,09·10⁻¹¹⁷): **se rechaza** | Errores **HC3**: los coeficientes MCO siguen insesgados, lo incorrecto era su varianza. HC3 es el más conservador con puntos de alto leverage (841 en la muestra) |
+| Normalidad de residuos | JB = 4235,60 (p < 10⁻³⁰⁰), asimetría 0,081, curtosis 5,807: **se rechaza** (colas pesadas, simétricas) | TCL con n = 12.858 para t y F; **Huber** como estimador de resguardo ante colas pesadas |
 | Independencia | Durbin-Watson = 1,9515 en orden temporal | Ninguna; respalda la partición aleatoria (no cronológica) |
-| Influyentes | 746 con D > 4/n; ninguno con D > 0,5 (máx 0,0117). Tasa de influyentes 9,51 % con escala de precio incompatible vs. 4,85 % en reservas de 1 noche | No se eliminan: parte es error de medición (escala del precio, ya neutralizada con el precio relativo) y parte son casos reales de cola pesada. Huber coincide con MCO sin influyentes (diferencia máx. 0,012) |
+| Influyentes | 748 con D > 4/n; ninguno con D > 0,5 (máx 0,0117). Tasa de influyentes 9,51 % con escala de precio incompatible vs. 4,87 % en reservas de 1 noche | No se eliminan: parte es error de medición (escala del precio, ya neutralizada con el precio relativo) y parte son casos reales de cola pesada. Huber coincide con MCO sin influyentes (diferencia máx. 0,014) |
 | Multicolinealidad | VIF máx 1,74 (modelo) y 2,98 (conjunto de la Fase 3) | Ninguna; ningún VIF se acerca a 5 |
+| Positividad del IPW (Fase 4) | Propensión por grupo: con R = 0, 0,0098 % del resto y 0,0017 % del top-5 fuera de [0,01; 0,99]; peso máximo 120 | Overlap suficiente. Resguardo: IPW de Hájek **excluyendo** las unidades sin overlap (truncar sesga, test con verdad conocida); IC por bootstrap de búsquedas. El recorte no cambia el ATE (0,0882 en ambos) |
 | PCA sin fuga | Escalado y autovectores ajustados solo con Train (test automatizado) | Kaiser: 4 componentes (69,7 %); codo: 2. Se usan 2 para la visualización y 4 como features alternativas |
 
 Diseño (propuesto por Claude Code; pendiente de revisión por Verónica): partición 80/20 agrupada por
 búsqueda y estratificada por `random_bool`, única para las Fases 2-4; MCO sobre reservas (una por
 búsqueda) con log del precio por noche.
+
+### Experimento 6 — Fuga de información en la preparación (Fases 3-4; detectado en el cierre)
+
+- **Qué hicimos.** `preparar()` imputaba los faltantes MAR con medianas por grupo, winsorizaba el
+  precio relativo y fijaba las cercas de Tukey con **toda** la muestra, y recién después definía la
+  partición 80/20.
+- **Qué pasó.** La auditoría de cierre (13/11) lo detectó y QA bloqueó los PRs de las Fases 3-5
+  (#41-#43). Prueba: con 3.000 búsquedas, perturbar **solo** las filas de Test cambiaba 11.957
+  filas de Train en `prop_location_score2`, 8.077 en el precio histórico y 1.149 en el precio
+  relativo. Los tests existentes no podían detectarlo: verificaban el PCA y la partición, no la
+  preparación.
+- **Corrección.** La partición depende solo de `srch_id`, `random_bool` y la semilla, así que se fija
+  antes de transformar; cercas, cuantiles y medianas se ajustan con Train y se aplican a Test a
+  ciegas. Cinco tests marcados `leakage` (uno sobre la muestra real) corren en un paso propio del CI.
+- **Impacto medido** (notebook re-ejecutado): ninguna conclusión cambia. El OR benchmark pasa de
+  2,11246 a 2,11244; el OR observacional ajustado, de 3,3777 a 3,3778; el cociente bootstrap
+  queda en 1,60 [1,42; 1,80]. Lo que más se movió es el Random Forest: la búsqueda aleatoria
+  eligió otros hiperparámetros (`min_samples_leaf` 20 → 50, `max_features` 0,3 → `log2`) y la
+  PR-AUC de Test pasó de 0,1540 a 0,1534.
+- **Aprendizaje.** Un CI en verde solo prueba lo que testea. "Ajustar en Train" no se declara: se
+  verifica con un test que perturba Test y exige que Train no cambie.
+
+**Firmas.** Responsable de rol: Backend/ML + QA. Ejecutó y validó: — V. López Marsico (Lead), 13/11/2026. Co-firma del rol para la defensa: — L. Báez (Backend/ML) ______ · — A. Robiollio (QA) ______
 
 ## Entrada 3 — Autopsia de experimentos fallidos (Data Autopsy)
 *Rol responsable: Backend/ML. Ejecutado por Claude Code; revisión de Verónica.*
@@ -191,7 +249,7 @@ búsqueda) con log del precio por noche.
   reservas de Train.
 - **Qué pasó.** R² = 0,0028; curtosis de residuos 12.192,8 (JB = 7,975·10¹⁰); una sola observación
   con distancia de Cook 1,215 (> 0,5) dominaba el ajuste.
-- **Diagnóstico.** El precio tiene errores de captura de órdenes de magnitud (hasta 4,1 millones de
+- **Diagnóstico.** El precio tiene errores de captura de órdenes de magnitud (millones de
   USD por noche) y cola pesada. MCO minimiza cuadrados, así que unos pocos valores imposibles
   absorben la estimación.
 - **Corrección y aprendizaje.** Log del precio más la regla de outliers de la Fase 1: R² = 0,604
@@ -202,13 +260,13 @@ búsqueda) con log del precio por noche.
 
 - **Qué hicimos.** `RANSACRegressor` de scikit-learn con su configuración por defecto, como
   estimador robusto de comparación.
-- **Qué pasó.** Retuvo solo el 55,02 % de las observaciones como inliers y dio coeficientes
-  inestables: estrellas −0,046 (MCO: +0,060), habitaciones +0,312 (MCO: −0,026); diferencia máxima
-  con MCO sin influyentes, 0,341.
+- **Qué pasó.** Retuvo solo el 55,01 % de las observaciones como inliers y dio coeficientes
+  inestables: estrellas −0,046 (MCO: +0,060), habitaciones +0,311 (MCO: −0,026); diferencia máxima
+  con MCO sin influyentes, 0,340.
 - **Diagnóstico.** El umbral por defecto es la MAD de la **variable respuesta**, no de los
   residuos. Con un R² de 0,6 es demasiado estricto, y con 17 regresores cada subconjunto mínimo es
   muy ruidoso.
-- **Corrección y aprendizaje.** Umbral = 3 σ̂ robusto de los residuos MCO (1,4826 · MAD): 89,03 %
+- **Corrección y aprendizaje.** Umbral = 3 σ̂ robusto de los residuos MCO (1,4826 · MAD): 89,07 %
   de inliers y diferencia máxima 0,058. Un estimador "robusto" mal parametrizado es menos robusto
   que MCO; los parámetros por defecto se auditan.
 
@@ -222,11 +280,61 @@ búsqueda) con log del precio por noche.
   $R^2_j$ de cada regresor sobre **todos** los demás. La regularización de la Fase 3 se justifica
   por selección y estabilidad predictiva, no por colinealidad.
 
-_Los experimentos fallidos de la Fase 3 se agregan al cerrarla._
+### Experimento 4 — Umbral de clasificación por defecto (Fase 3)
+
+- **Qué hicimos.** Clasificar con el umbral 0,5 de `predict`.
+- **Qué pasó.** F1 = 0 en logística, CART y Random Forest: con 2 % de reservas, ninguna
+  probabilidad supera 0,5 y todo se clasifica como "no reserva".
+- **Corrección y aprendizaje.** Umbral elegido en Train (máximo F1 en predicciones fuera de
+  pliegue): ≈ 0,09 en RF, con F1 = 0,23 en Test. En problemas desbalanceados, el umbral es una
+  decisión de negocio y se elige sin mirar Test.
+
+### Experimento 5 — Naive Bayes gaussiano (Fase 3)
+
+- **Qué hicimos.** `GaussianNB` sobre las 27 features estandarizadas.
+- **Qué pasó.** El peor del torneo: PR-AUC 0,074 y Brier 0,070, contra 0,020 de los demás. El
+  umbral elegido en Train (0,9998) no se traslada a Test: recall 0,003.
+- **Diagnóstico.** Se viola la independencia condicional (correlaciones dentro de cada clase de
+  hasta 0,72, entre precio y precio histórico) y muchas variables son binarias o de conteo, no
+  normales. NB cuenta varias veces la misma evidencia y empuja las probabilidades a 0 o a 1.
+- **Aprendizaje.** NB puede ordenar razonablemente (ROC-AUC 0,796) aun con probabilidades
+  inutilizables. Cuando importan las probabilidades (la app muestra una probabilidad calibrada), se
+  descarta.
+
+**Firmas.** Responsable de rol: Backend/ML. Ejecutó y validó: — V. López Marsico (Lead), 13/11/2026. Co-firma del rol para la defensa: — L. Báez (Backend/ML) ______
 
 ## Entrada 4 — Formalización del debate causal
-*Responsables: Backend/ML + Project Lead.* La justificación de cada arco se completa en la Fase 4
-(borrador en `docs/dag_borrador.md`). Adelantamos dos amenazas a la validez detectadas en la Fase 0.
+*Roles responsables: Backend/ML + Project Lead. DAG propuesto por Claude Code; definiciones de T, Y,
+Zc y colisionadores aprobadas por Verónica el 12/11. Fuente de verdad: `src/tpi/dag.py` y
+`tests/test_dag.py` (12 pruebas de d-separación).*
+
+### Justificación de cada arco
+
+| Arco | Justificación | Evidencia en los datos |
+|---|---|---|
+| R → T | `random_bool` define el mecanismo de asignación: con R = 1 el orden es (casi) aleatorio | Asociación posición–atributos 71-87 % menor con R = 1 (Fase 1); residual declarada (amenaza B) |
+| Zh → T | Un ranker usa estrellas, reseñas, ubicación, precio y promoción | ρ̄ intra-búsqueda posición–`location_score2` −0,299 con R = 0 |
+| Zp → T | La popularidad previa (precio histórico, afinidad) es una señal típica de ranking | Supuesto de dominio |
+| Zb → T, Zu → T | Personalización por contexto e historial del usuario | Supuesto de dominio (en las estimaciones intra-búsqueda, Zb y Zu quedan absorbidas por el efecto fijo) |
+| Zc → T | El ranker premia precios competitivos | Interacción Zc × R sobre T: `comp_saldo` p = 2,7·10⁻¹⁸ (Fase 1, 1.4) |
+| U → T | El ranker usa el desempeño histórico del hotel en Expedia (CTR, conversión), que no observamos | Brecha residual entre el OR observacional ajustado y el benchmark (Fase 4, 4.3) |
+| T → M | Sesgo de posición: más arriba, más clics | Contraste 1: CTR del top-5 2,16 veces el del resto con orden aleatorio |
+| M → Y; sin T → Y directo | No hay reserva sin clic (regla del contrato de datos, verificada) | Ajustar por el clic absorbe casi todo el efecto (Fase 4, 4.4) |
+| Z → M, Z → Y | Calidad, precio, contexto e historial afectan clic y reserva por sí mismos | Zc → Y: OR 1,137 y 1,118 con R = 1 |
+| I → M, I → Y | La intención de compra de la sesión causa clic y reserva, no la posición | Latente; absorbida por el efecto fijo de búsqueda |
+| M → S, Y → S | El proveedor incluyó solo búsquedas con ≥ 1 clic y, en R = 0, sobremuestreó compras | 0 de 399.344 búsquedas sin clic; 93,86 % vs. 13,04 % con reserva |
+| T → C ← Y | Colisionador simulado ("destacado en el reporte") para la trampa de Berkson | Por construcción (Fase 4, 4.5) |
+
+### Plausibilidad de las variables latentes
+
+- **U** (desempeño histórico propio de Expedia) es la amenaza principal. Es razonable que un ranker
+  en producción use la conversión histórica de cada hotel, que también predice la reserva. No hay
+  proxy perfecto en los datos: `prop_log_historical_price` y `srch_query_affinity_score` son
+  parciales. La Fase 4 cuantifica cuánto sesgo deja sin explicar el ajuste por Z.
+- **I** (intención de la sesión) es de nivel búsqueda: la comparación dentro de la búsqueda la
+  elimina por construcción.
+
+Adelantamos dos amenazas a la validez detectadas en la Fase 0.
 
 ### Amenaza A — El dataset está seleccionado sobre el mediador y, en R = 0, sobre el resultado
 
@@ -309,6 +417,73 @@ Fijado por `test_slots_estructurales_cada_seis_posiciones`.
 Ver Entrada 1. Decisión de Verónica: seguir con Expedia sin consultar a la cátedra, con
 mitigaciones verificadas por tests; el plan B queda disponible y no se activa.
 
+**Firmas.** Responsable de rol: Backend/ML + Project Lead. Ejecutó y validó: — V. López Marsico (Lead), 13/11/2026. Co-firma del rol para la defensa: — L. Báez (Backend/ML) ______
+
 ## Entrada 5 — Trazabilidad y uso ético de asistentes de IA
-*Responsable: QA.* Se construye a partir de [`docs/ia_log.md`](docs/ia_log.md), que se actualiza
-en cada fase.
+*Rol responsable: QA. Redactada por Claude Code a partir de [`docs/ia_log.md`](docs/ia_log.md) (registro
+completo, fase por fase); revisión de Verónica.*
+
+### Declaración de uso y alcance
+
+- **Herramienta:** Claude Code (modelo Claude Opus 5.5, Anthropic), usado desde VS Code durante todo
+  el proyecto, del 11 al 12/11/2026.
+- **Qué hizo el asistente:** propuso el diseño (datasets candidatos, DAG, contrastes, modelos,
+  estimadores causales), escribió el código, los tests, el notebook, el informe, las slides y los
+  borradores de documentación, y ejecutó todo en el entorno local.
+- **Qué hizo el equipo:**
+  - Verónica escribió todos los prompts (en algunos casos con ayuda de otro asistente de IA para
+    redactarlos) y tomó o aprobó cada decisión.
+  - Desde el 12/11, Verónica ejecuta y valida todo el trabajo, incluidas las revisiones de QA.
+  - Lucía y Antonella no revisaron ni validaron PRs; sus roles se mantienen para la defensa oral.
+  - El log registra, para cada decisión, quién la propuso y quién la aprobó.
+- **Regla de evidencia:** ningún número del informe ni de las slides se tomó del texto del asistente.
+  Todos se leen de `models/resultados.json`, generado por el notebook ejecutado.
+
+### Prompts de diseño (resumen; detalle en el log)
+
+1. Brief del TPI: leer enunciado y rúbrica, armar el repo, proponer datasets y roles, sin descargar
+   datos antes de la aprobación.
+2. Contrato de datos, test de `random_bool` y DAG borrador, todavía sin datos.
+3. Descarga verificada, confidencialidad con mitigaciones testeadas y plan B listo para activar.
+4. Por fase: diseño propuesto, ejecución, cierre con "qué revisar" y guía de defensa por rol.
+5. Revisiones de Verónica que cambiaron el trabajo:
+   - contrastar Zc → T antes de llamarla confusor;
+   - transcribir las definiciones de Kaggle;
+   - T de sensibilidad y limitación declarada sin hipótesis forzada;
+   - y, sobre todo, la **revisión de robustez de la conclusión central**: balance con SMD y
+     re-ponderación, escala de diferencia de riesgos, bootstrap por búsqueda con 1000 réplicas,
+     redacción prudente, el clic como paso del embudo, valuación por escenarios y "solo agregados"
+     al 100 %.
+
+   Cada pedido se convirtió en un análisis nuevo con evidencia propia (detalle en el log,
+   "Revisión humana que cambió el análisis").
+
+### Errores y alucinaciones detectados (32) y su refutación determinística
+
+| Tipo | Casos (número en el log) | Cómo se detectó o previno |
+|---|---|---|
+| Afirmaciones de memoria sin fuente primaria | 1 (`random_bool`), 3 (autenticación de Kaggle), 20 (signo de `compN_rate`), 21 (dominio de `compN_inv`) | Fuente primaria transcripta por Verónica; tests de contrato (`test_comp_inv_tiene_un_valor_no_documentado`) |
+| Premisas refutadas por los datos | 10 (`random_bool` no es un RCT puro), 16 (los huecos son slots fijos), 24 (la multicolinealidad anticipada no apareció) | `xfail(strict=True)`, `test_slots_estructurales_cada_seis_posiciones`, VIF |
+| Dependencias y bibliotecas | 4 (pyarrow/numpy), 5 (pyzmq bloqueado por Windows), 11 (Deflate64), 26 (dowhy/networkx), 29 (propensión sin converger dentro de DoWhy), 31 (BFGS de statsmodels se detiene antes del máximo) | `test_environment.py`, `test_dowhy_identifica_backdoor_sin_mediador...`, `test_eleccion_logit_coincide_con_statsmodels`; aserción de convergencia en el notebook |
+| Errores de código o de diseño del asistente | 6 (test sin potencia), 13 (`df.T` es la transpuesta), 17 (regla de outliers incompleta), 23 (RANSAC por defecto), 27 (colinealidad intra-búsqueda), 28 (logit condicional no convergido) | Tests con verdad conocida y guardas que lanzan error |
+| Errores de reporte | 7 (figura engañosa), 18 y 25 (`p = 0`), 19 (omisión en un texto), 22 (aprobación no ocurrida), 30 (resultado redactado antes de ver el output), 32 (bootstrap con 24 réplicas presentado como adelanto) | Formateador de p-valores testeado; cotejo de cada número contra un output; una aprobación solo se registra si consta en un mensaje de Verónica; los textos se escriben después de leer el output; bootstrap con B ≥ 1000 |
+| Otros | 2 (atribución de cifras), 8-9 (documentación y proceso), 12 (transcripción de otro asistente), 14 (descripción incompleta de la fuente), 15 (API de pingouin) | Verificación contra el texto completo o la fuente; tests contra referencias externas |
+
+### Lecciones de gobernanza
+
+1. **El asistente se equivoca en lo que "recuerda"** (APIs, definiciones, dominios). Todo lo que viene
+   de memoria se marca como hipótesis hasta verificarlo en la fuente primaria o con un test.
+2. **Un test en verde no prueba nada si no puede fallar.** Cada regla se testea con datos sintéticos
+   donde la respuesta correcta se conoce, y en ambos sentidos (detecta lo que debe y no da falsos
+   positivos).
+3. **Las refutaciones se registran, no se borran:** `xfail(strict=True)` mantiene visible la
+   premisa que los datos refutaron.
+4. **La autoría se registra tal como ocurrió**, incluido el desvío de proceso de los primeros commits
+   y la reorganización del equipo.
+5. **La revisión humana es la última línea de defensa.** Los controles automáticos (tests, guardas
+   de convergencia) atraparon errores de cómputo. Las objeciones de fondo (comparabilidad de
+   poblaciones, no colapsabilidad, incertidumbre de un cociente, mediación mecánica) vinieron de la
+   revisión de Verónica.
+
+**Firmas.** Responsable de rol: QA. Ejecutó y validó: — V. López Marsico (Lead), 13/11/2026. Co-firma del rol para la defensa: — A. Robiollio (QA) ______
+

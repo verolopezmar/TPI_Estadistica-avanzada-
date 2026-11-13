@@ -1,0 +1,19 @@
+# Solo entran al contexto lo que copia el Dockerfile; nada de datos ni entornos
+data/
+notebooks/
+report/
+docs/
+tests/
+scripts/
+src/
+entrega/
+.git/
+.github/
+.venv/
+venv/
+**/__pycache__/
+**/*.pyc
+.pytest_cache/
+.ruff_cache/
+.streamlit/secrets.toml
+*.zip

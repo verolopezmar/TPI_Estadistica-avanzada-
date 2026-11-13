@@ -315,7 +315,7 @@ competidores); `src/tpi/graficos.py` (paleta validada); notebook
     asociación residual con R = 1, que queda sin explicación. **Test:**
     `test_slots_estructurales_cada_seis_posiciones`.
 17. *Regla de outliers incompleta (error del asistente).* La primera regla (precio > 10× la mediana
-    de la búsqueda) no marcó el máximo de 4.121.713 USD, porque toda esa búsqueda tenía precios
+    de la búsqueda) no marcó precios de millones de USD por noche, porque toda esa búsqueda tenía precios
     absurdos y su mediana también. Lo detectó el propio asistente al comparar el máximo antes y
     después. **Corrección:** se agregaron cercas extremas de Tukey sobre log(precio). **Test:**
     `test_outlier_absoluto_detecta_busquedas_enteras_imposibles`.
@@ -421,3 +421,206 @@ de revisión por Verónica**:
     Jarque-Bera y del F global mostraban "p = 0"; el formateador `_p` del módulo de inferencia no
     se estaba usando ahí. **Corrección:** todos los p de la Fase 2 pasan por `formato_p`
     ("p < 1e-300 (subdesborde de doble precisión)").
+
+### Aprobaciones de Verónica (12/11/2026, revisión de las Fases 1 y 2)
+
+**Propuestos por Claude Code, aprobados por Verónica el 12/11:**
+- Fase 1: clasificación de competidores (`comp_saldo` y `comp_n_info` confusores, `comp_diff_max`
+  excluida); DAG con Zc → T, Zc → M y nodo S; corrección del signo de `compN_rate`;
+  `compN_inv = −1` tratado como faltante con indicador (`comp_inv_no_documentado`) y declarado en la
+  auditoría.
+- Fase 2: partición 80/20 por búsqueda estratificada por `random_bool` (unidad = búsqueda, sin fuga
+  intra-búsqueda; no es un problema de pronóstico temporal); no eliminar influyentes; HC3 como
+  principal y Huber de respaldo; 2 PCs para la app y 4 como features alternativas.
+
+**Cambio de ritmo (decisión de Verónica, 12/11):** terminar las Fases 3, 4 y 5 en el día. Claude Code
+decide con criterio y registra cada decisión como "propuesto por Claude Code"; Verónica revisa todo
+junto al final. Solo se frena ante acciones físicas (login, deploy) o decisiones que cambien la
+conclusión causal. Los scripts de GitHub pasan a `scripts/github/` (Git Bash); Verónica abre y
+mergea los PRs en orden ("Create a merge commit"). Ya existe el PR #38 (Fase 0).
+
+---
+
+## Fases 3, 4 y 5 (12/11/2026)
+
+**Prompt (Verónica, resumen).** Terminar el TP completo hoy: torneo predictivo, inferencia causal
+completa, app con solo agregados, deploy listo, notebook ejecutable, informe, README, BITÁCORA,
+slides, guía de defensa y auto-auditoría.
+
+**Qué produjo la IA.** `src/tpi/preparacion.py` (pipeline de la Fase 1 en una función, verificada
+contra los pasos del notebook), `modelos.py`, `causal.py`, `artefactos.py`, `app/` (app Streamlit +
+lógica testeable), los tests correspondientes (`test_modelos.py`, `test_causal.py`, `test_app.py`),
+las secciones 3 a 5 del notebook, los artefactos de `models/`, el informe, las slides, el README y
+`scripts/github/abrir_prs_pendientes.sh`.
+
+**Decisiones propuestas por Claude Code (pendientes de revisión por Verónica):**
+- *Fase 3:*
+  - Y = `booking_bool` por fila; PR-AUC como métrica de selección (prevalencia ≈ 2 %).
+  - `StratifiedGroupKFold(5)` por búsqueda.
+  - Excluir `click_bool` y el gasto por fuga; `position` sí entra.
+  - Búsqueda de hiperparámetros en una submuestra del 25 % de las búsquedas de Train (Grid para
+    logística y CART, `RandomizedSearchCV` con 20 combinaciones para RF, `n_jobs=-1`), con
+    reentrenamiento en todo Train.
+  - Umbral de clasificación elegido en Train (máximo F1 fuera de pliegue).
+  - Holdout cronológico (último 20 % de las búsquedas por fecha) como sensibilidad, a pedido de
+    Verónica.
+  - Métrica extra de ranking (¿el hotel reservado está en el top-5 del modelo?).
+- *Fase 4:*
+  - Logit condicional por búsqueda como estimador principal (escala relativa) y MPL con efectos fijos
+    como escala absoluta.
+  - DoWhy con DAG de columnas reales (mediador explícito).
+  - Ajuste intra-búsqueda solo con variables de hotel (las de búsqueda las absorbe el efecto fijo).
+  - Refutaciones con 20 simulaciones, más la sensibilidad a un confusor no observado.
+  - DML con 6.000 búsquedas por estrato (RF como modelos de ruido, cross-fitting agrupado por
+    búsqueda).
+  - Colisionador C simulado sobre datos reales con R = 1.
+  - Simulación del filtro S con verdad conocida.
+- *Fase 5:*
+  - App con artefactos agregados (supresión de celdas < 10) y RF compacto (hojas ≥ 100 filas), sin
+    EconML en vivo (grilla de CATE precalculada).
+  - `app/requirements.txt` mínimo.
+  - `models/resultados.json` como única fuente de los números del informe y las slides (expresiones
+    inline de Quarto).
+
+**Errores / alucinaciones detectados.**
+26. *Incompatibilidad silenciosa de dependencias (del `requirements.txt` armado por el
+    asistente).* `dowhy==0.12` llama a `networkx.algorithms.d_separated`, que no existe en
+    `networkx==3.6.1`: la identificación fallaba con `AttributeError`. El test de imports no lo
+    detectaba. **Corrección:** `networkx==3.4.2` (tiene esa función y también `is_d_separator`).
+    Además, el puente `nx_pydot.from_pydot` es incompatible con `pydot 4`, así que el grafo de
+    DoWhy se construye directo en networkx. **Test:**
+    `test_dowhy_identifica_backdoor_sin_mediador_y_recupera_el_efecto`.
+27. *Colinealidad introducida por el asistente.* El prototipo del ajuste intra-búsqueda incluía
+    `log_precio` y `log_precio_rel` juntos. Dentro de una búsqueda difieren solo en la mediana de la
+    lista, que absorbe el efecto fijo: la matriz quedaba de rango incompleto (`SingularMatrixWarning`).
+    **Corrección:** `log_precio` solo en el ajuste agrupado (DoWhy).
+28. *Estimaciones no convergidas casi usadas como resultado (error del asistente).* El logit
+    condicional del prototipo emitió `ConvergenceWarning` y el asistente llegó a reportar sus OR
+    como "primeros resultados". Se detectó al revisar el log. **Corrección:** covariables
+    estandarizadas, BFGS con hasta 2000 iteraciones y una guarda que **lanza un error** si no
+    converge, en lugar de devolver un número dudoso. Los valores convergidos son casi idénticos a
+    los del prototipo (R = 1 ajustado: 2,113 vs. 2,108), pero solo se reportan los convergidos.
+29. *Propensión sin converger dentro de DoWhy (detectado por el asistente al leer los outputs).* El
+    estimador IPW de DoWhy ajusta por defecto una regresión logística sin escalar las covariables, y
+    emitió `ConvergenceWarning` (lbfgs). El primer valor de IPW (0,0896) venía de una propensión
+    sin converger. **Corrección:** `propensity_score_model` = estandarización + logística con 3000
+    iteraciones, con una aserción que detiene el notebook si la propensión no converge.
+30. *Resultado anticipado como hecho (error del asistente).* Antes de ver los outputs, el asistente
+    redactó que condicionar en el colisionador simulado C "asocia la exposición con las estrellas"
+    (Berkson). Con los datos reales, la correlación T–estrellas casi no cambia (0,0247 → 0,0284):
+    las estrellas apenas causan la reserva con orden aleatorio, y Berkson requiere que la variable
+    cause el colisionador a través de Y. **Corrección:** el contraste usa `prop_location_score2`
+    (el atributo más predictivo de la reserva), se agrega la simulación con verdad conocida, y el
+    texto informa lo que muestran los datos. **Prevención:** los textos interpretativos se escriben
+    después de leer el output, nunca antes.
+
+### Revisión humana que cambió el análisis: robustez de la conclusión central (12/11/2026)
+
+**Prompt (Verónica, resumen).** Revisión punto por punto del cierre de las Fases 3-5, con
+prioridad en blindar la conclusión causal de la sección 4.3. Es el ejemplo más claro del proyecto
+de **revisión humana que cambió el análisis**: cada pedido se convirtió en un análisis nuevo con
+evidencia propia.
+
+| Pedido de Verónica | Qué faltaba en la versión del asistente | Qué se agregó (propuesto por Claude Code según el pedido) |
+|---|---|---|
+| Balance entre las búsquedas aleatorias y las del algoritmo, con SMD, y re-ponderación si difieren | La comparación R = 0 vs. R = 1 asumía poblaciones comparables sin verificarlo | Tabla de SMD sobre las búsquedas que entran al estimador, pesos de odds R0 → R1, OR y efectos marginales re-estimados con los pesos (notebook, 4.3 bis a) |
+| No colapsabilidad del OR: repetir en diferencia de riesgos | Solo había escala OR (no colapsable) | Efecto marginal promedio del logit de elección y MPL con efectos fijos, restringidos a búsquedas con reserva (tasa base comparable) (4.3 bis b) |
+| IC del cociente 3,38/2,11 por bootstrap clusterizado (≥ 1000 réplicas) y test formal de la diferencia de log-OR | La conclusión se apoyaba en IC que no se superponían, y el "adelanto" del asistente usaba solo 24 réplicas | Test de Wald y bootstrap percentil por búsqueda con 1000 réplicas, paralelizado, también para los efectos marginales y la diferencia de riesgos (4.3 bis c) |
+| Redacción: no "se rechaza Backdoor"; nombrar candidatos de U | Formulación más fuerte que lo que permite el diseño | "Los datos son incompatibles con que el ajuste por lo observable elimine el sesgo", con candidatos concretos (conversión histórica, comisiones, inventario, contenido de la ficha, sesión) |
+| El clic no es un mediador sustantivo: reserva ⇒ clic | Se presentaba el 95 % de "mediación" como hallazgo, cuando es casi mecánico | Descomposición exacta del embudo RR = RR_clic × RR_conversión, con método e IC bootstrap; el residuo de 0,004 se explica como diferencia de conversión entre quienes hacen clic (4.4) |
+| Valuación en dólares como rango con supuestos explícitos | Un único número (≈ 10,5 reservas por cada 1.000 exposiciones) | Tres escenarios (conservador, central y optimista) con Δp, gasto y desplazamiento explícitos (4.9) |
+| "Solo agregados" al 100 % en el notebook | Dispersiones con puntos individuales; mínimos y máximos en tablas | Hexbin con celdas de al menos 10 observaciones; percentiles 1-99 en lugar de mínimo y máximo |
+
+**Errores / alucinaciones detectados.**
+31. *Imprecisión de un optimizador de biblioteca (detectada al validar el estimador nuevo).* El
+    `ConditionalLogit` de statsmodels con BFGS se detiene antes del máximo: en el test, su
+    log-verosimilitud (−4267,51309) es menor que la del Newton exacto (−4267,51304), con un error
+    relativo en el OR de ≈ 5·10⁻⁴. **Corrección:** el logit condicional usa el estimador exacto
+    por Newton-Raphson (una reserva por búsqueda) con errores sándwich por búsqueda. Los OR
+    reportados cambian en la cuarta cifra (3,3778 → 3,3777). **Test:**
+    `test_eleccion_logit_coincide_con_statsmodels` (contra el Newton de statsmodels, rel = 1e-6).
+32. *Evidencia insuficiente presentada como adelanto (del asistente).* El primer bootstrap del
+    cociente de OR usó 24 réplicas. Verónica exigió al menos 1000 réplicas con IC percentil.
+    **Corrección:** B = 1000 en la corrida final. **Prevención:** un IC por bootstrap solo se
+    reporta con B ≥ 1000.
+
+### Bonus: copiloto de decisión (12/11/2026)
+
+**Prompt (Verónica, resumen).** Estimar el esfuerzo de una versión mínima del copiloto
+conversacional y hacerla si hay margen antes del 16/11, sin tocar lo anterior, para compensar la
+dimensión Scrum.
+
+**Estimación del asistente:** 3 a 4 horas de desarrollo y tests, más la configuración del secreto
+en Streamlit Cloud, que la hace Verónica. Hubo margen y se hizo el mismo 12/11, en código nuevo y
+aislado.
+
+**Qué produjo la IA (propuesto por Claude Code, pendiente de revisión de Verónica):**
+- `app/copiloto.py`: 5 herramientas de solo lectura sobre los artefactos agregados (efecto causal
+  y robustez, CATE por perfil, predicción del RF, refutaciones, escenarios de valuación).
+- Loop manual de tool use con el SDK oficial (`anthropic==2.8.0`), modelo `claude-opus-5-5`,
+  `fallbacks` del lado del servidor ante rechazos y límite de 6 pasos.
+- **Guardarraíl contra cifras inventadas:** si la respuesta final contiene una cifra que no está en
+  ningún resultado de herramienta ni en la pregunta, se bloquea y se muestran los resultados
+  crudos.
+- Pestaña 4 de la app. Sin `ANTHROPIC_API_KEY`, la pestaña explica cómo activarla y el resto de
+  la app funciona igual.
+- `tests/test_copiloto.py`, con un cliente simulado y sin llamadas reales: formatos numéricos en
+  español, el guardarraíl acepta cifras redondeadas y rechaza inventadas, el loop devuelve el
+  `tool_result` con el mismo id, bloquea una cifra inventada ("clientes de más de 45 años: 12,7 %"),
+  maneja rechazos y las herramientas no devuelven identificadores.
+
+**Limitación declarada:** el guardarraíl verifica que cada cifra *exista* en un resultado de
+herramienta, no que esté usada en el sentido correcto. La interpretación sigue requiriendo
+criterio humano.
+
+## Sesión de cierre (13/11/2026)
+
+**Prompt (Verónica, texto completo en [`prompt_cierre.md`](prompt_cierre.md)).** Cerrar el TPI con
+cada criterio de la rúbrica en "Excelente": auditar antes de tocar (matriz de trazabilidad), corregir
+todo error metodológico y registrarlo, cero números escritos a mano, Quality Gate con no-fuga en CI,
+PRs por fase con veredicto de QA, deploy listo (Streamlit Cloud y Docker) y la entrega completa.
+Prohibido: force push a `main` y borrar ramas sin preguntar.
+
+**Cómo se trabajó con el agente.** Claude Code en modo autónomo dentro del repo (lectura, escritura y
+ejecución de Python, pytest, ruff, Quarto, Docker, git y gh). Orden: auditoría escrita primero
+(`docs/estado_cierre.md`), prototipo de cada análisis nuevo en un script aparte, textos redactados
+recién después de ver los outputs, notebook re-ejecutado de punta a punta y PRs con evidencia.
+
+**Qué produjo la IA (propuesto por Claude Code en ejecución de la consigna de Verónica):**
+- Corrección de la fuga en la preparación: partición fijada antes de transformar; cercas, cuantiles
+  y medianas ajustados solo con Train (`tpi.auditoria`, `tpi.preparacion`).
+- Test de Little (EM) con verdad conocida; IPW de Hájek con diagnóstico de overlap, recorte y
+  bootstrap por búsqueda; CATE por segmento con IC y heterogeneidad con orden aleatorio; valuación
+  por segmento.
+- Quality Gate: marcador `leakage` y paso propio en CI; build de Docker en CI; test de coherencia de
+  dependencias de la app; README con cifras generadas desde `resultados.json` y test que lo verifica.
+- Informe reescrito (portada, marco formal, ensayo, recomendaciones por segmento, anexos), 12 slides,
+  guion y banco de respuestas de la defensa, `Dockerfile` probado.
+- Veredictos de QA: [APROBADO] en las Fases 0-2 (#38-#40) y [BLOQUEADO] en las Fases 3-5 (#41-#43),
+  con evidencia; esas fases se integran solo con el PR de cierre.
+
+**Errores / alucinaciones detectados.**
+33. *Fuga Train/Test en la preparación (error de diseño del asistente, Fase 3; detectado en la
+    auditoría de cierre).* `preparar()` imputaba con medianas de toda la muestra y winsorizaba con
+    cuantiles de toda la muestra antes de partir. Perturbando solo Test cambiaban 11.957 filas de
+    Train en `prop_location_score2`. **Corrección:** ajuste solo en Train. **Tests:**
+    `test_preparar_no_fuga_informacion_de_test_a_train` (muestra real) y 4 tests sintéticos
+    marcados `leakage`, con un paso propio en el CI. Impacto en BITÁCORA, Entrada 3, experimento 6.
+34. *Dependencia sin fijar que rompía el deploy (Fase 5).* `app/requirements.txt` no fijaba
+    `pyarrow`; en un entorno limpio pip traía una versión que exige NumPy ≥ 2 y `st.dataframe`
+    fallaba. Pasaba inadvertido porque los tests corrían en el entorno de desarrollo. **Detectado**
+    al construir y ejecutar la imagen Docker con `AppTest` adentro. **Test:**
+    `test_requirements_de_la_app_fijados_y_coherentes_con_la_raiz`; el CI construye la imagen.
+35. *Expectativa estadística equivocada del asistente.* Al escribir el test del IPW recortado,
+    supuso que **truncar** la propensión a [0,01; 0,99] mantenía el ATE con confusión fuerte. El
+    test con verdad conocida falló (0,157 contra 0,10). **Corrección:** el recorte principal
+    **excluye** las unidades sin overlap; el test ahora fija que excluir no sesga y truncar sí
+    (`test_excluir_sin_overlap_no_sesga_y_truncar_si`).
+36. *Ruido en las salidas.* Tres `SingularMatrixWarning` (White con dummies al cuadrado; MPL
+    within con covariables constantes en la búsqueda). **Corrección en origen:** las covariables
+    sin variación within se descartan (`test_efectos_fijos_descarta_covariables_constantes_en_el_grupo`
+    exige que no haya avisos y que el coeficiente de T no cambie); en White, el aviso se silencia
+    con la justificación (los gl salen del rango).
+
+**Decisiones que quedan para Verónica:** el deploy en Streamlit Cloud (requiere su login), las
+co-firmas de Lucía y Antonella en la BITÁCORA y la subida a EVA.
