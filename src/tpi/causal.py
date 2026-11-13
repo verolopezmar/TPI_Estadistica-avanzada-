@@ -89,7 +89,11 @@ def lpm_efectos_fijos(
     cols = [y, t, *covariables]
     d = df[[grupo, *cols]].astype({c: float for c in cols})
     w = d[cols] - d.groupby(grupo)[cols].transform("mean")
-    r = sm.OLS(w[y], w[[t, *covariables]]).fit(cov_type="cluster", cov_kwds={"groups": d[grupo]})
+    # Las covariables constantes dentro de cada grupo (contexto de la búsqueda) quedan en cero tras
+    # la transformación within: no están identificadas y se descartan (evita una matriz singular;
+    # el coeficiente de T no cambia).
+    var_within = [c for c in covariables if w[c].abs().max() > 1e-12]
+    r = sm.OLS(w[y], w[[t, *var_within]]).fit(cov_type="cluster", cov_kwds={"groups": d[grupo]})
     ic = r.conf_int().loc[t]
     return Efecto(
         "MPL con efectos fijos",
@@ -372,3 +376,98 @@ def bootstrap_brecha(
         delayed(_replica_brecha)(d0, d1, t, y, covariables, cols_busqueda, int(s)) for s in semillas
     )
     return pd.DataFrame(filas)
+
+
+# ------------------------------------------------------------------ IPW: overlap y positividad
+LIMITES_PS = (0.01, 0.99)  # recorte estándar de la propensión (Crump et al., 2009, regla práctica)
+
+
+def diagnostico_overlap(
+    ps: np.ndarray, t: np.ndarray, limites: tuple[float, float] = LIMITES_PS
+) -> dict[str, float]:
+    """Positividad: 0 < e(z) < 1. Resume la propensión estimada por grupo de tratamiento.
+
+    Devuelve los percentiles 1 y 99 de ê por grupo, la fracción de unidades fuera de `limites`,
+    el peso IPW máximo y el tamaño efectivo de Kish de cada grupo,
+    ESS = (Σw)² / Σw², que cae cuando unos pocos pesos dominan la estimación.
+    """
+    ps, t = np.asarray(ps, float), np.asarray(t).astype(bool)
+    w1, w0 = 1 / ps[t], 1 / (1 - ps[~t])
+    fuera = (ps < limites[0]) | (ps > limites[1])
+    return {
+        "ps_p01_T1": float(np.percentile(ps[t], 1)),
+        "ps_p99_T1": float(np.percentile(ps[t], 99)),
+        "ps_p01_T0": float(np.percentile(ps[~t], 1)),
+        "ps_p99_T0": float(np.percentile(ps[~t], 99)),
+        "pct_fuera_T1": float(100 * fuera[t].mean()),
+        "pct_fuera_T0": float(100 * fuera[~t].mean()),
+        "peso_max": float(max(w1.max(), w0.max())),
+        "ess_T1": float(w1.sum() ** 2 / (w1**2).sum()),
+        "ess_T0": float(w0.sum() ** 2 / (w0**2).sum()),
+        "n_T1": int(t.sum()),
+        "n_T0": int((~t).sum()),
+    }
+
+
+def _sumas_ipw(y, t, ps, limites, modo):
+    """Componentes del estimador de Hájek por unidad (y la máscara de unidades que entran)."""
+    y, t, ps = np.asarray(y, float), np.asarray(t, float), np.asarray(ps, float)
+    entra = np.ones(len(ps), bool)
+    if limites is not None:
+        if modo == "excluir":  # trimming: se descartan las unidades sin overlap
+            entra = (ps >= limites[0]) & (ps <= limites[1])
+        elif modo == "truncar":  # truncamiento: la propensión se lleva al límite
+            ps = np.clip(ps, *limites)
+        else:
+            raise ValueError("modo debe ser 'excluir' o 'truncar'")
+    w1, w0 = t / ps * entra, (1 - t) / (1 - ps) * entra
+    return np.column_stack([w1 * y, w1, w0 * y, w0])
+
+
+def ipw_hajek(
+    y: np.ndarray,
+    t: np.ndarray,
+    ps: np.ndarray,
+    limites: tuple[float, float] | None = None,
+    modo: str = "excluir",
+) -> float:
+    """ATE por IPW normalizado (Hájek):
+    τ̂ = Σ T·Y/ê / Σ T/ê − Σ (1−T)·Y/(1−ê) / Σ (1−T)/(1−ê).
+    Con `limites`, recorta las unidades sin overlap (`modo="excluir"`) o trunca ê (`"truncar"`)."""
+    s = _sumas_ipw(y, t, ps, limites, modo).sum(axis=0)
+    return float(s[0] / s[1] - s[2] / s[3])
+
+
+def bootstrap_ipw(
+    y: np.ndarray,
+    t: np.ndarray,
+    ps: np.ndarray,
+    grupos: np.ndarray,
+    B: int = 1000,
+    seed: int = SEED,
+    limites: tuple[float, float] | None = None,
+    modo: str = "excluir",
+) -> dict[str, float]:
+    """IC 95 % percentil del IPW de Hájek por bootstrap de clústeres (búsquedas completas).
+
+    La propensión queda fija (no se re-estima en cada réplica). Con propensión estimada, ignorar
+    esa etapa da un IC **conservador** para el ATE (Hirano, Imbens y Ridder, 2003), así que el IC
+    no subestima la incertidumbre. Vectorizado: cada réplica es un vector de multiplicidades de
+    clúster por la matriz de sumas por clúster.
+    """
+    comp = pd.DataFrame(_sumas_ipw(y, t, ps, limites, modo)).groupby(np.asarray(grupos)).sum()
+    m = comp.to_numpy()
+    rng = np.random.default_rng(seed)
+    k = len(m)
+    reps = np.empty(B)
+    for b in range(B):
+        s = np.bincount(rng.integers(0, k, k), minlength=k) @ m
+        reps[b] = s[0] / s[1] - s[2] / s[3]
+    s = m.sum(axis=0)
+    return {
+        "ATE": float(s[0] / s[1] - s[2] / s[3]),
+        "IC95_inf": float(np.percentile(reps, 2.5)),
+        "IC95_sup": float(np.percentile(reps, 97.5)),
+        "ee_bootstrap": float(reps.std(ddof=1)),
+        "B": B,
+    }

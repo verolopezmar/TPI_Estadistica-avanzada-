@@ -105,7 +105,9 @@ def cerca_tukey_log(precio: pd.Series, k: float = 3.0) -> tuple[float, float]:
     return float(np.exp(q1 - k * (q3 - q1))), float(np.exp(q3 + k * (q3 - q1)))
 
 
-def precio_relativo(df: pd.DataFrame, col_id: str = "srch_id") -> pd.DataFrame:
+def precio_relativo(
+    df: pd.DataFrame, col_id: str = "srch_id", ajuste: pd.Series | None = None
+) -> pd.DataFrame:
     """Tratamiento del precio en dos capas:
 
     * `precio_outlier` = 1 si el precio cae fuera de las cercas extremas de Tukey sobre el log
@@ -114,15 +116,21 @@ def precio_relativo(df: pd.DataFrame, col_id: str = "srch_id") -> pd.DataFrame:
       (o menos de 1/K) la mediana de su búsqueda (anomalía relativa).
     * `precio_rel` = precio / mediana de la búsqueda, winsorizado en WINSOR; `log_precio_rel`.
       Es invariante a una escala común de la lista (por noche vs. por estadía, moneda).
+
+    `ajuste` (máscara booleana, típicamente Train) fija las filas con las que se calculan las
+    cercas de Tukey y los cuantiles de winsorización; después se aplican a todas las filas. La
+    mediana de la búsqueda no fuga información porque cada búsqueda queda entera de un solo lado
+    de la partición.
     """
     out = df.copy()
-    lo_abs, hi_abs = cerca_tukey_log(out["price_usd"])
+    ref = out if ajuste is None else out[ajuste.to_numpy()]
+    lo_abs, hi_abs = cerca_tukey_log(ref["price_usd"])
     med = out.groupby(col_id)["price_usd"].transform("median")
     rel = out["price_usd"] / med
     absoluto = (out["price_usd"] < lo_abs) | (out["price_usd"] > hi_abs)
     relativo = (rel > K_OUTLIER) | (rel < 1 / K_OUTLIER)
     out["precio_outlier"] = (absoluto | relativo).astype("int8")
-    lo, hi = rel.quantile(list(WINSOR))
+    lo, hi = (rel if ajuste is None else rel[ajuste.to_numpy()]).quantile(list(WINSOR))
     out["precio_rel"] = rel.clip(lo, hi)
     out["log_precio_rel"] = np.log(out["precio_rel"])
     out["log_precio"] = np.log(out["price_usd"].clip(lower=1.0))
@@ -130,15 +138,30 @@ def precio_relativo(df: pd.DataFrame, col_id: str = "srch_id") -> pd.DataFrame:
 
 
 def imputar_con_indicador(
-    df: pd.DataFrame, col: str, por: str | list[str] | None = None
+    df: pd.DataFrame,
+    col: str,
+    por: str | list[str] | None = None,
+    ajuste: pd.Series | None = None,
 ) -> pd.DataFrame:
     """Imputa `col` con la mediana (dentro de `por` si se da, con la global de respaldo) y agrega
-    `<col>_faltante`. Se usa solo para faltantes MAR; los MNAR estructurales no se imputan."""
+    `<col>_faltante`. Se usa solo para faltantes MAR; los MNAR estructurales no se imputan.
+
+    `ajuste` (máscara booleana, típicamente Train): las medianas se calculan **solo** con esas
+    filas y se aplican a todas. Así Test no aporta información a lo que ve el modelo en Train
+    (sin fuga). Un grupo que no aparece en Train recibe la mediana global de Train.
+    """
     out = df.copy()
     falta = out[col].isna()
     out[f"{col}_faltante"] = falta.astype("int8")
-    relleno = out.groupby(por)[col].transform("median") if por else out[col].median()
-    out[col] = out[col].fillna(relleno).fillna(out[col].median())
+    ref = out if ajuste is None else out[ajuste.to_numpy()]
+    global_ = ref[col].median()
+    if por:
+        claves = [por] if isinstance(por, str) else list(por)
+        medianas = ref.groupby(claves)[col].median().rename("_mediana_grupo")
+        relleno = out[claves].join(medianas, on=claves)["_mediana_grupo"]
+    else:
+        relleno = global_
+    out[col] = out[col].fillna(relleno).fillna(global_)
     return out
 
 
@@ -184,6 +207,74 @@ def contraste_mcar(
             }
         )
     return pd.DataFrame(filas)
+
+
+def _em_normal_multivariada(
+    x: np.ndarray, max_iter: int = 500, tol: float = 1e-8
+) -> tuple[np.ndarray, np.ndarray]:
+    """Media y covarianza de máxima verosimilitud de una normal multivariada con faltantes (EM)."""
+    n, p = x.shape
+    obs = ~np.isnan(x)
+    patrones = np.unique(obs, axis=0)
+    filas_por_patron = [np.all(obs == patron, axis=1) for patron in patrones]
+    mu = np.nanmean(x, axis=0)
+    sigma = np.diag(np.nanvar(x, axis=0))
+    for _ in range(max_iter):
+        suma_x = np.zeros(p)
+        suma_xx = np.zeros((p, p))
+        for o, filas in zip(patrones, filas_por_patron, strict=True):
+            m = ~o
+            xo = x[filas]
+            xhat = np.where(np.isnan(xo), 0.0, xo)
+            c = np.zeros((p, p))
+            if m.any():
+                if o.any():
+                    b = sigma[np.ix_(m, o)] @ np.linalg.inv(sigma[np.ix_(o, o)])
+                    xhat[:, m] = mu[m] + (xo[:, o] - mu[o]) @ b.T
+                    c[np.ix_(m, m)] = sigma[np.ix_(m, m)] - b @ sigma[np.ix_(o, m)]
+                else:
+                    xhat[:, m] = mu[m]
+                    c[np.ix_(m, m)] = sigma[np.ix_(m, m)]
+            suma_x += xhat.sum(axis=0)
+            suma_xx += xhat.T @ xhat + filas.sum() * c
+        mu_nueva = suma_x / n
+        sigma_nueva = suma_xx / n - np.outer(mu_nueva, mu_nueva)
+        cambio = max(np.abs(mu_nueva - mu).max(), np.abs(sigma_nueva - sigma).max())
+        mu, sigma = mu_nueva, sigma_nueva
+        if cambio < tol:
+            break
+    return mu, sigma
+
+
+def little_mcar(df: pd.DataFrame, cols: list[str]) -> dict[str, float]:
+    r"""Test de Little (1988) de MCAR multivariado.
+
+    Con $\hat\mu$ y $\hat\Sigma$ de máxima verosimilitud (EM) y $J$ patrones de faltantes,
+    $d^2 = \sum_j n_j (\bar y_j - \hat\mu_{o_j})^\top \hat\Sigma_{o_j}^{-1} (\bar y_j - \hat\mu_{o_j})$,
+    que bajo H0 (MCAR) se distribuye asintóticamente $\chi^2$ con $\sum_j p_j - p$ grados de
+    libertad ($\bar y_j$: media de las $p_j$ variables observadas en el patrón $j$). Bajo MCAR la
+    media de cada patrón coincide con la global; se rechaza H0 si $d^2$ es grande. Las filas sin
+    ninguna variable observada no aportan y se descartan.
+    """
+    x = df[cols].astype(float).to_numpy()
+    x = x[~np.isnan(x).all(axis=1)]
+    n, p = x.shape
+    mu, sigma = _em_normal_multivariada(x)
+    obs = ~np.isnan(x)
+    d2, gl, patrones = 0.0, -p, 0
+    for patron in np.unique(obs, axis=0):
+        filas = np.all(obs == patron, axis=1)
+        dif = x[filas][:, patron].mean(axis=0) - mu[patron]
+        d2 += filas.sum() * float(dif @ np.linalg.inv(sigma[np.ix_(patron, patron)]) @ dif)
+        gl += int(patron.sum())
+        patrones += 1
+    return {
+        "d2": float(d2),
+        "gl": int(gl),
+        "p_valor": float(stats.chi2.sf(d2, gl)),
+        "patrones": patrones,
+        "n": int(n),
+    }
 
 
 # ----------------------------------------------------------------------------- competidores

@@ -21,10 +21,12 @@ from tpi.modelos import (
 rng = np.random.default_rng(SEED)
 
 
+@pytest.mark.leakage
 def test_features_no_incluyen_variables_con_fuga():
     assert not set(FEATURES) & set(PROHIBIDAS)
 
 
+@pytest.mark.leakage
 def test_matriz_rechaza_fuga_explicita():
     df = pd.DataFrame({"click_bool": [0, 1], "position": [1, 2]})
     with pytest.raises(ValueError, match="fuga"):
@@ -37,6 +39,7 @@ def test_matriz_completa_saldo_sin_competidores_con_cero():
     assert X["comp_saldo"].tolist() == [0.0, 0.5]
 
 
+@pytest.mark.leakage
 def test_cv_agrupado_no_parte_busquedas():
     grupos = np.repeat(np.arange(400), 10)
     y = (rng.uniform(size=len(grupos)) < 0.05).astype(int)
