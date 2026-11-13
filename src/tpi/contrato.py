@@ -6,7 +6,7 @@ entorno `TPI_DATASET` (`expedia` por defecto, `online_shoppers` = plan B semisin
 
 Motivo (docs/ia_log.md, 12/11/2026): las reglas de Kaggle prohíben compartir los datos de Expedia
 y los "resulting model parameters" con no participantes, mientras que el TP exige repo y app
-públicos. Si la cátedra no lo habilita, activamos el plan B sin rehacer la estructura.
+públicos. Verónica decidió (12/11) seguir con Expedia; el plan B queda listo sin rehacer la estructura.
 """
 
 from __future__ import annotations
@@ -60,7 +60,13 @@ class ContratoCausal:
 # ------------------------------------------------------------------------------- Expedia
 def _derivar_expedia(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
+    # T principal (aprobada por Verónica el 12/11): top-5 de la posición EN PANTALLA.
     df["top5"] = (df["position"] <= 5).astype("int8")
+    # T de sensibilidad: top-4 del ranking entre los hoteles presentes en el dataset. Los slots 5,
+    # 11, 17 y 23 los ocupan listados que Kaggle no publica (Fase 1, error 16 del ia_log).
+    if "srch_id" in df.columns:
+        rango = df.groupby("srch_id")["position"].rank(method="first")
+        df["top4_dataset"] = (rango <= 4).astype("int8")
     df["usuario_recurrente"] = df["visitor_hist_starrating"].notna().astype("int8")
     return df
 

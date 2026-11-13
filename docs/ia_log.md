@@ -259,3 +259,121 @@ el plan B listo para activar sin rehacer la estructura.
     399.344 búsquedas tiene 0 clics, y ninguna tiene más de una reserva. El dataset está
     seleccionado sobre el mediador (≥ 1 clic) en ambos estratos y, en R = 0, sobre el resultado.
     Análisis en la Entrada 4 de la BITÁCORA. **Test:** `test_mecanismo_de_seleccion_del_dataset`.
+
+---
+
+## Fase 1 — Inferencia clásica (inicio, 12/11/2026)
+
+**Prompt (Verónica, resumen).** Arrancar la Fase 1 en una rama nueva mientras se revisa la Fase 0.
+
+**Qué produjo la IA.** `src/tpi/inferencia.py` (Welch, Mann-Whitney con r biserial y
+Hodges-Lehmann, t pareado con Wilcoxon de resguardo, potencia y efecto mínimo detectable, ANOVA
+clásico + Levene/Brown-Forsythe + Welch + Kruskal-Wallis, post-hoc Tukey vs. Games-Howell vs.
+Bonferroni) y `tests/test_inferencia.py`. `Contraste.texto()` aplica las reglas de reporte del TPI
+(estadístico, gl, p exacto, IC 95 %, tamaño de efecto, "no se rechaza H0").
+
+**Diseño propuesto por Claude Code, aprobado por Verónica el 12/11.** Contrastes sobre unidades independientes:
+(1) pareado dentro de la búsqueda con R = 1, CTR del top-5 vs. del resto (sesgo de posición, arco
+T → M del DAG); (2) gasto por reserva, usuarios recurrentes vs. nuevos (Welch + Mann-Whitney);
+ANOVA: log del precio por noche del hotel reservado según categoría de estrellas.
+
+**Errores / alucinaciones detectados.**
+15. *API recordada de una versión vieja.* El asistente usó los nombres de columnas de pingouin
+    `p-unc`, `p-val` y `CI95%`; en `pingouin==0.6.1` son `p_unc`, `p_val` y `CI95`. Fallaron 3
+    tests con `KeyError`. **Corrección:** se inspeccionaron las columnas reales antes de
+    corregir. **Test:** `tests/test_inferencia.py` compara cada resultado contra pingouin, así que
+    un cambio de API rompe el test en lugar de producir un número equivocado.
+
+### Fase 1 (continuación) — Auditoría, faltantes, competidores, contrastes y ANOVA (12/11/2026)
+
+**Prompt (Verónica, resumen).** Reorganización: Verónica hace y valida todo. Aprueba los tres
+contrastes propuestos y pide seguir con la auditoría de datos, los faltantes, las variables de
+competidores, el notebook y la Entrada 2.
+
+**Qué produjo la IA.** `src/tpi/auditoria.py` + `tests/test_auditoria.py` (centinelas, diagnóstico
+de escala del precio, outliers, contraste de MCAR, imputación con indicador, agregados de
+competidores); `src/tpi/graficos.py` (paleta validada); notebook
+`notebooks/TP_Integrador_Final.ipynb`, Fase 1, ejecutado de punta a punta (fuente jupytext:
+`TP_Integrador_Final.py`); figuras en `report/figures/f1_*.png`; Entrada 2 de la BITÁCORA.
+
+**Qué se decidió y quién.**
+- Los tres contrastes y el ANOVA: propuestos por Claude Code, **aprobados por Verónica el 12/11**.
+- Clasificación de $Z_c$: criterio de Verónica; aplicación de Claude Code (`comp_n_info` y
+  `comp_saldo` confusores, `comp_diff_max` descartada). **Pendiente de revisión por Verónica.**
+- Precio relativo, reglas de outliers, tratamiento de centinelas y estrategia de imputación por
+  mecanismo: propuestos por Claude Code. **Pendientes de revisión por Verónica.**
+- T se mantiene como `position ≤ 5` **en pantalla** (definición aprobada), documentando que en
+  general contiene 4 hoteles del dataset (error 16). Interpretación de Claude Code, **a confirmar
+  por Verónica**.
+
+**Errores / alucinaciones / hallazgos.**
+16. *Hallazgo que corrige una hipótesis del asistente.* En el error 10 el asistente sugirió que el
+    ~13 % de posiciones faltantes podía deberse a una remoción no aleatoria de filas. El análisis
+    por posición muestra otra cosa: las posiciones 5, 11, 17 y 23 aparecen en solo 6,2-7,6 % de
+    las búsquedas con R = 0 y 1,4-1,7 % con R = 1, contra ≈ 99 % de sus vecinas. Son slots fijos
+    ocupados por listados que no están en el dataset. Un hueco estructural **no** explica la
+    asociación residual con R = 1, que queda sin explicación. **Test:**
+    `test_slots_estructurales_cada_seis_posiciones`.
+17. *Regla de outliers incompleta (error del asistente).* La primera regla (precio > 10× la mediana
+    de la búsqueda) no marcó el máximo de 4.121.713 USD, porque toda esa búsqueda tenía precios
+    absurdos y su mediana también. Lo detectó el propio asistente al comparar el máximo antes y
+    después. **Corrección:** se agregaron cercas extremas de Tukey sobre log(precio). **Test:**
+    `test_outlier_absoluto_detecta_busquedas_enteras_imposibles`.
+18. *Formato que violaba la regla del "p-valor exacto".* `Contraste.texto()` imprimía
+    `t(1.498e+04)` y `p = 0`. Un p = 0 es un subdesborde de doble precisión, no un p-valor nulo.
+    **Corrección:** gl sin notación científica y "p < 1e-300 (subdesborde de doble precisión)".
+    **Test:** `test_texto_formatea_gl_y_p_sin_notacion_engañosa`.
+19. *Omisión en un texto interpretativo (error del asistente).* La primera redacción del EDA decía
+    que, fuera del clic, las asociaciones con la reserva eran débiles, y omitía la posición
+    (ρ = −0,14 en la matriz). Se detectó al revisar la figura contra el texto. **Prevención:**
+    cada número del texto se coteja con un output del notebook antes de commitear.
+20. *Semántica no verificada.* El signo de `compN_rate` (si "+1" significa que Expedia es más
+    barata que el competidor) proviene de la memoria del asistente, no de la fuente primaria.
+    **Mitigación:** la clasificación de $Z_c$ usa agregados que no dependen del signo.
+    **Pendiente:** Verónica transcribe la definición textual de la pestaña Data de Kaggle.
+
+### Revisión de Verónica del cierre de la Fase 1 (12/11/2026)
+
+**Prompt (Verónica, resumen).** Confirma T; aprueba la auditoría; pide contrastar $Z_c \to T$ antes
+de llamar confusor a $Z_c$ y actualizar el DAG; transcribe las definiciones de `compN_*` de Kaggle;
+decide no consultar a la cátedra; pide PRs por fase y seguir con la Fase 2.
+
+**Qué se decidió y quién.**
+- T = `position ≤ 5` en pantalla: **confirmado por Verónica**. Sensibilidad `top4_dataset`
+  (top-4 del ranking entre los hoteles del dataset): **pedida por Verónica**, implementada por
+  Claude Code en `tpi.contrato` (coincide con `top5` en el 99,89 % de las filas).
+- Slots fijos 5/11/17/23 como característica del DGP y la asociación residual con R = 1 como
+  **limitación declarada sin hipótesis forzada**: decisión de Verónica (BITÁCORA, Entrada 4, B y C).
+  Se retira la hipótesis de "remoción no aleatoria de filas" que el asistente había sugerido en el
+  error 10 (refutada por el error 16).
+- Precio relativo a la búsqueda, dos reglas de outliers con su test e imputación (MAR por grupo con
+  indicador, MNAR estructural sin imputar): **propuestos por Claude Code, aprobados por Verónica
+  el 12/11**.
+- $Z_c$: Verónica señaló que la primera clasificación mostraba solo $Z_c \to Y$. Claude Code agregó
+  el contraste de $Z_c \to T$ (diferencia pareada top-5 vs. resto por estrato e interacción
+  $Z_c \times R$ en el logit de T, condicional a $Z_h$). Resultado: `comp_saldo` y `comp_n_info`
+  siguen siendo confusoras (interacción p = 2,7·10⁻¹⁸ y 2,8·10⁻⁵); `comp_diff_max` se excluye. DAG
+  actualizado (Zc → T, Zc → M, nodo de selección S) con tests de d-separación nuevos.
+  **Pendiente de revisión por Verónica.**
+- Confidencialidad: **Verónica decide no consultar a la cátedra** y seguir con Expedia con las
+  mitigaciones implementadas; el plan B queda disponible y no se activa. Se retira el hito del
+  14/11 del calendario de riesgos.
+
+**Errores / alucinaciones detectados.**
+20. *(Resuelto) Semántica de memoria.* La versión anterior del texto y de los docstrings no fijaba
+    el signo de `compN_rate`, y la única noción de signo que tenía el asistente venía de su memoria,
+    no de la fuente. Verónica transcribió la definición de Kaggle: +1 = Expedia **más barata** que
+    el competidor N; `rate_percent_diff` es **absoluta**. La agregación `comp_saldo` ya usaba
+    (+1) − (−1), así que el cálculo no cambia; se corrigieron la documentación y la lectura
+    (`comp_saldo` > 0 = Expedia más barata). **Test:** `test_agregado_de_competidores_ignora_diferencias_imposibles`
+    fija la aritmética del saldo.
+21. *Dominio de `compN_inv` tomado de memoria.* El contrato admitía {−1, 0, 1} para `compN_inv`; la
+    definición de Kaggle solo documenta {+1, 0, NULL}. En los datos hay −1 en el 1,27 % de los
+    valores no nulos, y el contrato lo aceptaba sin avisar. **Corrección:** se documenta como valor
+    no documentado y no se interpreta (`comp_inv` no entra en $Z_c$). **Test:**
+    `test_comp_inv_tiene_un_valor_no_documentado`. Además, `rate_percent_diff` nunca baja de 2 %:
+    probable umbral de registro, no documentado.
+22. *Afirmación de aprobación no ocurrida (detectada por el asistente antes de commitear).* Al
+    redactar la nueva clasificación de $Z_c$, el asistente escribió "revisada y aprobada por
+    Verónica", cuando Verónica todavía no la había revisado. Se corrigió a "pendiente de revisión".
+    **Prevención:** una aprobación solo se registra si consta en un mensaje de Verónica.

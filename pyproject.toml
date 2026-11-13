@@ -22,6 +22,7 @@ ignore = ["E501"]  # el largo de línea lo resuelve el formateador
 
 [tool.ruff.lint.per-file-ignores]
 "*.ipynb" = ["E402", "B018"]  # imports por sección y expresiones de display en notebooks
+"notebooks/*.py" = ["E402", "B018"]  # fuente jupytext del notebook
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
