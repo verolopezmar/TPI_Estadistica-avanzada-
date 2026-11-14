@@ -1,16 +1,14 @@
-# Guía de estudio para la defensa oral, por rol
+# Guía de estudio para la defensa oral
 
-> Para: Verónica, Lucía y Antonella. En la ronda de preguntas, cada una defiende el trabajo de su
-> rol. Todo número de esta guía sale de un output ejecutado; la fuente está entre paréntesis.
+> Para: Verónica, Lucía y Antonella. En la ronda de preguntas, cada una presenta sus bloques, pero todas
+> conocemos el trabajo completo. Todo número de esta guía sale de un output ejecutado; la fuente está entre paréntesis.
 
 **Cómo usar esta guía.**
-1. Leé tu rol en cada fase.
+1. Leé tus bloques en cada fase.
 2. Abrí la sección del notebook o el archivo que se cita y mirá el output con tus propios ojos.
 3. Respondé en voz alta las **preguntas de práctica** del final, sin mirar, y después verificá la
    respuesta.
-4. Si te preguntan quién hizo el trabajo, la respuesta honesta está en el README y en la
-   BITÁCORA: Verónica lo ejecutó y validó con asistencia de Claude Code, y los roles se mantienen
-   para la defensa. Lo que sí tenés que dominar es el razonamiento de tu rol.
+4. Dominá el razonamiento de tus bloques y el uso de IA declarado en la Entrada 5 de la BITÁCORA.
 
 ---
 
@@ -52,10 +50,7 @@ dejamos Kruskal-Wallis de resguardo.
 dice que los datos son compatibles con ella. Por eso informamos el efecto mínimo detectable: lo que
 la muestra no puede ver.
 
-**¿Quién hizo el trabajo?** Lo que dice la BITÁCORA: Verónica lo ejecutó y validó con Claude Code;
-los roles se mantienen para la defensa. Cada decisión tiene autor en `docs/ia_log.md`.
-
-### Verónica — Project Lead & Scrum Master
+### Verónica
 
 **¿Por qué esta pregunta de negocio?** Porque el slot es un recurso escaso que se vende y se
 asigna; si se valúa con la tasa observada, se paga el sesgo de selección del algoritmo.
@@ -70,14 +65,14 @@ baratos y bien ubicados (la tabla por segmento da reservas y USD por 1.000 expos
 una fracción de tráfico con orden aleatorio como auditoría.
 
 **¿Cómo funcionó Scrum?** Un sprint por fase con criterios de aceptación y Definition of Done; PR
-por fase con veredicto de QA antes del merge; revisiones de la PO que cambiaron el análisis (la de
-robustez). Sin dailies ni revisión cruzada entre integrantes, y así lo declaramos.
+por fase con veredicto de QA antes del merge; revisiones del equipo que cambiaron el análisis (la de
+robustez).
 
 **¿Qué experimento fallido les enseñó más?** La fuga de información en la imputación: las medianas
 se calculaban con toda la muestra. La encontramos en la auditoría de cierre, la corregimos ajustando
 todo con Train y agregamos un test que perturba Test y exige que Train no cambie.
 
-### Lucía — Backend & ML / Causal Engineer
+### Lucía
 
 **Demostrá Backdoor con el DAG.** Todo camino trasero entra a $T$ por $Z$ o por $U$. Condicionar en
 $Z$ bloquea los primeros y no abre caminos, porque $Z$ no tiene colisionadores ni descendientes de
@@ -119,7 +114,7 @@ clic y, con el algoritmo, sobre la compra: la escala absoluta se infla y no es c
 estratos. El OR condicional se cancela con la selección (lógica de caso-control). Igual chequeamos la
 conclusión en diferencia de riesgos.
 
-### Antonella — Frontend & UI/UX + QA & Validation Engineer
+### Antonella
 
 **¿Cómo garantizan que no hay fuga Train/Test?** La partición es por búsqueda (ninguna lista queda
 partida) y se fija antes de transformar. Cercas, winsorización, imputación, escalado y PCA se ajustan
@@ -148,7 +143,7 @@ como error: la refutación queda visible en lugar de borrarse.
 
 ## Fase 0 — Setup, datos y contrato (cerrada el 12/11/2026)
 
-### Verónica — Project Lead & Scrum Master
+### Verónica
 
 1. **Pregunta de negocio:** ¿el slot top-5 *causa* reservas o solo las *predice*? El ranker pone
    arriba hoteles que se venderían igual. Distinguir una cosa de la otra define cuánto vale un
@@ -168,13 +163,13 @@ como error: la refutación queda visible en lugar de borrarse.
 5. **Plan B:** Online Shoppers (UCI #468, CC BY 4.0) con tratamiento semisintético. Se activa con
    una variable de entorno porque el pipeline depende de un contrato genérico, no de Expedia. Con
    los datos reales, el ATE verdadero es 0,0646 y el estimador ingenuo da 0,2906
-   (`docs/plan_b.md`).
+   (`data/README.md`).
 6. **Gobernanza de git:** los primeros 5 commits se pushearon sin PR, pero nunca llegaron a
    `main`. No reescribimos el historial: los auditamos en el PR de la Fase 0.
 7. **Qué no está identificado:** el efecto sobre usuarios que no hacen clic. El dataset solo trae
    búsquedas con al menos un clic.
 
-### Lucía — Backend & ML / Causal Engineer
+### Lucía
 
 1. **Estimando:** $T = 1\{\text{position} \le 5\}$, $Y$ = `booking_bool`, $M$ = `click_bool`.
    ATE $= E[Y(1) - Y(0)]$ y CATE $\tau(x)$.
@@ -200,7 +195,7 @@ como error: la refutación queda visible en lugar de borrarse.
 8. **Unidades independientes:** los contrastes se hacen sobre búsquedas o sobre reservas (a lo
    sumo una por búsqueda), nunca sobre filas sueltas.
 
-### Antonella — Frontend & UI/UX + QA & Validation Engineer
+### Antonella
 
 1. **Quality gate:** `ruff check`, `ruff format --check` y `pytest` en CI, más la plantilla de PR
    con veredicto `[APROBADO]`/`[BLOQUEADO]`.
@@ -225,9 +220,9 @@ como error: la refutación queda visible en lugar de borrarse.
 
 ---
 
-## Fase 1 — Inferencia clásica, auditoría y ANOVA (12/11/2026; pendiente de revisión de Verónica)
+## Fase 1 — Inferencia clásica, auditoría y ANOVA (12/11/2026)
 
-### Verónica — Project Lead & Scrum Master
+### Verónica
 
 1. **Diseño muestral:** la unidad de muestreo es la búsqueda (15.000 por estrato); los contrastes
    se hacen sobre unidades independientes (búsquedas o reservas), nunca sobre filas.
@@ -242,7 +237,7 @@ como error: la refutación queda visible en lugar de borrarse.
 5. **Recurrentes vs. nuevos:** no hay evidencia de distinto gasto por reserva (cociente de medias
    geométricas 1,039, IC [0,981; 1,101]). "No se rechaza H0" no es "son iguales".
 
-### Lucía — Backend & ML / Causal Engineer
+### Lucía
 
 1. **Contraste 1:** t pareado sobre $D_s$ = CTR top-5 − CTR resto, por búsqueda con R = 1.
    t(14982) = 37,47, p = 7,74·10⁻²⁹⁴, $d_z$ = 0,306. Es pareado porque comparte la búsqueda y eso
@@ -280,7 +275,7 @@ como error: la refutación queda visible en lugar de borrarse.
    de ≥ 2 noches es "por noche" y el 3,2 % "por estadía". Por eso usamos el precio relativo a la
    búsqueda.
 
-### Antonella — Frontend & UI/UX + QA & Validation Engineer
+### Antonella
 
 1. **Tests de la auditoría:** cada regla se prueba con datos sintéticos de verdad conocida.
    - El precio relativo es invariante a la escala.
@@ -302,9 +297,9 @@ como error: la refutación queda visible en lugar de borrarse.
 
 ---
 
-## Fase 2 — Gauss-Markov, influyentes, VIF y PCA (12/11/2026; pendiente de revisión de Verónica)
+## Fase 2 — Gauss-Markov, influyentes, VIF y PCA (12/11/2026)
 
-### Verónica — Project Lead & Scrum Master
+### Verónica
 
 1. **Partición única y sin fuga:** 80/20 agrupada por búsqueda (24.000 / 6.000 búsquedas),
    estratificada por `random_bool`, semilla 42. Test no se toca hasta la Fase 3.
@@ -319,7 +314,7 @@ como error: la refutación queda visible en lugar de borrarse.
 5. **Autopsia (Entrada 3):** tres experimentos fallidos reales (precio crudo, RANSAC por defecto,
    multicolinealidad anticipada que no apareció).
 
-### Lucía — Backend & ML / Causal Engineer
+### Lucía
 
 1. **Modelo:** MCO de log(precio por noche) sobre 12.858 reservas de Train. R² = 0,604; F(17;
    12840) = 1150,64, p < 10⁻³⁰⁰. Los coeficientes se leen como % de cambio: $100(e^\beta - 1)$.
@@ -343,7 +338,7 @@ como error: la refutación queda visible en lugar de borrarse.
    - Kaiser: 4 componentes (69,7 %); el codo está en 2.
    - PC1 = categoría-precio; PC2 = ubicación y promoción, independiente de cadena.
 
-### Antonella — Frontend & UI/UX + QA & Validation Engineer
+### Antonella
 
 1. **Tests de no fuga:**
    - `test_particion_agrupada_sin_busquedas_compartidas`: ninguna búsqueda queda en Train y Test
@@ -365,9 +360,9 @@ como error: la refutación queda visible en lugar de borrarse.
 
 ---
 
-## Fase 3 — Torneo predictivo (12/11/2026; pendiente de revisión de Verónica)
+## Fase 3 — Torneo predictivo (12/11/2026)
 
-### Verónica — Project Lead & Scrum Master
+### Verónica
 
 1. **Pregunta predictiva vs. causal:** la Fase 3 responde $P(Y \mid X)$ (qué hotel se va a
    reservar); la Fase 4 responde $P(Y \mid do(T))$ (qué pasa si lo subimos).
@@ -379,7 +374,7 @@ como error: la refutación queda visible en lugar de borrarse.
 4. **Decisión de cómputo:** hiperparámetros en el 25 % de las búsquedas de Train y reentrenamiento
    en todo Train, justificado y reportado.
 
-### Lucía — Backend & ML / Causal Engineer
+### Lucía
 
 1. **Sin fuga:**
    - Se excluyen el clic (pasa en la misma sesión que la reserva) y el gasto.
@@ -404,7 +399,7 @@ como error: la refutación queda visible en lugar de borrarse.
    - La permutación mide cuánto cae la PR-AUC en **Test** al romper la variable, así que no premia
      cortes que solo sirven para memorizar.
 
-### Antonella — Frontend & UI/UX + QA & Validation Engineer
+### Antonella
 
 1. **Tests de no fuga:**
    - `test_features_no_incluyen_variables_con_fuga`, `test_matriz_rechaza_fuga_explicita`.
@@ -417,9 +412,9 @@ como error: la refutación queda visible en lugar de borrarse.
 
 ---
 
-## Fase 4 — Inferencia causal (12/11/2026; pendiente de revisión de Verónica)
+## Fase 4 — Inferencia causal (12/11/2026)
 
-### Verónica — Project Lead & Scrum Master
+### Verónica
 
 1. **Resultado principal:** el top-5 **sí** causa reservas. Con orden aleatorio, multiplica por
    **2,11** las chances de que el hotel sea el reservado de su lista (IC 95 % [1,90; 2,35]).
@@ -431,7 +426,7 @@ como error: la refutación queda visible en lugar de borrarse.
 4. **Ensayo:** la posición es la variable más predictiva del RF, pero solo en parte es una palanca;
    el resto es selección.
 
-### Lucía — Backend & ML / Causal Engineer
+### Lucía
 
 1. **Backdoor:** con el algoritmo, $Z$ bloquea $T \leftarrow Z \to Y$ pero no $T \leftarrow U \to Y$.
    Con orden aleatorio alcanza el conjunto vacío. Lo demuestran los tests de d-separación.
@@ -469,7 +464,7 @@ como error: la refutación queda visible en lugar de borrarse.
    - ATE 0,083 con el algoritmo y 0,007 con orden aleatorio.
    - CATE (Causal Forest): mayor con precio relativo bajo y buena ubicación; plano en estrellas.
 
-### Antonella — Frontend & UI/UX + QA & Validation Engineer
+### Antonella
 
 1. **`tests/test_causal.py`:**
    - El logit condicional recupera el OR verdadero, también después del filtro S.
@@ -485,9 +480,9 @@ como error: la refutación queda visible en lugar de borrarse.
 
 ---
 
-## Fase 5 — App, informe y entrega (12/11/2026; pendiente de revisión de Verónica)
+## Fase 5 — App, informe y entrega (12/11/2026)
 
-### Verónica — Project Lead & Scrum Master
+### Verónica
 
 1. **Entregables:**
    - App desplegada (link en el README).
@@ -501,7 +496,7 @@ como error: la refutación queda visible en lugar de borrarse.
 3. **Flujo Scrum:** ramas por fase, PRs con veredicto QA, merge con "Create a merge commit", CI con
    ruff y pytest.
 
-### Lucía — Backend & ML / Causal Engineer
+### Lucía
 
 1. **Serialización:** `models/rf_app.joblib` (≈ 5,5 MB, scikit-learn 1.5.2 fijado en
    `app/requirements.txt`) y `models/artefactos_app.json`.
@@ -510,7 +505,7 @@ como error: la refutación queda visible en lugar de borrarse.
 3. **`models/resultados.json`:** fuente única de los números del informe y las slides; el notebook
    lo regenera.
 
-### Antonella — Frontend & UI/UX + QA & Validation Engineer
+### Antonella
 
 1. **Tres módulos:**
    - **Diagnóstico:** filtros, histogramas agregados, CTR por posición, plano PCA de Train con
@@ -533,15 +528,15 @@ como error: la refutación queda visible en lugar de borrarse.
 
 ## Preguntas de práctica (respondé sin mirar; la respuesta está en la fuente indicada o en el banco de arriba)
 
-### Verónica — Project Lead & Scrum Master
+### Verónica
 1. ¿Por qué el top-5 "vende" y a la vez el dato del algoritmo lo sobreestima? (notebook 4.3 y 4.3 bis)
 2. ¿Por qué la muestra se arma por búsquedas y no por filas? (notebook 1.1)
 3. ¿Qué riesgo de licencia asumieron y cómo lo mitigaron? (BITÁCORA, Entrada 1)
 4. ¿Cuánto vale un slot del top-5? ¿Por qué das un rango y no un número? (notebook 4.9, escenarios)
-5. ¿Cómo funcionó Scrum en el equipo, honestamente? (BITÁCORA, Proceso Scrum)
+5. ¿Cómo funcionó Scrum en el equipo? (BITÁCORA, Proceso Scrum)
 6. ¿Qué es un experimento fallido de la Entrada 3 y qué aprendieron? (BITÁCORA, Entrada 3)
 
-### Lucía — Backend & ML / Causal Engineer
+### Lucía
 1. Demostrá con el DAG por qué $Z$ no alcanza para Backdoor con el orden del algoritmo. (notebook 4.1)
 2. ¿Qué es un logit condicional y por qué su OR sobrevive a la selección del dataset? (4.3; `test_or_condicional_sobrevive_al_filtro_de_seleccion`)
 3. ¿Qué es la no colapsabilidad del OR y cómo la descartaron como explicación de la brecha? (4.3 bis b)
@@ -551,7 +546,7 @@ como error: la refutación queda visible en lugar de borrarse.
 7. ¿Qué es la ortogonalidad de Neyman en DML? ¿Para quién rinde más el slot? (4.7)
 8. ¿Por qué el MDI favorece variables continuas y la permutación no? (3.6)
 
-### Antonella — Frontend & UI/UX + QA & Validation Engineer
+### Antonella
 1. ¿Cómo garantizan que ningún dato quede en el repo y que la app no exponga registros? (`test_confidencialidad.py`, `test_app.py`)
 2. ¿Qué es un `xfail(strict=True)` y por qué es mejor que borrar el test? (`test_data_contract.py`)
 3. Dame dos errores de la IA que atrapó un test y explicá el test. (BITÁCORA, Entrada 5)

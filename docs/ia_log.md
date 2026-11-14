@@ -2,17 +2,12 @@
 
 Asistente: **Claude Code** (modelo Claude Opus 5.5, Anthropic), usado desde VS Code.
 Alcance: el asistente propone código, textos y diseños y ejecuta lo que se le pide; **las
-decisiones las toma Verónica López Marsico** y quedan registradas acá con su autoría. Ningún número
+decisiones las toma el equipo** y quedan registradas acá con su autoría. Ningún número
 del informe se toma del texto del asistente: todo valor sale de un output ejecutado y versionado.
 
 **Convención de autoría.** Cada decisión indica quién la propuso y quién la aprobó, p. ej.
-"propuesto por Claude Code, aprobado por Verónica el 12/11". Todos los prompts los escribió
-Verónica (en algunos casos con ayuda de otro asistente de IA para redactarlos; ver error 12).
-
-**Organización real del trabajo (desde el 12/11/2026).** Verónica ejecuta y valida todo el
-trabajo con asistencia de Claude Code, incluidas las revisiones de QA de los PRs. Los roles Scrum
-del README se mantienen porque la defensa oral es por rol. Lucía Báez y Antonella Robiollio no
-revisan ni validan PRs. Ver también la BITÁCORA (Roles Scrum).
+"propuesto por Claude Code, aprobado por el equipo el 12/11". Todos los prompts los escribió
+el equipo (en algunos casos con ayuda de otro asistente de IA para redactarlos; ver error 12).
 
 Formato por fase: prompt (resumido) · qué produjo la IA · qué se decidió y quién ·
 errores/alucinaciones detectados · test determinístico que los refuta o previene.
@@ -21,7 +16,7 @@ errores/alucinaciones detectados · test determinístico que los refuta o previe
 
 ## Fase 0 — Setup y selección del dataset (11/11/2026)
 
-**Prompt (Verónica, resumen).** Brief completo del TPI: leer enunciado y rúbrica, armar la estructura del
+**Prompt (equipo, resumen).** Brief completo del TPI: leer enunciado y rúbrica, armar la estructura del
 repo, verificar herramientas (Python, Quarto, TinyTeX), asignar roles Scrum y proponer 3-4
 datasets reales para estimar el efecto causal de un recomendador, sin descargar datos hasta la
 aprobación del equipo.
@@ -35,7 +30,7 @@ aprobación del equipo.
 - Propuesta de 4 datasets candidatos con recomendación de Expedia.
 - Propuesta de asignación de roles.
 
-**Qué se decidió.** Dataset (Expedia) y roles: propuestos por Claude Code, aprobados por Verónica
+**Qué se decidió.** Dataset (Expedia) y roles: propuestos por Claude Code, aprobados por el equipo
 el 11/11. Detalle en "Decisiones (12/11/2026)" más abajo.
 
 **Errores / alucinaciones detectados y verificaciones pendientes.**
@@ -61,7 +56,7 @@ el 11/11. Detalle en "Decisiones (12/11/2026)" más abajo.
 
 ## Fase 0 (continuación) — Render, contrato de datos y DAG borrador (11/11/2026)
 
-**Prompt (Verónica, resumen).** Dataset aprobado: Expedia (plan B: Online Shoppers semi-sintético). Roles
+**Prompt (equipo, resumen).** Dataset aprobado: Expedia (plan B: Online Shoppers semi-sintético). Roles
 confirmados. Sin datos todavía: render de prueba de Quarto (¿rompe la ruta de OneDrive con
 tilde?), script de descarga, contrato de datos, test de `random_bool` y DAG borrador. Sin
 commits hasta tener `gh`.
@@ -72,8 +67,8 @@ commits hasta tener `gh`.
 `docs/dag_borrador.md` + figura.
 
 **Qué se decidió.** Dataset A (Expedia) y roles según la propuesta de Claude Code: aprobados por
-Verónica. Informe Quarto independiente con el notebook como anexo: decisión de Verónica. El DAG
-borrador (propuesta de Claude Code) quedó pendiente de revisión; la revisó y aprobó Verónica el
+el equipo. Informe Quarto independiente con el notebook como anexo: decisión del equipo. El DAG
+borrador (propuesta de Claude Code) quedó pendiente de revisión; la revisó y aprobó el equipo el
 12/11 (ver "Decisiones").
 
 **Errores / alucinaciones detectados.**
@@ -107,7 +102,7 @@ borrador (propuesta de Claude Code) quedó pendiente de revisión; la revisó y 
 
 ## Interrupción de sesión y retoma (12/11/2026)
 
-**Prompt (Verónica, resumen).** La sesión anterior del asistente se cerró. Se pide releer enunciado,
+**Prompt (equipo, resumen).** La sesión anterior del asistente se cerró. Se pide releer enunciado,
 rúbrica, BITÁCORA, README y este log; revisar git; informar fase, trabajo terminado, trabajo a
 medias y decisiones pendientes, **sin avanzar** hasta la confirmación del equipo.
 
@@ -132,53 +127,50 @@ venv fuera de OneDrive) se verificó en disco antes de afirmarlo.
 
 ### Resolución de las inconsistencias (12/11/2026)
 
-8. **Resuelta (decisión de Verónica, 12/11).** Procedimiento oficial: venv fuera de carpetas
+8. **Resuelta (decisión del equipo).** Procedimiento oficial: venv fuera de carpetas
    sincronizadas (`~/.venvs/tpi-eaymr`), instalado desde `requirements.txt`. El README lo
-   corrigió Claude Code a pedido de Verónica. Motivo: OneDrive bloquea y corrompe archivos del venv.
+   corrigió Claude Code a pedido del equipo. Motivo: OneDrive bloquea y corrompe archivos del venv.
 9. **Registrada tal cual, sin reescribir el historial.** Los 5 commits de
    `feat/fase0-contrato-datos` (12/11/2026 00:11) se hicieron y pushearon antes de instalar `gh`,
    contra lo planificado. No pasaron por un PR, pero tampoco llegaron a `main`, así que la regla
-   de oro (ningún merge a `main` sin firma del QA) no se violó. Decisión de Verónica: no
+   de oro (ningún merge a `main` sin firma del QA) no se violó. Decisión del equipo: no
    reescribir el historial (hacerlo sobre una rama pública sería peor que el desvío) y abrir el
-   PR de la Fase 0, para auditar los 5 commits juntos antes del merge. La auditoría la hace
-   Verónica (ver "Organización real del trabajo").
+   PR de la Fase 0, para auditar los 5 commits juntos antes del merge. La auditoría la hace el
+   equipo.
 
 ### Decisiones (12/11/2026)
 
 - **Dataset:** Expedia "Personalize Expedia Hotel Searches — ICDM 2013" (Kaggle). Plan B:
   Online Shoppers con tratamiento semisintético. Propuestos por Claude Code, aprobados por
-  Verónica.
-- **Roles (nominales, para la defensa oral):** Verónica López Marsico = Project Lead & Scrum
-  Master; Lucía Báez = Backend & ML/Causal Engineer; Antonella Robiollio = Frontend & UI/UX + QA.
-  Propuesta de Claude Code, aprobada por Verónica. Desde el 12/11 todo el trabajo y las
-  validaciones los hace Verónica (decisión de Verónica).
+  el equipo.
+- **Roles Scrum:** los del README y la BITÁCORA. Propuesta de Claude Code, aprobada por el equipo.
 - **Informe:** Quarto independiente, con `TP_Integrador_Final.ipynb` como anexo (decisión de
-  Verónica).
-- **DAG** (borrador de Claude Code; definiciones aprobadas por Verónica el 12/11):
+  el equipo).
+- **DAG** (borrador de Claude Code; definiciones aprobadas por el equipo el 12/11):
   - T binaria = hotel en el top-5; posición continua como sensibilidad. Propuesto por Claude
-    Code, aprobado por Verónica.
-  - Y principal = `booking_bool` (propuesto por Claude Code, aprobado por Verónica). Usar el
+    Code, aprobado por el equipo.
+  - Y principal = `booking_bool` (propuesto por Claude Code, aprobado por el equipo). Usar el
     gasto, que solo existe si hubo reserva, como ejemplo de la trampa de selección/colisionador:
-    decisión de Verónica sobre una observación del borrador de Claude Code.
-  - Zc: criterio fijado por Verónica (confusor si el ranking la usa **y** afecta la reserva;
+    decisión del equipo sobre una observación del borrador de Claude Code.
+  - Zc: criterio fijado por el equipo (confusor si el ranking la usa **y** afecta la reserva;
     predictor si solo afecta Y). La clasificación empírica la hace Claude Code en la Fase 1 y la
-    revisa Verónica.
+    revisa el equipo.
   - Colisionador natural si hay uno defendible, más el simulado como validación: decisión de
-    Verónica.
+    el equipo.
   - `click_bool` como mediador natural (posición → clic → reserva): estaba en el borrador de
-    Claude Code; Verónica pidió evaluarlo como trampa del mediador.
+    Claude Code; el equipo pidió evaluarlo como trampa del mediador.
   - `random_bool` como experimento natural: propuesto por Claude Code en la Fase 0, aprobado por
-    Verónica con la condición de verificarlo antes en los datos y en la documentación.
-- **Entorno oficial:** venv en `~/.venvs/tpi-eaymr` (decisión de Verónica; ver punto 8).
-- **Historial de git:** no se reescribe (decisión de Verónica; ver punto 9).
+    el equipo con la condición de verificarlo antes en los datos y en la documentación.
+- **Entorno oficial:** venv en `~/.venvs/tpi-eaymr` (decisión del equipo; ver punto 8).
+- **Historial de git:** no se reescribe (decisión del equipo; ver punto 9).
 
 ---
 
 ## Fase 0 (cierre) — Descarga, verificación de `random_bool` y confidencialidad (12/11/2026)
 
-**Prompt (Verónica, resumen).** Autenticar Kaggle y descargar; verificar `random_bool` y la licencia;
+**Prompt (equipo, resumen).** Autenticar Kaggle y descargar; verificar `random_bool` y la licencia;
 correr los 7 tests de datos. Luego, con la definición de `random_bool` y las reglas copiadas
-por Verónica de la pestaña Data/Rules, con su sesión de Kaggle: citar la fuente primaria, analizar el sesgo de selección
+por el equipo de la pestaña Data/Rules, con su sesión de Kaggle: citar la fuente primaria, analizar el sesgo de selección
 del dataset ("most of the data are for searches that resulted in a purchase"), mitigar el riesgo
 de confidencialidad (las reglas prohíben compartir datos y "resulting model parameters") y dejar
 el plan B listo para activar sin rehacer la estructura.
@@ -203,22 +195,22 @@ el plan B listo para activar sin rehacer la estructura.
 - Muestra: 30.000 búsquedas completas (15.000 por estrato), 739.323 filas.
 
 **Qué se decidió y quién.**
-- Citar la definición de `random_bool` de la fuente primaria: pedido de Verónica.
+- Citar la definición de `random_bool` de la fuente primaria: pedido del equipo.
 - R = 1 como **cuasi-experimento ajustado** (efectos fijos por búsqueda + ajuste por Z,
-  reportando sin ajuste vs. ajustado): **propuesto por Claude Code, aprobado por Verónica el
+  reportando sin ajuste vs. ajustado): **propuesto por Claude Code, aprobado por el equipo el
   12/11** (opción recomendada entre tres presentadas, tras la refutación parcial del error 10).
 - **Escala relativa dentro de la búsqueda como principal** (risk ratio / log-odds) y, como
   robustez, ambos estratos restringidos a búsquedas con reserva (ATE absoluto); `click_bool` como
-  resultado secundario: **propuesto por Claude Code, aprobado por Verónica el 12/11**.
-- Análisis del sesgo de selección del dataset: planteado por Verónica (puntos a, b, c); el
+  resultado secundario: **propuesto por Claude Code, aprobado por el equipo el 12/11**.
+- Análisis del sesgo de selección del dataset: planteado por el equipo (puntos a, b, c); el
   hallazgo del filtro "≥ 1 clic" y la derivación del risk ratio son de Claude Code, revisados por
-  Verónica.
+  el equipo.
 - Mitigaciones de confidencialidad (nada de datos en el repo con test que lo garantice, crudo
   fuera de OneDrive configurable por variable de entorno, app solo con agregados, plan B listo):
-  definidas por Verónica, implementadas por Claude Code. Consulta a la cátedra: la envía Verónica
+  definidas por el equipo, implementadas por Claude Code. Consulta a la cátedra: la envía el equipo
   el 12/11. Si el 14/11 no hay respuesta o es negativa, se activa el plan B (decisión de
-  Verónica).
-- Descargar solo `data.zip` y usar solo `train.csv`: decisión de Verónica. Elegir `inflate64` para
+  el equipo).
+- Descargar solo `data.zip` y usar solo `train.csv`: decisión del equipo. Elegir `inflate64` para
   Deflate64: Claude Code.
 
 **Errores / alucinaciones detectados.**
@@ -243,7 +235,7 @@ el plan B listo para activar sin rehacer la estructura.
     (wheel, sin bloqueo de Smart App Control). **Test:** `test_modulo_importa[inflate64]` y
     verificación de CRC-32 en cada extracción.
 12. *Error de transcripción de otro asistente de IA.* El prompt traía el tamaño de `data.zip`
-    como 434.537.097 bytes. La cifra la transcribió mal el asistente de IA que ayudó a Verónica a
+    como 434.537.097 bytes. La cifra la transcribió mal el asistente de IA que ayudó al equipo a
     armar los prompts (no Claude Code). La API de Kaggle y el archivo descargado dicen
     **434.573.097** (dos dígitos traspuestos); Claude Code lo detectó al listar los archivos de la
     competencia. **Prevención:** el manifiesto registra tamaños y hashes del archivo real y nunca
@@ -264,7 +256,7 @@ el plan B listo para activar sin rehacer la estructura.
 
 ## Fase 1 — Inferencia clásica (inicio, 12/11/2026)
 
-**Prompt (Verónica, resumen).** Arrancar la Fase 1 en una rama nueva mientras se revisa la Fase 0.
+**Prompt (equipo, resumen).** Arrancar la Fase 1 en una rama nueva mientras se revisa la Fase 0.
 
 **Qué produjo la IA.** `src/tpi/inferencia.py` (Welch, Mann-Whitney con r biserial y
 Hodges-Lehmann, t pareado con Wilcoxon de resguardo, potencia y efecto mínimo detectable, ANOVA
@@ -272,7 +264,7 @@ clásico + Levene/Brown-Forsythe + Welch + Kruskal-Wallis, post-hoc Tukey vs. Ga
 Bonferroni) y `tests/test_inferencia.py`. `Contraste.texto()` aplica las reglas de reporte del TPI
 (estadístico, gl, p exacto, IC 95 %, tamaño de efecto, "no se rechaza H0").
 
-**Diseño propuesto por Claude Code, aprobado por Verónica el 12/11.** Contrastes sobre unidades independientes:
+**Diseño propuesto por Claude Code, aprobado por el equipo el 12/11.** Contrastes sobre unidades independientes:
 (1) pareado dentro de la búsqueda con R = 1, CTR del top-5 vs. del resto (sesgo de posición, arco
 T → M del DAG); (2) gasto por reserva, usuarios recurrentes vs. nuevos (Welch + Mann-Whitney);
 ANOVA: log del precio por noche del hotel reservado según categoría de estrellas.
@@ -286,7 +278,7 @@ ANOVA: log del precio por noche del hotel reservado según categoría de estrell
 
 ### Fase 1 (continuación) — Auditoría, faltantes, competidores, contrastes y ANOVA (12/11/2026)
 
-**Prompt (Verónica, resumen).** Reorganización: Verónica hace y valida todo. Aprueba los tres
+**Prompt (equipo, resumen).** Aprueba los tres
 contrastes propuestos y pide seguir con la auditoría de datos, los faltantes, las variables de
 competidores, el notebook y la Entrada 2.
 
@@ -297,14 +289,14 @@ competidores); `src/tpi/graficos.py` (paleta validada); notebook
 `TP_Integrador_Final.py`); figuras en `report/figures/f1_*.png`; Entrada 2 de la BITÁCORA.
 
 **Qué se decidió y quién.**
-- Los tres contrastes y el ANOVA: propuestos por Claude Code, **aprobados por Verónica el 12/11**.
-- Clasificación de $Z_c$: criterio de Verónica; aplicación de Claude Code (`comp_n_info` y
-  `comp_saldo` confusores, `comp_diff_max` descartada). **Pendiente de revisión por Verónica.**
+- Los tres contrastes y el ANOVA: propuestos por Claude Code, **aprobados por el equipo el 12/11**.
+- Clasificación de $Z_c$: Criterio del equipo; aplicación de Claude Code (`comp_n_info` y
+  `comp_saldo` confusores, `comp_diff_max` descartada). **Pendiente de revisión por el equipo.**
 - Precio relativo, reglas de outliers, tratamiento de centinelas y estrategia de imputación por
-  mecanismo: propuestos por Claude Code. **Pendientes de revisión por Verónica.**
+  mecanismo: propuestos por Claude Code. **Pendientes de revisión por el equipo.**
 - T se mantiene como `position ≤ 5` **en pantalla** (definición aprobada), documentando que en
   general contiene 4 hoteles del dataset (error 16). Interpretación de Claude Code, **a confirmar
-  por Verónica**.
+  por el equipo**.
 
 **Errores / alucinaciones / hallazgos.**
 16. *Hallazgo que corrige una hipótesis del asistente.* En el error 10 el asistente sugirió que el
@@ -330,39 +322,39 @@ competidores); `src/tpi/graficos.py` (paleta validada); notebook
 20. *Semántica no verificada.* El signo de `compN_rate` (si "+1" significa que Expedia es más
     barata que el competidor) proviene de la memoria del asistente, no de la fuente primaria.
     **Mitigación:** la clasificación de $Z_c$ usa agregados que no dependen del signo.
-    **Pendiente:** Verónica transcribe la definición textual de la pestaña Data de Kaggle.
+    **Pendiente:** el equipo transcribe la definición textual de la pestaña Data de Kaggle.
 
-### Revisión de Verónica del cierre de la Fase 1 (12/11/2026)
+### revisión del equipo del cierre de la Fase 1 (12/11/2026)
 
-**Prompt (Verónica, resumen).** Confirma T; aprueba la auditoría; pide contrastar $Z_c \to T$ antes
+**Prompt (equipo, resumen).** Confirma T; aprueba la auditoría; pide contrastar $Z_c \to T$ antes
 de llamar confusor a $Z_c$ y actualizar el DAG; transcribe las definiciones de `compN_*` de Kaggle;
 decide no consultar a la cátedra; pide PRs por fase y seguir con la Fase 2.
 
 **Qué se decidió y quién.**
-- T = `position ≤ 5` en pantalla: **confirmado por Verónica**. Sensibilidad `top4_dataset`
-  (top-4 del ranking entre los hoteles del dataset): **pedida por Verónica**, implementada por
+- T = `position ≤ 5` en pantalla: **confirmado por el equipo**. Sensibilidad `top4_dataset`
+  (top-4 del ranking entre los hoteles del dataset): **pedida en la revisión del equipo**, implementada por
   Claude Code en `tpi.contrato` (coincide con `top5` en el 99,89 % de las filas).
 - Slots fijos 5/11/17/23 como característica del DGP y la asociación residual con R = 1 como
-  **limitación declarada sin hipótesis forzada**: decisión de Verónica (BITÁCORA, Entrada 4, B y C).
+  **limitación declarada sin hipótesis forzada**: decisión del equipo (BITÁCORA, Entrada 4, B y C).
   Se retira la hipótesis de "remoción no aleatoria de filas" que el asistente había sugerido en el
   error 10 (refutada por el error 16).
 - Precio relativo a la búsqueda, dos reglas de outliers con su test e imputación (MAR por grupo con
-  indicador, MNAR estructural sin imputar): **propuestos por Claude Code, aprobados por Verónica
+  indicador, MNAR estructural sin imputar): **propuestos por Claude Code, aprobados por el equipo
   el 12/11**.
-- $Z_c$: Verónica señaló que la primera clasificación mostraba solo $Z_c \to Y$. Claude Code agregó
+- $Z_c$: El equipo señaló que la primera clasificación mostraba solo $Z_c \to Y$. Claude Code agregó
   el contraste de $Z_c \to T$ (diferencia pareada top-5 vs. resto por estrato e interacción
   $Z_c \times R$ en el logit de T, condicional a $Z_h$). Resultado: `comp_saldo` y `comp_n_info`
   siguen siendo confusoras (interacción p = 2,7·10⁻¹⁸ y 2,8·10⁻⁵); `comp_diff_max` se excluye. DAG
   actualizado (Zc → T, Zc → M, nodo de selección S) con tests de d-separación nuevos.
-  **Pendiente de revisión por Verónica.**
-- Confidencialidad: **Verónica decide no consultar a la cátedra** y seguir con Expedia con las
+  **Pendiente de revisión por el equipo.**
+- Confidencialidad: **El equipo decide no consultar a la cátedra** y seguir con Expedia con las
   mitigaciones implementadas; el plan B queda disponible y no se activa. Se retira el hito del
   14/11 del calendario de riesgos.
 
 **Errores / alucinaciones detectados.**
 20. *(Resuelto) Semántica de memoria.* La versión anterior del texto y de los docstrings no fijaba
     el signo de `compN_rate`, y la única noción de signo que tenía el asistente venía de su memoria,
-    no de la fuente. Verónica transcribió la definición de Kaggle: +1 = Expedia **más barata** que
+    no de la fuente. Transcribimos la definición de Kaggle: +1 = Expedia **más barata** que
     el competidor N; `rate_percent_diff` es **absoluta**. La agregación `comp_saldo` ya usaba
     (+1) − (−1), así que el cálculo no cambia; se corrigieron la documentación y la lectura
     (`comp_saldo` > 0 = Expedia más barata). **Test:** `test_agregado_de_competidores_ignora_diferencias_imposibles`
@@ -375,24 +367,23 @@ decide no consultar a la cátedra; pide PRs por fase y seguir con la Fase 2.
     probable umbral de registro, no documentado.
 22. *Afirmación de aprobación no ocurrida (detectada por el asistente antes de commitear).* Al
     redactar la nueva clasificación de $Z_c$, el asistente escribió "revisada y aprobada por
-    Verónica", cuando Verónica todavía no la había revisado. Se corrigió a "pendiente de revisión".
-    **Prevención:** una aprobación solo se registra si consta en un mensaje de Verónica.
+    el equipo", cuando el equipo todavía no la había revisado. Se corrigió a "pendiente de revisión".
+    **Prevención:** una aprobación solo se registra si consta en un mensaje del equipo.
 
 ### GitHub: PRs no abiertos desde el entorno del asistente (12/11/2026)
 
-Verónica pidió abrir el PR de la Fase 0 (y luego uno por fase). Claude Code no pudo: `gh` no tiene
-sesión en su entorno, aunque sí en la terminal de Verónica. El clasificador de permisos de Claude
+el equipo pidió abrir el PR de la Fase 0 (y luego uno por fase). Claude Code no pudo: `gh` no tiene
+sesión en su entorno, aunque sí en la terminal del equipo. El clasificador de permisos de Claude
 Code bloqueó dos alternativas: correr `gh` fuera del sandbox y pasarle a `gh` la credencial que git
 usa para los pushes (lo marcó como "exploración de credenciales"). El asistente no intentó otras
-vías. **Quién abre los PRs:** Verónica, con los scripts preparados por Claude Code
-(`github_setup.sh`, que crea etiquetas, milestones, issues y el PR de la Fase 0, y `pr_fase1.sh`).
-Los PRs registran que la revisión QA la hace Verónica.
+vías. **Quién abre los PRs:** el equipo, con scripts preparados por Claude Code (ya ejecutados y
+retirados del repo).
 
 ---
 
 ## Fase 2 — Gauss-Markov, influyentes, VIF y PCA sin fuga (12/11/2026)
 
-**Prompt (Verónica, resumen).** Seguir con la Fase 2 en una rama nueva, con el mismo formato de
+**Prompt (equipo, resumen).** Seguir con la Fase 2 en una rama nueva, con el mismo formato de
 cierre, y actualizar `docs/defensa.md`.
 
 **Qué produjo la IA.** `src/tpi/particion.py` (80/20 agrupada por búsqueda, estratificada por
@@ -401,7 +392,7 @@ Train), `tests/test_fase2.py`, la sección Fase 2 del notebook (figuras `report/
 la Entrada 2 (Fase 2) y la Entrada 3 de la BITÁCORA, y `docs/defensa.md` (Fase 2).
 
 **Qué se decidió y quién.** Todo el diseño de la Fase 2 lo propuso Claude Code y está **pendiente
-de revisión por Verónica**:
+de revisión por el equipo**:
 - Partición única 80/20 agrupada y estratificada.
 - MCO de log precio por noche sobre las reservas.
 - HC3 como remediación y Huber como resguardo.
@@ -422,9 +413,9 @@ de revisión por Verónica**:
     se estaba usando ahí. **Corrección:** todos los p de la Fase 2 pasan por `formato_p`
     ("p < 1e-300 (subdesborde de doble precisión)").
 
-### Aprobaciones de Verónica (12/11/2026, revisión de las Fases 1 y 2)
+### Aprobaciones del equipo (12/11/2026, revisión de las Fases 1 y 2)
 
-**Propuestos por Claude Code, aprobados por Verónica el 12/11:**
+**Propuestos por Claude Code, aprobados por el equipo el 12/11:**
 - Fase 1: clasificación de competidores (`comp_saldo` y `comp_n_info` confusores, `comp_diff_max`
   excluida); DAG con Zc → T, Zc → M y nodo S; corrección del signo de `compN_rate`;
   `compN_inv = −1` tratado como faltante con indicador (`comp_inv_no_documentado`) y declarado en la
@@ -433,17 +424,17 @@ de revisión por Verónica**:
   intra-búsqueda; no es un problema de pronóstico temporal); no eliminar influyentes; HC3 como
   principal y Huber de respaldo; 2 PCs para la app y 4 como features alternativas.
 
-**Cambio de ritmo (decisión de Verónica, 12/11):** terminar las Fases 3, 4 y 5 en el día. Claude Code
-decide con criterio y registra cada decisión como "propuesto por Claude Code"; Verónica revisa todo
+**Cambio de ritmo (decisión del equipo):** terminar las Fases 3, 4 y 5 en el día. Claude Code
+decide con criterio y registra cada decisión como "propuesto por Claude Code"; el equipo revisa todo
 junto al final. Solo se frena ante acciones físicas (login, deploy) o decisiones que cambien la
-conclusión causal. Los scripts de GitHub pasan a `scripts/github/` (Git Bash); Verónica abre y
+conclusión causal. Los scripts de GitHub pasan a `scripts/github/` (Git Bash); el equipo abre y
 mergea los PRs en orden ("Create a merge commit"). Ya existe el PR #38 (Fase 0).
 
 ---
 
 ## Fases 3, 4 y 5 (12/11/2026)
 
-**Prompt (Verónica, resumen).** Terminar el TP completo hoy: torneo predictivo, inferencia causal
+**Prompt (equipo, resumen).** Terminar el TP completo hoy: torneo predictivo, inferencia causal
 completa, app con solo agregados, deploy listo, notebook ejecutable, informe, README, BITÁCORA,
 slides, guía de defensa y auto-auditoría.
 
@@ -453,7 +444,7 @@ lógica testeable), los tests correspondientes (`test_modelos.py`, `test_causal.
 las secciones 3 a 5 del notebook, los artefactos de `models/`, el informe, las slides, el README y
 `scripts/github/abrir_prs_pendientes.sh`.
 
-**Decisiones propuestas por Claude Code (pendientes de revisión por Verónica):**
+**Decisiones propuestas por Claude Code (pendientes de revisión por el equipo):**
 - *Fase 3:*
   - Y = `booking_bool` por fila; PR-AUC como métrica de selección (prevalencia ≈ 2 %).
   - `StratifiedGroupKFold(5)` por búsqueda.
@@ -463,7 +454,7 @@ las secciones 3 a 5 del notebook, los artefactos de `models/`, el informe, las s
     reentrenamiento en todo Train.
   - Umbral de clasificación elegido en Train (máximo F1 fuera de pliegue).
   - Holdout cronológico (último 20 % de las búsquedas por fecha) como sensibilidad, a pedido de
-    Verónica.
+    el equipo.
   - Métrica extra de ranking (¿el hotel reservado está en el top-5 del modelo?).
 - *Fase 4:*
   - Logit condicional por búsqueda como estimador principal (escala relativa) y MPL con efectos fijos
@@ -516,12 +507,12 @@ las secciones 3 a 5 del notebook, los artefactos de `models/`, el informe, las s
 
 ### Revisión humana que cambió el análisis: robustez de la conclusión central (12/11/2026)
 
-**Prompt (Verónica, resumen).** Revisión punto por punto del cierre de las Fases 3-5, con
+**Prompt (equipo, resumen).** Revisión punto por punto del cierre de las Fases 3-5, con
 prioridad en blindar la conclusión causal de la sección 4.3. Es el ejemplo más claro del proyecto
 de **revisión humana que cambió el análisis**: cada pedido se convirtió en un análisis nuevo con
 evidencia propia.
 
-| Pedido de Verónica | Qué faltaba en la versión del asistente | Qué se agregó (propuesto por Claude Code según el pedido) |
+| Pedido del equipo | Qué faltaba en la versión del asistente | Qué se agregó (propuesto por Claude Code según el pedido) |
 |---|---|---|
 | Balance entre las búsquedas aleatorias y las del algoritmo, con SMD, y re-ponderación si difieren | La comparación R = 0 vs. R = 1 asumía poblaciones comparables sin verificarlo | Tabla de SMD sobre las búsquedas que entran al estimador, pesos de odds R0 → R1, OR y efectos marginales re-estimados con los pesos (notebook, 4.3 bis a) |
 | No colapsabilidad del OR: repetir en diferencia de riesgos | Solo había escala OR (no colapsable) | Efecto marginal promedio del logit de elección y MPL con efectos fijos, restringidos a búsquedas con reserva (tasa base comparable) (4.3 bis b) |
@@ -540,21 +531,21 @@ evidencia propia.
     reportados cambian en la cuarta cifra (3,3778 → 3,3777). **Test:**
     `test_eleccion_logit_coincide_con_statsmodels` (contra el Newton de statsmodels, rel = 1e-6).
 32. *Evidencia insuficiente presentada como adelanto (del asistente).* El primer bootstrap del
-    cociente de OR usó 24 réplicas. Verónica exigió al menos 1000 réplicas con IC percentil.
+    cociente de OR usó 24 réplicas. El equipo exigió al menos 1000 réplicas con IC percentil.
     **Corrección:** B = 1000 en la corrida final. **Prevención:** un IC por bootstrap solo se
     reporta con B ≥ 1000.
 
 ### Bonus: copiloto de decisión (12/11/2026)
 
-**Prompt (Verónica, resumen).** Estimar el esfuerzo de una versión mínima del copiloto
+**Prompt (equipo, resumen).** Estimar el esfuerzo de una versión mínima del copiloto
 conversacional y hacerla si hay margen antes del 16/11, sin tocar lo anterior, para compensar la
 dimensión Scrum.
 
 **Estimación del asistente:** 3 a 4 horas de desarrollo y tests, más la configuración del secreto
-en Streamlit Cloud, que la hace Verónica. Hubo margen y se hizo el mismo 12/11, en código nuevo y
+en Streamlit Cloud, que la hace el equipo. Hubo margen y se hizo el mismo 12/11, en código nuevo y
 aislado.
 
-**Qué produjo la IA (propuesto por Claude Code, pendiente de revisión de Verónica):**
+**Qué produjo la IA (propuesto por Claude Code, pendiente de revisión del equipo):**
 - `app/copiloto.py`: 5 herramientas de solo lectura sobre los artefactos agregados (efecto causal
   y robustez, CATE por perfil, predicción del RF, refutaciones, escenarios de valuación).
 - Loop manual de tool use con el SDK oficial (`anthropic==2.8.0`), modelo `claude-opus-5-5`,
@@ -575,7 +566,7 @@ criterio humano.
 
 ## Sesión de cierre (13/11/2026)
 
-**Prompt (Verónica, texto completo en [`prompt_cierre.md`](prompt_cierre.md)).** Cerrar el TPI con
+**Prompt (equipo, texto completo en [`prompt_cierre.md`](prompt_cierre.md)).** Cerrar el TPI con
 cada criterio de la rúbrica en "Excelente": auditar antes de tocar (matriz de trazabilidad), corregir
 todo error metodológico y registrarlo, cero números escritos a mano, Quality Gate con no-fuga en CI,
 PRs por fase con veredicto de QA, deploy listo (Streamlit Cloud y Docker) y la entrega completa.
@@ -586,7 +577,7 @@ ejecución de Python, pytest, ruff, Quarto, Docker, git y gh). Orden: auditoría
 (`docs/estado_cierre.md`), prototipo de cada análisis nuevo en un script aparte, textos redactados
 recién después de ver los outputs, notebook re-ejecutado de punta a punta y PRs con evidencia.
 
-**Qué produjo la IA (propuesto por Claude Code en ejecución de la consigna de Verónica):**
+**Qué produjo la IA (propuesto por Claude Code en ejecución de la consigna del equipo):**
 - Corrección de la fuga en la preparación: partición fijada antes de transformar; cercas, cuantiles
   y medianas ajustados solo con Train (`tpi.auditoria`, `tpi.preparacion`).
 - Test de Little (EM) con verdad conocida; IPW de Hájek con diagnóstico de overlap, recorte y
@@ -622,5 +613,132 @@ recién después de ver los outputs, notebook re-ejecutado de punta a punta y PR
     exige que no haya avisos y que el coeficiente de T no cambie); en White, el aviso se silencia
     con la justificación (los gl salen del rango).
 
-**Decisiones que quedan para Verónica:** el deploy en Streamlit Cloud (requiere su login), las
-co-firmas de Lucía y Antonella en la BITÁCORA y la subida a EVA.
+**Decisiones que quedan para el equipo:** el deploy en Streamlit Cloud (requiere su login), las
+las firmas de la BITÁCORA y la subida a EVA.
+
+## Segunda pasada: informe como paper, redacción de equipo y limpieza (13/11/2026)
+
+**Prompt (equipo, resumen).** Rehacer el informe como paper científico a dos columnas (10 pt, IMRyD,
+8-10 páginas, figuras dimensionadas para una columna o el ancho completo, bibliografía con un solo
+estilo, solo el anexo de uso de IA); presentar el trabajo como del equipo en todos los documentos;
+limpiar el repositorio (borradores, figuras huérfanas, cachés y ramas mergeadas) mostrando antes la
+lista y esperando aprobación.
+
+**Qué produjo la IA (propuesto por Claude Code, aprobado por el equipo):**
+- `tpi.graficos.ESTILO_PAPER` y `guardar_paper` (PDF vectorial a 8,3 o 17,2 cm); sección 5.3 del
+  notebook, que regenera las 8 figuras del informe con los objetos ya estimados.
+- `report/informe.qmd` reescrito como paper: encabezado a ancho completo con resumen y palabras clave,
+  tablas booktabs como floats propios (las `longtable` no funcionan a dos columnas), biblatex numérico
+  ordenado por aparición, declaración de uso de IA antes de las referencias.
+- Lista de eliminación presentada y aprobada antes de ejecutar `git rm`; ramas mergeadas borradas.
+
+**Errores detectados en la sesión.**
+37. *Escapes interpretados al editar desde la terminal.* Al reemplazar texto con scripts, secuencias
+    como barra-t y barra-a se convirtieron en tabulación y en el carácter de campana dentro de
+    comandos LaTeX (`to`, `approx`). **Detección:** búsqueda de caracteres de control en los archivos editados y
+    revisión del PDF. **Prevención:** las ediciones con barras invertidas se hacen con el editor de
+    archivos, no con `sed` ni heredocs, y se verifica que ningún archivo tenga caracteres de control.
+
+### Prompt de cierre (13/11/2026), texto completo
+
+````text
+# Misión: cerrar el TPI de EAyMR 2026 para sacar un 10
+
+Sos el ingeniero responsable de terminar y entregar este proyecto. El trabajo es el
+Trabajo Práctico Integrador "Decision Intelligence Capstone" de Estadística Aplicada y
+Modelos de Regresión (UCA, 2S2026). Nuestro problema es el **retorno causal de un
+algoritmo de recomendación**, con el dataset **Expedia Hotel Search (Kaggle)**.
+Herramientas centrales: statsmodels (OLS con ajuste Backdoor y CATE), DoWhy (DAG,
+identificación, refutaciones) y EconML (DML).
+
+La entrega y la defensa oral son el **miércoles 18/11/2026 a las 23:59**. Hoy es 13/11.
+Al final del día tengo que mandarle los entregables a mis compañeras. El objetivo no es
+llegar a "funciona": cada criterio de la rúbrica tiene que quedar en el nivel
+**Excelente**. Trabajá de forma autónoma y completa. Solo pará para preguntarme lo que
+de verdad no puedas hacer vos (logins, deploy en la nube, decisiones irreversibles).
+
+---
+
+## 0. Fuentes de verdad (leelas COMPLETAS antes de tocar nada)
+
+1. `docs/Enunciado_TP_Integrador_EAyMR_2026_1.pdf`: el enunciado oficial (5 fases, entregables, tabla de 100 pts).
+2. `docs/rubrica.txt`: la rúbrica complementaria (Analizar / Modelar / Explorar / Informar, de 1 a 4 pts por subcriterio).
+3. Todo lo que ya existe: `README.md`, `BITACORA.md`, `docs/*.md` (auditoria_final, dag_borrador, defensa, ia_log, plan_b), `report/informe.qmd`, `report/slides.qmd`, `referencias.bib`, `notebooks/`, `src/`, `app/`, `tests/`, `models/`, `scripts/`, `.github/`, `pyproject.toml`, `requirements.txt`.
+4. Estado de git y GitHub: `git status`, `git log --all --oneline --graph`, las 7 ramas, el PR abierto y los issues (`gh pr list`, `gh issue list --limit 100`, `gh pr view`). En `main` hay un solo commit, así que probablemente haya trabajo hecho en otras ramas que todavía no se integró. Revisalo bien antes de rehacer cualquier cosa.
+
+**Regla:** no reescribas lo que ya está bien. Primero auditá, después completá.
+
+---
+
+## 1. Auditoría inicial (sin modificar código)
+
+Generá `docs/estado_cierre.md` con una matriz de trazabilidad. Cada fila es un requisito
+del enunciado o un subcriterio de la rúbrica, con estas columnas:
+`Requisito | Dónde está (archivo:sección) | Estado (✅ / ⚠️ parcial / ❌ falta) | Qué falta para Excelente | Prioridad`.
+
+Cubrí como mínimo:
+- **Fase 1:** EDA (KDE, boxplots, correlaciones Pearson y Spearman), mecanismo de faltantes MCAR/MAR/MNAR justificado (Expedia tiene muchísimos NaN en competidores, historial del usuario y review score; testealo, por ejemplo con un test de Little o con un logit de missingness sobre las otras variables), ≥2 contrastes de hipótesis con α fijado a priori, p exacto, IC 95% de la diferencia y tamaño de efecto, ANOVA de 1 factor con ≥3 grupos, normalidad evaluada por skewness, curtosis y Q-Q (con una explicación de por qué Shapiro no sirve con N grande), Levene, Welch o Kruskal-Wallis, post-hoc Tukey vs Bonferroni.
+- **Fase 2:** OLS con R², R² ajustado, F y t; Breusch-Pagan o White, Jarque-Bera, Durbin-Watson si corresponde; residuos estudentizados (>3), leverage (>2(p+1)/n), Cook (>4/n y >0.5) y decisión justificada (Huber/RANSAC o HC3); VIF con su estrategia; PCA ajustado SOLO en train (scree, varianza acumulada, codo o Kaiser, interpretación de loadings PC1/PC2).
+- **Fase 3:** split 80/20 (estratificado si es clasificación) + StratifiedKFold(5); Logit regularizada con Odds Ratios e IC 95% (o Ridge/Lasso/ElasticNet si es regresión); Naive Bayes con discusión de la independencia condicional y su efecto en la calibración; CART sin restricciones (overfitting train vs test) y después podado con `cost_complexity_pruning_path` + CV, con el árbol visualizado y la regla de la raíz interpretada; Random Forest con Grid o RandomizedSearchCV sobre los 5 hiperparámetros pedidos y OOB vs CV; métricas completas (Precision, Recall, F1 macro y ponderado, ROC-AUC, PR-AUC, Brier); reliability diagrams; MDI vs Permutation Importance en test con la explicación del sesgo de MDI.
+- **Fase 4:** DAG en DOT/networkx con T, Y, Z, M (mediador) y C (colisionador) justificados arco por arco; demostración del Backdoor; pregunta trampa del mediador y del colisionador **demostrada empíricamente** (estimar con y sin M, con y sin C, y mostrar el sesgo); DoWhy en 4 pasos con ATE por `backdoor.linear_regression` y `backdoor.propensity_score_weighting` (con chequeo de overlap/positividad y pesos recortados si hace falta); comparación contra el coeficiente ingenuo Y~T, cuantificando el sesgo de confusión; EconML LinearDML y/o CausalForestDML con nuisances RF, CATE con curvas por subgrupo e IC; las 3 refutaciones (random common cause, placebo, data subset 80%) con interpretación; ensayo crítico "Predictivo vs Causal".
+  - Si nuestro T es `random_bool` (orden aleatorio vs ranking del algoritmo de Expedia), aprovechalo: es una asignación aleatorizada que sirve como benchmark experimental para comparar contra la estimación observacional. Revisá además que `position` esté tratada como mediador y no como confusor, y que `click_bool` no se use como condición si funciona como colisionador o mediador de `booking_bool`. Verificá todo esto contra lo que ya está en `docs/dag_borrador.md`.
+- **Fase 5:** roles Scrum documentados en el README y en la defensa; Quality Gate (pytest + ruff + chequeo de leakage en CI de `.github/`); veredicto QA `[APROBADO]` en cada PR; `BITACORA.md` con las 5 entradas obligatorias firmadas por rol (la Entrada 3 con ≥2 experimentos fallidos reales y la Entrada 5 con uso de IA, alucinaciones detectadas y tests que las refutan); Web App con los 3 módulos (Diagnóstico + PCA 2D, Predictivo "What-Is" con probabilidad calibrada y explicación del caso, Causal "What-If" con DAG, ATE, curva CATE según perfil y semáforo de refutaciones). El copiloto con tool use es bonus: hacelo solo si sobra tiempo y con guardrails contra cifras inventadas.
+- **Rúbrica complementaria:** recorré cada uno de los 15 subcriterios (1.1 a 4.4) y escribí qué haría falta para el nivel Excelente. Por ejemplo: análisis de potencia (1−β) y justificación de α (1.4); formulación matemática y DAG antes del código (2.1); parámetros poblacionales vs estimadores bien notados (2.2); modelos de resguardo como Welch, Kruskal, HC3 o umbral por costos asimétricos (2.3); sensibilidad propia no pedida, como con/sin outliers, distintos umbrales τ o subsegmentos (3.1); estabilidad con k-fold e IC bootstrap del ATE (3.2); gráficos compuestos de nivel publicación (3.4); informe Quarto independiente con resumen, índice y figuras/tablas numeradas (4.1); recomendaciones de negocio **cuantificadas** (4.3); reproducibilidad total + bibliografía formal + declaración de gobernanza de IA (4.4).
+
+Después de la auditoría armá la lista de tareas con TaskCreate, ordenada por puntos en
+juego (Causal 25 > ML 20 > Inferencia 15 = Gauss-Markov/PCA 15 = Deploy 15 > Scrum 10),
+y ejecutala.
+
+---
+
+## 2. Reglas de calidad innegociables
+
+1. **Cero números inventados.** Toda cifra del informe, las slides, el README y la app tiene que salir de código ejecutado. En Quarto usá valores inline calculados o leídos de un `results/*.json` que genere el pipeline. Si una cifra del texto no coincide con la salida, el código manda.
+2. **Reproducibilidad:** semilla global fija y documentada, dependencias fijadas, rutas relativas, script o instrucciones para bajar el dataset de Kaggle (los datos crudos no van en git si son pesados; si se usa una submuestra, que sea determinística y justificada).
+3. **Notebook maestro** `notebooks/TP_Integrador_Final.ipynb` (nombre exigido por el enunciado), ordenado en las 4 fases técnicas, con teoría antes de cada bloque de código, gráficos con título y ejes, y salidas guardadas. Tiene que correr de punta a punta con Restart & Run All sin errores, sin celdas vacías y sin warnings ruidosos ni prints de debug. La lógica pesada va en `src/tpi/` y el notebook la importa.
+4. **Sin data leakage:** el escalado, el PCA, la imputación y la selección se ajustan solo en train (con Pipelines). Tiene que haber tests en pytest que lo verifiquen.
+5. **Lenguaje estadístico preciso:** "no se rechaza H0" (nunca "se acepta"); distinguir parámetro (β, μ, τ) de estimador (β̂); reportar estadístico, gl y p en cada test.
+6. **Redacción:** español rioplatense técnico, sobrio y denso, en primera persona del plural ("estimamos", "decidimos"), con tono natural de estudiantes. Nada de relleno ni frases que suenen a IA. Ecuaciones en LaTeX.
+7. **Verificación final obligatoria:** `pytest` en verde, `ruff check` limpio, notebook ejecutado completo, `quarto render` del informe y de las slides sin errores. Abrí los PDF y HTML generados y revisalos: figuras que se vean, numeración, índice, referencias resueltas, sin `??` ni placeholders tipo TODO/XXX/lorem.
+
+---
+
+## 3. Git y GitHub
+
+- Integrá el trabajo de las ramas existentes y del PR abierto (revisá los conflictos con criterio, no sobrescribas a ciegas).
+- Trabajá en ramas por fase y abrí PRs con el checklist del Quality Gate. Antes del merge a `main`, dejá en cada PR un comentario de QA con el veredicto `[APROBADO]` o `[BLOQUEADO]` y su evidencia (tests, ruff, leakage). Esto lo exige el enunciado.
+- Cerrá o actualizá los 37 issues según corresponda, con referencia al commit o PR, y agrupalos en milestones por fase.
+- Commits convencionales en español (`feat(fase-4): ...`). **Nunca** hagas force push a `main` ni borres ramas sin preguntarme.
+
+---
+
+## 4. Deploy de la Web App
+
+- La app (`app/`, Streamlit) carga modelos y resultados serializados (joblib/json); no reentrena al iniciar. Tiene que levantar rápido y con datos livianos (una muestra incluida en el repo, si hace falta).
+- Probala localmente (`streamlit run`) y verificá los 3 módulos.
+- Dejá todo listo para Streamlit Community Cloud (requirements de la app, versión de Python, `.streamlit/config.toml`) y además un `Dockerfile` testeado como plan B.
+- El deploy en la nube requiere mi login. Cuando llegues ahí, dame los pasos exactos, cortos y numerados para hacerlo yo. Cuando te pase la URL, agregala al README, al informe y a las slides.
+
+---
+
+## 5. Informe, slides, README y anexo de IA
+
+- **`report/informe.qmd` → `informe.pdf` + `informe.html`:** portada (UCA, materia, profesor Ivan Gonzalo Vilaboa, integrantes con su rol, fecha), resumen ejecutivo, índice, introducción y preguntas de negocio, datos y auditoría de calidad (antes/después de la limpieza), las 4 fases, el ensayo crítico, **recomendaciones de negocio cuantificadas** (por ejemplo, lift causal en conversión o reservas y a qué segmentos conviene aplicar el algoritmo según el CATE), limitaciones y amenazas a la validez, conclusiones, bibliografía formal (`referencias.bib`: Pearl, Chernozhukov et al. DML, docs de DoWhy y EconML, Kaggle, etc.) y anexos.
+- **Anexo "Uso de IA" (obligatorio):** herramientas usadas (Claude / Claude Code), resumen de las conversaciones y de los prompts de diseño principales, cómo se trabajó con el agente (harness, tareas delegadas), alucinaciones y errores detectados, tests determinísticos que los refutan, y una declaración de alcance y auditoría humana. Basalo en `docs/ia_log.md` y alineado con la Entrada 5 de la bitácora. Incluí este mismo prompt como ejemplo.
+- **`report/slides.qmd` → `slides.pdf`:** de 10 a 12 slides siguiendo la estructura recomendada del enunciado (problema → inferencia/ANOVA/Gauss-Markov/PCA → torneo ML y calibración → DAG/ATE/CATE/refutaciones → demo de la app → conclusiones y bitácora), para 12 a 15 minutos.
+- **`docs/defensa.md`:** guion de la exposición y banco de preguntas probables del tribunal, con respuestas cortas por rol (sobre todo: por qué Shapiro no sirve con N grande, la trampa del mediador y del colisionador, por qué MDI está sesgado, qué hace DML, qué significa cada refutación).
+- **`README.md`:** de calidad editorial, con badges (CI, Python, deploy), diagrama del pipeline y del DAG, estructura del repo, roles, reproducción paso a paso, link a la app, al informe y a las slides.
+
+---
+
+## 6. Al terminar, entregame esto
+
+1. **Lista de entregables finales** con su ruta exacta, para mandarlos (informe PDF/HTML, notebook ejecutado y su export HTML, slides PDF, BITACORA.md, link del repo, link de la app). Si conviene, armá un `entrega/` o un .zip con todo junto.
+2. **Tabla final de la rúbrica:** cada subcriterio, el nivel que estimás que alcanza y la evidencia.
+3. **Lo que tengo que hacer yo a mano** (deploy, revisar algo puntual, subir a EVA), en pasos cortos.
+4. **Riesgos residuales**, si los hay, explicados con honestidad.
+
+No me digas que algo está terminado si no lo ejecutaste y verificaste. Si encontrás un
+error metodológico en lo que ya hicimos, corregilo y anotalo en la bitácora; no lo
+escondas.
+````

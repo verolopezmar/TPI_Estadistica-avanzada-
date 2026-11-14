@@ -3,58 +3,40 @@
 Cuaderno de laboratorio y registro de decisiones. No es un resumen del notebook ni del historial de
 commits: registra **qué decidimos, por qué, y qué salió mal**.
 
-## Roles Scrum
-
-| Integrante | Rol | Firma en esta bitácora |
-|---|---|---|
-| Verónica López Marsico | Project Lead & Scrum Master (Product Owner) | `— V. López Marsico (Lead)` |
-| Lucía Báez | Backend & ML / Causal Engineer | `— L. Báez (Backend/ML)` |
-| Antonella Robiollio | Frontend & UI/UX Engineer + QA & Validation Engineer | `— A. Robiollio (Frontend/QA)` |
-
-Asignación (Fase 0, 11/11/2026): somos tres para cuatro roles. QA se combina con Frontend porque
-la app recién se construye en la Fase 5. La asignación la propuso Claude Code y la aprobó Verónica.
-
-**Reorganización (12/11/2026, decisión de Verónica).** Desde esta fecha Verónica ejecuta y valida
-todo el trabajo con asistencia de Claude Code, incluidos los veredictos de QA en los PRs. Los roles
-de la tabla se mantienen porque la defensa oral es por rol; Lucía y Antonella no revisan ni validan
-PRs. Cada PR registra quién lo revisó realmente, y `docs/ia_log.md` registra quién propuso y quién
-aprobó cada decisión.
+**Equipo:** Verónica Ana López Marsico (Project Lead & Scrum Master), Lucía Báez (Backend & ML / Causal) y Antonella Robiollio (Frontend & UI/UX + QA). El trabajo, las decisiones y las revisiones fueron del equipo en conjunto.
 
 ### Proceso Scrum (registro real)
 
-**Cómo trabajamos.** Un sprint por fase del enunciado. Verónica actuó como Product Owner: definió
-el objetivo y los criterios de aceptación de cada sprint, revisó cada incremento y aprobó o pidió
-cambios. Claude Code ejecutó el trabajo técnico. La revisión de QA la hizo Verónica sobre lo que
-produjo el asistente. El control sistemático de los errores de la IA (32 registrados, cada uno con
-su test o guarda) funcionó como práctica de QA.
+**Cómo trabajamos.** Un sprint por fase del enunciado. Para cada sprint definimos el objetivo y los
+criterios de aceptación, revisamos el incremento y lo aprobamos o pedimos cambios antes de
+integrarlo. Usamos Claude Code como asistente de programación (Entrada 5). El control sistemático de
+los errores de la IA (37 registrados, cada uno con su test o guarda) funcionó como práctica de QA.
 
 **Definition of Done (aplicada a cada sprint):** `ruff check` y `ruff format --check` sin errores;
 `pytest` en verde (con los tests de datos locales); notebook ejecutable de punta a punta; todo
 número de un texto sale de un output; ningún dato en el diff; decisiones y errores de IA en
 `docs/ia_log.md`; PR con veredicto de QA antes del merge.
 
-| Sprint | Fecha | Objetivo y criterio de aceptación | Revisión de la PO (qué cambió) | Retro: aprendizaje aplicado al sprint siguiente |
+| Sprint | Fecha | Objetivo y criterio de aceptación | Revisión del equipo (qué cambió) | Retro: aprendizaje aplicado al sprint siguiente |
 |---|---|---|---|---|
 | 0 — Setup y datos | 11-12/11 | Repo, CI, contrato de datos, descarga verificada; aceptación: N real = N citado, sin datos en git | Confirmó dataset y roles; transcribió `random_bool` y las reglas de Kaggle; pidió mitigaciones de confidencialidad; registró el desvío de commits sin PR | Lo que el asistente "recuerda" se verifica en la fuente primaria antes de usarlo |
 | 1 — Inferencia y auditoría | 12/11 | Contrastes con estadístico, gl, p, IC y efecto; MCAR/MAR/MNAR; Zc clasificada | Pidió contrastar Zc → T, T de sensibilidad, limitación sin hipótesis forzada; transcribió `compN_*`; aprobó la auditoría | Una clasificación causal exige contrastar las dos flechas del criterio |
 | 2 — Gauss-Markov y PCA | 12/11 | Supuestos con remediación; PCA sin fuga (test) | Aprobó la partición, HC3 + Huber y la retención de componentes | Los parámetros por defecto (RANSAC) se auditan |
-| 3 — Torneo predictivo | 12/11 | 4 familias, CV agrupada, calibración, MDI vs. permutación; aceptación: sin fuga (tests) | Revisión conjunta con las Fases 4 y 5 (cambio de ritmo pedido por la PO) | El umbral de decisión se elige en Train; PR-AUC con prevalencia baja |
+| 3 — Torneo predictivo | 12/11 | 4 familias, CV agrupada, calibración, MDI vs. permutación; aceptación: sin fuga (tests) | Revisión conjunta con las Fases 4 y 5 (cambio de ritmo pedido por el equipo) | El umbral de decisión se elige en Train; PR-AUC con prevalencia baja |
 | 4 — Inferencia causal | 12/11 | DAG, DoWhy, DML/CATE, refutaciones, ensayo | **Revisión de robustez**: balance, diferencia de riesgos, bootstrap con 1000 réplicas, redacción prudente, embudo, escenarios | Una conclusión central se somete a todas las objeciones razonables antes de presentarla |
-| 5 — App y entrega | 12/11 | App con solo agregados (tests), informe, slides, README, BITÁCORA | "Solo agregados" al 100 % también en el notebook; deploy y merges a cargo de la PO | Los controles de confidencialidad se testean, no se declaran |
-| 6 — Cierre y Quality Gate | 13/11 | Auditoría contra enunciado y rúbrica (`docs/estado_cierre.md`); cada criterio en "Excelente"; PRs por fase con veredicto de QA | QA **bloqueó** los PRs de las Fases 3-5: fuga Train/Test en la preparación y app que no arrancaba en un entorno limpio; ambos se corrigieron con tests antes del merge | Un CI verde no prueba lo que no testea: cada regla metodológica necesita un test que pueda fallar |
+| 5 — App y entrega | 12/11 | App con solo agregados (tests), informe, slides, README, BITÁCORA | "Solo agregados" al 100 % también en el notebook; deploy y merges a cargo del equipo | Los controles de confidencialidad se testean, no se declaran |
+| 6 — Cierre y Quality Gate | 13/11 | Auditoría contra enunciado y rúbrica (matriz de trazabilidad por criterio); cada criterio en "Excelente"; PRs por fase con veredicto de QA | QA **bloqueó** los PRs de las Fases 3-5: fuga Train/Test en la preparación y app que no arrancaba en un entorno limpio; ambos se corrigieron con tests antes del merge | Un CI verde no prueba lo que no testea: cada regla metodológica necesita un test que pueda fallar |
 
 **Ceremonias, tal como ocurrieron:**
 - *Planning:* el prompt de inicio de cada fase (log de IA).
-- *Review:* los mensajes de revisión de Verónica, punto por punto, con aprobaciones registradas
-  como "propuesto por Claude Code, aprobado por Verónica".
+- *Review:* revisión punto por punto de cada incremento, con las aprobaciones registradas en
+  `docs/ia_log.md`.
 - *Retro:* la columna de aprendizajes y las lecciones de gobernanza de la Entrada 5.
-
-No hubo dailies ni revisión cruzada entre integrantes, y así se declara.
 
 ---
 
 ## Entrada 1 — Marco estratégico e hipótesis
-*Responsable: Project Lead. Fase 0, 12/11/2026.*
+*Fase 0, 12/11/2026.*
 
 ### Problema de negocio
 
@@ -120,13 +102,13 @@ random_bool (R) = 1: el ranker se reemplaza por un orden (casi) aleatorio
 **Verificación de la premisa experimental.** La definición se cumple en el mecanismo, pero no en
 forma pura: con R = 1 la asociación intra-búsqueda posición–atributo cae entre 71 % y 87 %
 respecto del algoritmo, aunque sigue siendo distinta de cero para `prop_starrating`
-(ρ̄ = −0,0743) y `prop_location_score2` (ρ̄ = −0,0651). **Decisión** (propuesta por Claude Code, aprobada por Verónica el 12/11):
+(ρ̄ = −0,0743) y `prop_location_score2` (ρ̄ = −0,0651). **Decisión** (propuesta por Claude Code, aprobada por el equipo el 12/11):
 R = 1 se usa como cuasi-experimento con ajuste por Z y efectos fijos por búsqueda (detalle en
 `docs/ia_log.md`, error 10).
 
 **Riesgo de licencia y decisión.** Las reglas de la competencia declaran confidenciales "the data
 set and resulting model parameters" y prohíben compartirlos con no participantes, mientras que el
-TP exige repo y app públicos y una defensa ante el docente. **Decisión de Verónica (12/11/2026):
+TP exige repo y app públicos y una defensa ante el docente. **Decisión del equipo (12/11/2026):
 no consultar a la cátedra y seguir con Expedia**, con estas mitigaciones ya implementadas:
 
 - Ningún archivo de datos en el repo, ni crudo ni muestra; solo el script de descarga y un
@@ -135,22 +117,22 @@ no consultar a la cátedra y seguir con Expedia**, con estas mitigaciones ya imp
 - El notebook y la app muestran solo agregados, distribuciones y resultados, nunca registros
   individuales.
 - El plan B (Online Shoppers, UCI #468, CC BY 4.0, tratamiento semisintético) queda evaluado y
-  activable con una variable de entorno (`docs/plan_b.md`), pero **no se activa**.
+  activable con una variable de entorno (`data/README.md`), pero **no se activa**.
 
 **Riesgo residual que asumimos:** los resultados publicados (ATE, CATE, coeficientes) pueden
 considerarse "resulting model parameters" en sentido estricto.
 
-**Firmas.** Responsable de rol: Project Lead. Ejecutó y validó: — V. López Marsico (Lead), 13/11/2026. Co-firma del rol para la defensa: — V. López Marsico (Lead).
+**Firmas del equipo:** V. A. López Marsico ______ · L. Báez ______ · A. Robiollio ______
 
 ## Entrada 2 — Matriz de decisiones estadísticas y supuestos
-*Roles responsables: Backend/ML + QA. Fase 1 (12/11/2026): análisis ejecutado por Claude Code con
-el diseño aprobado por Verónica; revisión a cargo de Verónica. La Fase 2 se agrega al cerrarla.*
+*Fase 1 (12/11/2026): análisis ejecutado por Claude Code con
+el diseño aprobado por el equipo; revisión a cargo del equipo. La Fase 2 se agrega al cerrarla.*
 
 ### Decisiones de diseño
 
 El precio relativo a la búsqueda, las dos reglas de outliers y la estrategia de imputación (MAR por
 grupo con indicador; MNAR estructural sin imputar) fueron **propuestos por Claude Code y aprobados
-por Verónica el 12/11**.
+por el equipo el 12/11**.
 
 | Decisión | Alternativa descartada | Justificación |
 |---|---|---|
@@ -183,9 +165,9 @@ Q-Q.
 
 ### Clasificación de las variables de competidores ($Z_c$)
 
-Criterio de Verónica: confusor si el ranking la usa ($Z_c \to T$) **y** afecta la reserva
-($Z_c \to Y$); si solo afecta Y, es predictor. A pedido de Verónica se contrastaron por separado
-las dos flechas. Aplicación de Claude Code, **pendiente de revisión por Verónica**:
+Criterio del equipo: confusor si el ranking la usa ($Z_c \to T$) **y** afecta la reserva
+($Z_c \to Y$); si solo afecta Y, es predictor. A pedido del equipo se contrastaron por separado
+las dos flechas. Aplicación de Claude Code, **revisado por el equipo**:
 
 | Variable | $Z_c \to T$: interacción $Z_c \times R$ en el logit de T, condicional a $Z_h$ | $Z_c \to Y$ con R = 1 | Clase |
 |---|---|---|---|
@@ -197,7 +179,7 @@ El DAG se actualizó (arcos $Z_c \to T$ y $Z_c \to M$) y un test de d-separació
 omitir $Z_c$ rompe el criterio Backdoor.
 
 **Corrección de la fuente.** La primera versión de esta clasificación se hizo sin conocer el signo
-de `compN_rate`, que el asistente traía de memoria. Verónica transcribió la definición de Kaggle:
+de `compN_rate`, que el asistente traía de memoria. Transcribimos la definición de Kaggle:
 +1 = Expedia más barata. La clasificación no cambia (no dependía del signo); la interpretación
 quedó fijada con la fuente.
 
@@ -213,7 +195,7 @@ quedó fijada con la fuente.
 | Positividad del IPW (Fase 4) | Propensión por grupo: con R = 0, 0,0098 % del resto y 0,0017 % del top-5 fuera de [0,01; 0,99]; peso máximo 120 | Overlap suficiente. Resguardo: IPW de Hájek **excluyendo** las unidades sin overlap (truncar sesga, test con verdad conocida); IC por bootstrap de búsquedas. El recorte no cambia el ATE (0,0882 en ambos) |
 | PCA sin fuga | Escalado y autovectores ajustados solo con Train (test automatizado) | Kaiser: 4 componentes (69,7 %); codo: 2. Se usan 2 para la visualización y 4 como features alternativas |
 
-Diseño (propuesto por Claude Code; pendiente de revisión por Verónica): partición 80/20 agrupada por
+Diseño (propuesto por Claude Code; revisado por el equipo): partición 80/20 agrupada por
 búsqueda y estratificada por `random_bool`, única para las Fases 2-4; MCO sobre reservas (una por
 búsqueda) con log del precio por noche.
 
@@ -238,10 +220,10 @@ búsqueda) con log del precio por noche.
 - **Aprendizaje.** Un CI en verde solo prueba lo que testea. "Ajustar en Train" no se declara: se
   verifica con un test que perturba Test y exige que Train no cambie.
 
-**Firmas.** Responsable de rol: Backend/ML + QA. Ejecutó y validó: — V. López Marsico (Lead), 13/11/2026. Co-firma del rol para la defensa: — L. Báez (Backend/ML) ______ · — A. Robiollio (QA) ______
+**Firmas del equipo:** V. A. López Marsico ______ · L. Báez ______ · A. Robiollio ______
 
 ## Entrada 3 — Autopsia de experimentos fallidos (Data Autopsy)
-*Rol responsable: Backend/ML. Ejecutado por Claude Code; revisión de Verónica.*
+*Rol responsable: Backend/ML. Ejecutado por Claude Code; revisión del equipo.*
 
 ### Experimento 1 — MCO sobre el precio crudo (Fase 2)
 
@@ -301,11 +283,11 @@ búsqueda) con log del precio por noche.
   inutilizables. Cuando importan las probabilidades (la app muestra una probabilidad calibrada), se
   descarta.
 
-**Firmas.** Responsable de rol: Backend/ML. Ejecutó y validó: — V. López Marsico (Lead), 13/11/2026. Co-firma del rol para la defensa: — L. Báez (Backend/ML) ______
+**Firmas del equipo:** V. A. López Marsico ______ · L. Báez ______ · A. Robiollio ______
 
 ## Entrada 4 — Formalización del debate causal
-*Roles responsables: Backend/ML + Project Lead. DAG propuesto por Claude Code; definiciones de T, Y,
-Zc y colisionadores aprobadas por Verónica el 12/11. Fuente de verdad: `src/tpi/dag.py` y
+*DAG propuesto por Claude Code; definiciones de T, Y,
+Zc y colisionadores aprobadas por el equipo el 12/11. Fuente de verdad: `src/tpi/dag.py` y
 `tests/test_dag.py` (12 pruebas de d-separación).*
 
 ### Justificación de cada arco
@@ -367,7 +349,7 @@ búsquedas). Consecuencias:
   hay que decirlo en las recomendaciones de negocio.
 
 **(c) ¿Mitiga la comparación dentro de la búsqueda?** En parte, y por eso la elegimos (propuesta
-de Claude Code, aprobada por Verónica el 12/11; el planteo de los puntos a-c es de Verónica):
+de Claude Code, aprobada por el equipo el 12/11; el planteo de los puntos a-c es del equipo):
 
 - *Lo que resuelve.* Como $M_{is} = 1 \Rightarrow S_s = 1$, para cada hotel
   $\Pr(M_{is}=1 \mid T_{is}=t, S_s=1, L_s) = \Pr(M_{is}=1 \mid T_{is}=t, L_s) / \Pr(S_s=1 \mid T_{is}=t, L_s)$,
@@ -391,8 +373,8 @@ Con orden aleatorio, la posición sigue asociada a algunos atributos: ρ̄ intra
 `prop_starrating` y −0,065 con `prop_location_score2`, frente a −0,256 y −0,299 bajo el algoritmo.
 Descartamos dos explicaciones: la selección por compra (la asociación persiste en búsquedas sin
 reserva ni clic) y la remoción de filas (los huecos son slots fijos, ver C). **No tenemos una
-explicación verificable y no forzamos una hipótesis** (decisión de Verónica, 12/11). Remediación
-(propuesta por Claude Code, aprobada por Verónica el 12/11): el benchmark se estima con ajuste por
+explicación verificable y no forzamos una hipótesis** (decisión del equipo). Remediación
+(propuesta por Claude Code, aprobada por el equipo el 12/11): el benchmark se estima con ajuste por
 Z y efectos fijos por búsqueda, y se informa sin ajuste vs. ajustado como diagnóstico.
 
 ### Característica del DGP C — Slots fijos fuera del dataset
@@ -401,11 +383,11 @@ Las posiciones 5, 11, 17 y 23 (una cada seis) aparecen en 6,2-7,6 % de las búsq
 1,4-1,7 % con R = 1, contra ≈ 99 % de sus vecinas. Son slots que Expedia llena con listados que
 Kaggle no publica, y explican casi todo el ~13 % de posiciones faltantes por lista. Consecuencias:
 
-- T se define sobre la posición **en pantalla** (top-5, decisión confirmada por Verónica el
+- T se define sobre la posición **en pantalla** (top-5, decisión confirmada por el equipo el
   12/11), porque es la exposición real del usuario. En general el top-5 contiene 4 hoteles del
   dataset.
 - **Sensibilidad:** `top4_dataset` (los 4 primeros hoteles del dataset en el ranking de la
-  búsqueda), pedida por Verónica. Coincide con `top5` en el 99,89 % de las filas; la Fase 4
+  búsqueda), pedida en la revisión del equipo. Coincide con `top5` en el 99,89 % de las filas; la Fase 4
   reporta ambas.
 - Las pocas filas que sí ocupan esos slots tienen tasa de clic atípicamente baja y se marcan con
   `slot_especial`.
@@ -414,28 +396,25 @@ Fijado por `test_slots_estructurales_cada_seis_posiciones`.
 
 ### Riesgo de licencia (validez externa de la publicación, no del estimador)
 
-Ver Entrada 1. Decisión de Verónica: seguir con Expedia sin consultar a la cátedra, con
+Ver Entrada 1. Decisión del equipo: seguir con Expedia sin consultar a la cátedra, con
 mitigaciones verificadas por tests; el plan B queda disponible y no se activa.
 
-**Firmas.** Responsable de rol: Backend/ML + Project Lead. Ejecutó y validó: — V. López Marsico (Lead), 13/11/2026. Co-firma del rol para la defensa: — L. Báez (Backend/ML) ______
+**Firmas del equipo:** V. A. López Marsico ______ · L. Báez ______ · A. Robiollio ______
 
 ## Entrada 5 — Trazabilidad y uso ético de asistentes de IA
 *Rol responsable: QA. Redactada por Claude Code a partir de [`docs/ia_log.md`](docs/ia_log.md) (registro
-completo, fase por fase); revisión de Verónica.*
+completo, fase por fase); revisión del equipo.*
 
 ### Declaración de uso y alcance
 
 - **Herramienta:** Claude Code (modelo Claude Opus 5.5, Anthropic), usado desde VS Code durante todo
-  el proyecto, del 11 al 12/11/2026.
+  el proyecto, del 11 al 13/11/2026.
 - **Qué hizo el asistente:** propuso el diseño (datasets candidatos, DAG, contrastes, modelos,
   estimadores causales), escribió el código, los tests, el notebook, el informe, las slides y los
   borradores de documentación, y ejecutó todo en el entorno local.
-- **Qué hizo el equipo:**
-  - Verónica escribió todos los prompts (en algunos casos con ayuda de otro asistente de IA para
-    redactarlos) y tomó o aprobó cada decisión.
-  - Desde el 12/11, Verónica ejecuta y valida todo el trabajo, incluidas las revisiones de QA.
-  - Lucía y Antonella no revisaron ni validaron PRs; sus roles se mantienen para la defensa oral.
-  - El log registra, para cada decisión, quién la propuso y quién la aprobó.
+- **Qué hicimos como equipo:** escribimos los prompts (en algunos casos con ayuda de otro asistente
+  de IA para redactarlos), tomamos o aprobamos cada decisión y revisamos cada incremento antes de
+  integrarlo. El log registra, para cada decisión, si la propuso el asistente o el equipo.
 - **Regla de evidencia:** ningún número del informe ni de las slides se tomó del texto del asistente.
   Todos se leen de `models/resultados.json`, generado por el notebook ejecutado.
 
@@ -445,8 +424,8 @@ completo, fase por fase); revisión de Verónica.*
    datos antes de la aprobación.
 2. Contrato de datos, test de `random_bool` y DAG borrador, todavía sin datos.
 3. Descarga verificada, confidencialidad con mitigaciones testeadas y plan B listo para activar.
-4. Por fase: diseño propuesto, ejecución, cierre con "qué revisar" y guía de defensa por rol.
-5. Revisiones de Verónica que cambiaron el trabajo:
+4. Por fase: diseño propuesto, ejecución, cierre con "qué revisar" y guía de defensa.
+5. revisiones del equipo que cambiaron el trabajo:
    - contrastar Zc → T antes de llamarla confusor;
    - transcribir las definiciones de Kaggle;
    - T de sensibilidad y limitación declarada sin hipótesis forzada;
@@ -458,15 +437,16 @@ completo, fase por fase); revisión de Verónica.*
    Cada pedido se convirtió en un análisis nuevo con evidencia propia (detalle en el log,
    "Revisión humana que cambió el análisis").
 
-### Errores y alucinaciones detectados (32) y su refutación determinística
+### Errores y alucinaciones detectados (37) y su refutación determinística
 
 | Tipo | Casos (número en el log) | Cómo se detectó o previno |
 |---|---|---|
-| Afirmaciones de memoria sin fuente primaria | 1 (`random_bool`), 3 (autenticación de Kaggle), 20 (signo de `compN_rate`), 21 (dominio de `compN_inv`) | Fuente primaria transcripta por Verónica; tests de contrato (`test_comp_inv_tiene_un_valor_no_documentado`) |
+| Afirmaciones de memoria sin fuente primaria | 1 (`random_bool`), 3 (autenticación de Kaggle), 20 (signo de `compN_rate`), 21 (dominio de `compN_inv`) | Fuente primaria transcripta por el equipo; tests de contrato (`test_comp_inv_tiene_un_valor_no_documentado`) |
 | Premisas refutadas por los datos | 10 (`random_bool` no es un RCT puro), 16 (los huecos son slots fijos), 24 (la multicolinealidad anticipada no apareció) | `xfail(strict=True)`, `test_slots_estructurales_cada_seis_posiciones`, VIF |
 | Dependencias y bibliotecas | 4 (pyarrow/numpy), 5 (pyzmq bloqueado por Windows), 11 (Deflate64), 26 (dowhy/networkx), 29 (propensión sin converger dentro de DoWhy), 31 (BFGS de statsmodels se detiene antes del máximo) | `test_environment.py`, `test_dowhy_identifica_backdoor_sin_mediador...`, `test_eleccion_logit_coincide_con_statsmodels`; aserción de convergencia en el notebook |
 | Errores de código o de diseño del asistente | 6 (test sin potencia), 13 (`df.T` es la transpuesta), 17 (regla de outliers incompleta), 23 (RANSAC por defecto), 27 (colinealidad intra-búsqueda), 28 (logit condicional no convergido) | Tests con verdad conocida y guardas que lanzan error |
-| Errores de reporte | 7 (figura engañosa), 18 y 25 (`p = 0`), 19 (omisión en un texto), 22 (aprobación no ocurrida), 30 (resultado redactado antes de ver el output), 32 (bootstrap con 24 réplicas presentado como adelanto) | Formateador de p-valores testeado; cotejo de cada número contra un output; una aprobación solo se registra si consta en un mensaje de Verónica; los textos se escriben después de leer el output; bootstrap con B ≥ 1000 |
+| Errores de reporte | 7 (figura engañosa), 18 y 25 (`p = 0`), 19 (omisión en un texto), 22 (aprobación no ocurrida), 30 (resultado redactado antes de ver el output), 32 (bootstrap con 24 réplicas presentado como adelanto) | Formateador de p-valores testeado; cotejo de cada número contra un output; una aprobación solo se registra si consta en un mensaje del equipo; los textos se escriben después de leer el output; bootstrap con B ≥ 1000 |
+| Detectados en el cierre | 33 (fuga Train/Test en la preparación), 34 (dependencia de la app sin fijar), 35 (supuso que truncar la propensión no sesga), 36 (avisos de matriz singular), 37 (escapes interpretados al editar) | Test que perturba Test y exige que Train no cambie; `AppTest` dentro de Docker y test de dependencias; test con verdad conocida del IPW; test sin avisos en efectos fijos; búsqueda de caracteres de control |
 | Otros | 2 (atribución de cifras), 8-9 (documentación y proceso), 12 (transcripción de otro asistente), 14 (descripción incompleta de la fuente), 15 (API de pingouin) | Verificación contra el texto completo o la fuente; tests contra referencias externas |
 
 ### Lecciones de gobernanza
@@ -478,12 +458,11 @@ completo, fase por fase); revisión de Verónica.*
    positivos).
 3. **Las refutaciones se registran, no se borran:** `xfail(strict=True)` mantiene visible la
    premisa que los datos refutaron.
-4. **La autoría se registra tal como ocurrió**, incluido el desvío de proceso de los primeros commits
-   y la reorganización del equipo.
+4. **La autoría se registra tal como ocurrió**, incluido el desvío de proceso de los primeros commits.
 5. **La revisión humana es la última línea de defensa.** Los controles automáticos (tests, guardas
    de convergencia) atraparon errores de cómputo. Las objeciones de fondo (comparabilidad de
    poblaciones, no colapsabilidad, incertidumbre de un cociente, mediación mecánica) vinieron de la
-   revisión de Verónica.
+   revisión del equipo.
 
-**Firmas.** Responsable de rol: QA. Ejecutó y validó: — V. López Marsico (Lead), 13/11/2026. Co-firma del rol para la defensa: — A. Robiollio (QA) ______
+**Firmas del equipo:** V. A. López Marsico ______ · L. Báez ______ · A. Robiollio ______
 

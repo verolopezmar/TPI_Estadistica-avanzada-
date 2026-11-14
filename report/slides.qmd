@@ -1,7 +1,7 @@
 ---
 title: "¿El top-5 vende, o solo muestra lo que se vendería igual?"
 subtitle: "Retorno causal de un algoritmo de recomendación · TPI EAyMR 2026 · UCA"
-author: "V. López Marsico (Lead) · L. Báez (Backend/ML-Causal) · A. Robiollio (Frontend + QA)"
+author: "Verónica Ana López Marsico · Lucía Báez · Antonella Robiollio"
 institute: "Prof. Ivan Gonzalo Vilaboa · Estadística Aplicada y Modelos de Regresión"
 date: 2026-11-18
 date-format: "D/M/YYYY"
@@ -80,7 +80,7 @@ c1, an = F1["contraste1"], F1["anova"]
 - Shapiro con $n$ grande rechaza ante desvíos irrelevantes: miramos asimetría, curtosis y Q-Q.
 - Gasto: recurrentes vs. nuevos, **no se rechaza H0** (MDE $g$ = `{python} n(F1["contraste2"]["mde_g"], 3)`).
 
-![](figures/f1_ctr_posicion.png){height=36%}
+![](figures/fig_ctr.png){height=40%}
 
 ## 4 · Gauss-Markov y PCA
 
@@ -92,7 +92,7 @@ c1, an = F1["contraste1"], F1["anova"]
 - PCA **solo en Train**: PC1 = categoría-precio; PC2 = ubicación y promoción. Lo reservado se separa
   por PC2.
 
-![](figures/f2_pca.png){height=40%}
+![](figures/fig_pca.png){height=42%}
 
 ## 5 · Torneo predictivo
 
@@ -112,7 +112,7 @@ t = F3["test"]
 
 ## 6 · Calibración y explicabilidad
 
-![](figures/f3_evaluacion.png){height=44%}
+![](figures/fig_torneo.png){width=95%}
 
 - Reliability diagrams: logística, CART y RF calibrados; Naive Bayes empuja a 0 y 1.
 - MDI favorece variables de alta cardinalidad ($\rho$ = `{python} n(F3["rho_cardinalidad_mdi"], 2)`);
@@ -120,7 +120,7 @@ t = F3["test"]
 
 ## 7 · DAG, identificación y positividad
 
-![](figures/f4_dag.png){height=46%}
+![](figures/fig_dag.png){width=92%}
 
 - Con el algoritmo, $Z$ bloquea $T \leftarrow Z \to Y$ pero no $T \leftarrow U \to Y$. Con orden
   aleatorio, el conjunto vacío alcanza. Clic = mediador; selección $S$ y $C$ = colisionadores.
@@ -139,11 +139,11 @@ t = F3["test"]
 - Trampas: ajustar por el clic deja $\Delta p$ $\approx$ `{python} n(F4["mediador"]["ajustando además por el clic (M)"]["Δp"], 4)`;
   condicionar en $C$ induce Berkson.
 
-![](figures/f4_or_comparacion.png){height=30%}
+![](figures/fig_or.png){height=30%}
 
 ## 9 · CATE por segmento y refutaciones
 
-![](figures/f4_cate_segmentos.png){height=46%}
+![](figures/fig_cate.png){width=95%}
 
 - La heterogeneidad **se confirma con orden aleatorio** (LinearDML, R = 1): el efecto baja con el
   precio relativo y sube con la ubicación.
@@ -157,7 +157,7 @@ t = F3["test"]
 - **What-Is:** probabilidad calibrada del Random Forest para un hotel nuevo, con explicación local.
 - **What-If:** DAG, ATE, CATE según el perfil elegido y semáforo de las tres refutaciones.
 - **Bonus:** copiloto con tool use sobre el motor causal y guardarraíl contra cifras inventadas.
-- Enlace público en el README del repositorio; plan B: contenedor Docker probado.
+- App: `<URL_APP>` (también en el README); plan B: contenedor Docker probado.
 
 ## 11 · Conclusiones y recomendaciones
 
@@ -174,9 +174,12 @@ t = F3["test"]
 
 ## 12 · Scrum, Quality Gate y bitácora
 
-- Un sprint por fase, PR por fase con veredicto de QA `[APROBADO]` antes del merge a `main`.
+- Roles: V. A. López Marsico (Project Lead y Scrum Master) · L. Báez (Backend, ML y causal) ·
+  A. Robiollio (Frontend y QA).
+- Un sprint por fase, PR por fase con veredicto de QA antes del merge a `main`: aprobamos las
+  Fases 0-2 y bloqueamos las 3-5 hasta corregir sus defectos.
 - Quality Gate en CI: `ruff`, tests de no-fuga (`pytest -m leakage`), suite completa y build de
   la imagen Docker.
-- Bitácora: 5 entradas firmadas por rol; **6 experimentos fallidos** documentados, entre ellos una
+- Bitácora: 5 entradas; **6 experimentos fallidos** documentados, entre ellos una
   fuga Train/Test en la imputación detectada en la auditoría de cierre y corregida.
 - Uso de IA (Claude Code) trazado error por error, cada uno con el test que lo refuta.

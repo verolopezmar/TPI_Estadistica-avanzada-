@@ -6,7 +6,7 @@ entorno `TPI_DATASET` (`expedia` por defecto, `online_shoppers` = plan B semisin
 
 Motivo (docs/ia_log.md, 12/11/2026): las reglas de Kaggle prohíben compartir los datos de Expedia
 y los "resulting model parameters" con no participantes, mientras que el TP exige repo y app
-públicos. Verónica decidió (12/11) seguir con Expedia; el plan B queda listo sin rehacer la estructura.
+públicos. El equipo decidió (12/11) seguir con Expedia; el plan B queda listo sin rehacer la estructura.
 """
 
 from __future__ import annotations

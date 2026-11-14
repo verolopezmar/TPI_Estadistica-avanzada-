@@ -1,883 +1,759 @@
 ---
 title: "¿El top-5 vende, o solo muestra lo que se vendería igual?"
-subtitle: "Retorno causal de un algoritmo de recomendación de hoteles"
-author:
-  - Verónica López Marsico (Project Lead & Scrum Master)
-  - Lucía Báez (Backend & ML / Causal Engineer)
-  - Antonella Robiollio (Frontend & UI/UX + QA & Validation Engineer)
-date: 2026-11-18
-date-format: "D [de] MMMM [de] YYYY"
 lang: es
-bibliography: referencias.bib
-link-citations: true
 number-sections: true
-crossref:
-  sec-prefix: sección
-  fig-title: Figura
-  tbl-title: Tabla
-  fig-prefix: Figura
-  tbl-prefix: Tabla
-  eq-prefix: ecuación
+bibliography: referencias.bib
 execute:
   echo: false
   warning: false
 format:
-  html:
-    toc: true
-    toc-depth: 2
-    toc-title: Índice
-    embed-resources: true
-    fig-width: 9
-    theme: cosmo
   pdf:
-    toc: true
-    toc-depth: 2
-    lof: true
-    lot: true
-    documentclass: scrartcl
-    classoption: [titlepage]
-    papersize: a4
-    geometry: margin=2.3cm
-    fig-pos: "H"
+    documentclass: article
+    classoption: [twocolumn, a4paper]
+    fontsize: 10pt
+    linestretch: 1
+    geometry: [top=1.9cm, bottom=2.1cm, left=1.9cm, right=1.9cm, columnsep=0.6cm]
     pdf-engine: xelatex
-    mainfont: Cambria
-    sansfont: Calibri
-    monofont: Consolas
-    mathfont: Cambria Math
+    template-partials: [before-body.tex]
+    toc: false
+    colorlinks: true
+    linkcolor: "black"
+    citecolor: "black"
+    urlcolor: "black"
+    cite-method: biblatex
+    biblio-style: numeric-comp
+    biblio-title: Referencias
+    biblatexoptions: [sorting=none, maxbibnames=6, minbibnames=3, giveninits=true, isbn=false, doi=true, url=false, eprint=true]
     include-in-header:
       text: |
-        \subject{Pontificia Universidad Católica Argentina\\Facultad de Ingeniería y Ciencias Agrarias\\[0.6em]Estadística Aplicada y Modelos de Regresión (EAyMR 2026)\\Trabajo Práctico Integrador: Decision Intelligence Capstone}
-        \publishers{Profesor titular: Prof.~Ivan Gonzalo Vilaboa\\[0.4em]Licenciatura en Ciencia de Datos / Ingeniería en Inteligencia Artificial\\2.º año, 2.º semestre}
-        \usepackage{fvextra}
-        \DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,commandchars=\\\{\}}
-        \fvset{breaklines=true}
-        % Las longtable repiten el \caption en cada página de continuación: sin esto, una tabla
-        % partida aparece dos veces en el listado de tablas. Se descarta la entrada repetida.
-        \makeatletter
-        \def\tpi@previa{}
-        \AtBeginDocument{%
-          \let\tpi@cl\contentsline
-          \renewcommand{\contentsline}[4]{%
-            \def\tpi@ancla{#4}%
-            \ifx\tpi@ancla\tpi@previa\else
-              \global\let\tpi@previa\tpi@ancla\tpi@cl{#1}{#2}{#3}{#4}\fi}}
-        \makeatother
+        \usepackage{booktabs}
+        \usepackage{xurl}
+        \usepackage{microtype}
+        \usepackage{amsmath}
+        \usepackage[font=small,labelfont=bf,labelsep=period,skip=4pt]{caption}
+        \usepackage{titlesec}
+        \titleformat{\section}{\normalfont\large\bfseries}{\thesection.}{0.5em}{}
+        \titleformat{\subsection}{\normalfont\normalsize\bfseries}{\thesubsection.}{0.5em}{}
+        \titlespacing*{\section}{0pt}{1.1ex plus .5ex minus .2ex}{0.6ex plus .2ex}
+        \titlespacing*{\subsection}{0pt}{0.9ex plus .4ex minus .2ex}{0.4ex plus .2ex}
+        \widowpenalty=10000
+        \clubpenalty=10000
+        \setlength{\emergencystretch}{1.5em}
+        \renewcommand{\topfraction}{0.9}
+        \renewcommand{\bottomfraction}{0.6}
+        \renewcommand{\textfraction}{0.1}
+        \renewcommand{\floatpagefraction}{0.8}
+        \renewcommand{\dbltopfraction}{0.9}
+        \renewcommand{\dblfloatpagefraction}{0.8}
+        \setcounter{topnumber}{3}
+        \setcounter{dbltopnumber}{2}
+        \setlength{\textfloatsep}{8pt plus 2pt minus 2pt}
+        \setlength{\dbltextfloatsep}{8pt plus 2pt minus 2pt}
+        \AtBeginDocument{\setlength{\parindent}{1em}\setlength{\parskip}{0pt plus 1pt}}
+        \AtBeginDocument{\renewcommand{\tablename}{Tabla}\renewcommand{\figurename}{Figura}}
+        \AtBeginBibliography{\footnotesize}
+        \setlength{\bibitemsep}{0.15\baselineskip}
+        \AtBeginDocument{\hypersetup{pdftitle={¿El top-5 vende, o solo muestra lo que se vendería igual?}, pdfauthor={V. A. López Marsico, L. Báez, A. Robiollio}}}
 jupyter: python3
-abstract: |
-  Estimamos el efecto causal de que el recomendador de Expedia exponga un hotel en los cinco primeros
-  lugares de una búsqueda sobre su probabilidad de reserva, con los datos del desafío ICDM 2013. Un
-  subconjunto de búsquedas mostró los hoteles en orden aleatorio: lo usamos como benchmark
-  cuasi-experimental para contrastar empíricamente el supuesto Backdoor. El trabajo integra
-  inferencia clásica, diagnóstico de Gauss-Markov y PCA, un torneo predictivo con calibración y la
-  estimación causal con DoWhy, logit condicional por búsqueda y Double Machine Learning. Todo número
-  del texto se lee de `models/resultados.json`, que genera el notebook anexo
-  (`notebooks/TP_Integrador_Final.ipynb`); el código está en el repositorio
-  <https://github.com/verolopezmar/TPI_Estadistica-avanzada->.
 ---
 
 ```{python}
-#| label: setup
 import json
 from pathlib import Path
 
-import pandas as pd
-
 R = json.loads(Path("../models/resultados.json").read_text("utf-8"))
-F1, F2, F3, F4 = R["fase1"], R["fase2"], R["fase3"], R["fase4"]
+F0, F1, F2, F3, F4 = R["fase0"], R["fase1"], R["fase2"], R["fase3"], R["fase4"]
 
 
 def n(x, d=3):
-    """Número con coma decimal y punto de miles."""
+    """Número con coma decimal y punto de miles (texto)."""
     s = f"{x:,.{d}f}"
     return s.replace(",", "X").replace(".", ",").replace("X", ".")
 
 
+def m(x, d=3):
+    """Número para modo matemático (la coma decimal va entre llaves)."""
+    return n(x, d).replace(",", "{,}")
+
+
 def pv(p):
+    """p-valor en LaTeX."""
     if p == 0:
-        return "p < 10⁻³⁰⁰"
+        return r"$p<10^{-300}$"
     if p >= 0.001:
-        return f"p = {n(p, 3)}"
+        return f"$p={m(p, 3)}$"
     mant, exp = f"{p:.2e}".split("e")
-    sup = str.maketrans("-0123456789", "⁻⁰¹²³⁴⁵⁶⁷⁸⁹")
-    return f"p = {mant.replace('.', ',')}·10{str(int(exp)).translate(sup)}"
+    return rf"$p={mant.replace('.', '{,}')}\cdot 10^{{{int(exp)}}}$"
 
 
-def pct(x, d=1):
-    return n(100 * x, d) + " %"
+def pvi(p):
+    """p-valor para texto corrido: Markdown crudo, para que Quarto no escape las llaves."""
+    from IPython.display import Markdown
+
+    return Markdown(pv(p))
 
 
 def ic(lo, hi, d=3):
     return f"[{n(lo, d)}; {n(hi, d)}]"
 
 
-def md(df):
-    """DataFrame -> tabla Markdown de pipes (Pandoc la ajusta al ancho de página)."""
-    from IPython.display import Markdown
-
-    def celda(v):
-        return str(v).replace("|", "\\|")
-
-    cab = "| " + " | ".join([celda(df.index.name or " ")] + [celda(c) for c in df.columns]) + " |"
-    sep = "|" + "|".join([":---"] + ["---:"] * len(df.columns)) + "|"
-    filas = ["| " + " | ".join([celda(i)] + [celda(v) for v in fila]) + " |" for i, fila in zip(df.index, df.to_numpy())]
-    return Markdown("\n".join([cab, sep, *filas]))
+def tabla(cab, filas, caption, label, colspec, ancho=False, sep="5pt"):
+    env = "table*" if ancho else "table"
+    out = [rf"\begin{{{env}}}[tbp]", r"\centering", r"\footnotesize", rf"\setlength{{\tabcolsep}}{{{sep}}}",
+           rf"\caption{{{caption}}}\label{{{label}}}",
+           rf"\begin{{tabular}}{{{colspec}}}", r"\toprule", " & ".join(cab) + r" \\", r"\midrule"]
+    out += [" & ".join(str(c) for c in f) + r" \\" for f in filas]
+    out += [r"\bottomrule", r"\end{tabular}", rf"\end{{{env}}}"]
+    print("```{=latex}\n" + "\n".join(out) + "\n```")
 
 
-def tabla(df, d=4):
-    """Tabla con coma decimal, como Markdown."""
-    return md(df.apply(lambda c: c.map(lambda v: n(v, d) if isinstance(v, float) else v)))
+def figura(archivo, caption, label, ancho=False):
+    env = "figure*" if ancho else "figure"
+    w = r"\textwidth" if ancho else r"\columnwidth"
+    print("```{=latex}\n" + "\n".join([rf"\begin{{{env}}}[tbp]", r"\centering",
+          rf"\includegraphics[width={w}]{{figures/{archivo}.pdf}}", rf"\caption{{{caption}}}\label{{{label}}}",
+          rf"\end{{{env}}}"]) + "\n```")
 
 
-c1, c2, c2b, an = F1["contraste1"], F1["contraste2"], F1["contraste2_mw"], F1["anova"]
+c1, c2, an = F1["contraste1"], F1["contraste2"], F1["anova"]
 orb, ora, ori = F4["or_benchmark"], F4["or_ajustado_R0"], F4["or_ingenuo_R0"]
-OR_TAB = F4["or_intra"]
-ic_bench = OR_TAB["R = 1 (aleatorio) | ajustado por Z"]["OR IC95"]
-mejor = F3["mejor"]
-R4 = F4["robustez"]
-RB = R4["bootstrap"]
-TR = R4["tabla"]
-EMB = F4["embudo"]
-LT = F1["little"]
-OV = F4["overlap"]
-IPW = F4["ipw"]
-SEG = F4["cate_segmentos"]
-NEG = F4["negocio_segmentos"]
-REA = F4["reasignacion"]
-ESC = F4["escenarios"]
+OR_ = F4["or_intra"]
+icb = OR_["R = 1 (aleatorio) | ajustado por Z"]["OR IC95"]
+ica = OR_["R = 0 (algoritmo) | ajustado por Z"]["OR IC95"]
+RB, TR, R4 = F4["robustez"]["bootstrap"], F4["robustez"]["tabla"], F4["robustez"]
+EMB, LT, NEG, REA, ESC = F4["embudo"], F1["little"], F4["negocio_segmentos"], F4["reasignacion"], F4["escenarios"]
+HET, IPW, OV = F4["het_R1"], F4["ipw"], F4["overlap"]
 d0, d1 = F4["dml"]["R = 0"], F4["dml"]["R = 1"]
-ipw0 = IPW["R = 0 (algoritmo) | IPW Hájek"]
-ipw0r = IPW["R = 0 (algoritmo) | IPW Hájek, excluye ê fuera de [0,01; 0,99]"]
-ov0, ov1 = OV["R = 0 (algoritmo)"], OV["R = 1 (aleatorio)"]
+A0, A1 = F4["ate_dowhy"]["R = 0 (algoritmo)"], F4["ate_dowhy"]["R = 1 (aleatorio)"]
+GM, INF, PCA = F2["gauss_markov"], F2["influencia"], F2["pca"]
+T3 = F3["test"]
 imp = F3["importancia"]
 top_perm = max(imp, key=lambda k: imp[k]["Permutación (ΔPR-AUC)"])
-fe1 = OR_TAB["R = 1 (aleatorio) | ajustado por Z"]
+LO = F3["logit_or"]
+ipw0 = IPW["R = 0 (algoritmo) | IPW Hájek"]
+ipw0r = IPW["R = 0 (algoritmo) | IPW Hájek, excluye ê fuera de [0,01; 0,99]"]
+ipw1 = IPW["R = 1 (aleatorio) | IPW Hájek"]
+ipw1r = IPW["R = 1 (aleatorio) | IPW Hájek, excluye ê fuera de [0,01; 0,99]"]
+MED, REF = F4["mediador"], F4["refutaciones"]
+bb, mm = NEG["barato y bien ubicado"], NEG["caro y mal ubicado"]
 ```
-
-::: {.content-visible when-format="html"}
-**Pontificia Universidad Católica Argentina** — Facultad de Ingeniería y Ciencias Agrarias ·
-Estadística Aplicada y Modelos de Regresión (EAyMR 2026) · Trabajo Práctico Integrador: Decision
-Intelligence Capstone · Profesor titular: Prof. Ivan Gonzalo Vilaboa
-:::
-
-# Resumen ejecutivo {.unnumbered}
-
-- **El top-5 causa reservas, pero bastante menos de lo que sugieren los datos del algoritmo.** Con
-  orden aleatorio, estar en el top-5 multiplica por `{python} n(orb, 2)` las chances de que un hotel
-  sea el reservado de su lista (OR intra-búsqueda ajustado, IC 95 % `{python} ic(*ic_bench, 2)`). Con
-  el orden del algoritmo, la comparación ingenua da `{python} n(ori, 2)` y el ajuste por los
-  confusores observados la baja a `{python} n(ora, 2)`.
-- **El ajuste por lo observable no alcanza.** Explica el `{python} n(F4["pct_explicado_Z"], 0)` % de
-  la brecha en log-odds. El OR observacional ajustado supera al benchmark en un factor
-  `{python} n(RB["cociente_OR"]["mediana"], 2)` (IC 95 % bootstrap por búsqueda
-  `{python} ic(RB["cociente_OR"]["IC95_inf"], RB["cociente_OR"]["IC95_sup"], 2)`,
-  `{python} R4["B"]` réplicas); en diferencia de riesgos, que es colapsable, el factor es
-  `{python} n(RB["cociente_AME"]["mediana"], 2)`. El ranker usa información que no observamos.
-- **Predecir no es intervenir.** El mejor modelo predictivo (`{python} mejor`, PR-AUC
-  `{python} n(F3["test"][mejor]["PR_AUC"], 3)` con una prevalencia del 2 %) usa la posición como
-  variable principal, pero buena parte de ese poder predictivo es selección del algoritmo.
-- **Para quién rinde el slot.** Con orden aleatorio, el efecto por exposición es
-  `{python} n(NEG["barato y bien ubicado"]["reservas incrementales / 1.000"], 1)` reservas cada 1.000
-  exposiciones para hoteles baratos y bien ubicados, contra
-  `{python} n(NEG["caro y mal ubicado"]["reservas incrementales / 1.000"], 1)` para hoteles caros y
-  mal ubicados. Reasignar 1.000 exposiciones del segundo grupo al primero suma
-  `{python} n(REA["reservas_por_1000"], 1)` reservas (≈ `{python} n(REA["usd_por_1000"], 0)` USD con
-  el gasto mediano).
-- **Decisión.** Valuar el slot premium con el efecto causal, no con la tasa observada (el dato del
-  algoritmo sobrevalúa el OR en `{python} pct(ora / orb - 1, 0)`), priorizar la exposición donde el
-  CATE es mayor y mantener una fracción de tráfico con orden aleatorio como auditoría permanente.
-
-# Introducción y preguntas de negocio
-
-Un buscador de hoteles muestra alrededor de 25 resultados por búsqueda, pero la atención del
-usuario se concentra en los primeros. Los slots superiores son un recurso escaso de suma cero:
-subir un hotel baja a otro. El recomendador decide quién los ocupa y, a la vez, suele elegir
-hoteles que se venderían igual (mejor ubicados, más baratos para la búsqueda, con buena
-reputación). La pregunta operativa es si el slot **causa** ventas o solo las **predice**: de eso
-depende cuánto vale un slot premium (publicidad, comisiones de posicionamiento) y a quién conviene
-asignarlo.
-
-**Preguntas de valor.**
-
-1. ¿Cuál es el efecto causal de la exposición en el top-5 sobre la reserva (ATE y CATE)?
-2. ¿Cuánto sesgo introduce estimarlo con el orden del algoritmo en lugar del orden aleatorio?
-3. ¿El efecto pasa entero por el clic?
-4. ¿Para qué hoteles rinde más el slot?
-5. *(Propias)* ¿Qué tan aleatorio es el orden aleatorio? ¿Cómo condiciona la selección del dataset
-   lo que se puede estimar?
-
-**Restricciones reales del sistema.** Los datos son confidenciales según las reglas de la
-competencia [@kaggle2013expedia]: ningún archivo de datos está en el repositorio y la aplicación usa
-solo agregados. El dataset incluye solo búsquedas con al menos un clic y, en el estrato del
-algoritmo, sobremuestrea las compras (@sec-datos).
-
-# Marco formal
-
-Esta sección fija la notación, los estimandos y los supuestos **antes** de cualquier resultado.
-Distinguimos parámetros poblacionales (letras griegas: $\beta$, $\mu$, $\tau$, $\psi$) de sus
-estimadores ($\hat\beta$, $\bar x$, $\hat\tau$, $\hat\psi$).
-
-## Unidades, variables y roles
-
-La unidad de análisis es el par búsqueda × hotel $(s, i)$; la unidad independiente para la
-inferencia es la búsqueda $s$, porque los hoteles de una lista comparten usuario, fecha y destino.
-
-| Símbolo | Variable | Rol |
-|---|---|---|
-| $Y_{is}$ | `booking_bool` | Resultado: el hotel $i$ es el reservado en la búsqueda $s$ |
-| $T_{is}$ | $1\{\texttt{position} \le 5\}$ | Tratamiento: exposición en el top-5 de la pantalla |
-| $M_{is}$ | `click_bool` | Mediador (y colisionador con la intención $I$) |
-| $Z$ | calidad y precio ($Z_h$), popularidad ($Z_p$), contexto ($Z_b$), usuario ($Z_u$), competidores ($Z_c$) | Confusores observados |
-| $U$, $I$ | desempeño histórico del hotel en Expedia; intención de la sesión | Latentes |
-| $R_s$ | `random_bool` | Mecanismo de asignación: 1 = orden aleatorio |
-| $S_s$ | inclusión de la búsqueda en el dataset | Selección (descendiente de $M$ y, con $R=0$, de $Y$) |
-| $C$ | "destacado en el reporte", simulado | Colisionador $T \to C \leftarrow Y$ para la trampa de Berkson |
-
-: Variables y roles en el DAG. {#tbl-roles}
-
-## Estimandos
-
-Con resultados potenciales $Y_{is}(t)$, $t \in \{0, 1\}$:
-
-$$
-\tau = \mathbb{E}\big[Y(1) - Y(0)\big], \qquad
-\tau(x) = \mathbb{E}\big[Y(1) - Y(0) \mid X = x\big], \qquad
-\tau_S = \mathbb{E}\big[\tau(X) \mid X \in S\big].
-$$ {#eq-estimandos}
-
-Como el dataset está seleccionado sobre el clic y, en $R = 0$, sobre la compra, la escala absoluta
-de $\tau$ no es comparable entre estratos. Por eso el estimando principal es relativo y dentro de la
-búsqueda: el odds ratio condicional $\psi = e^{\gamma}$ del logit condicional [@mcfadden1974conditional]
-
-$$
-P\big(Y_{is} = 1 \mid \textstyle\sum_{j} Y_{js} = 1,\; T_s,\; Z_s\big)
-  = \frac{\exp(\gamma\,T_{is} + Z_{is}^\top \delta)}{\sum_{j \in s} \exp(\gamma\,T_{js} + Z_{js}^\top \delta)},
-$$ {#eq-clogit}
-
-que condiciona en el número de reservas de la lista: el término de cada búsqueda (intención,
-destino, fecha) se cancela, y $\psi$ no depende de cuántas listas con compra seleccionó el
-proveedor (lógica de caso-control, @prentice1979casecontrol).
-
-## Supuestos de identificación
-
-1. **SUTVA.** El resultado de un hotel depende solo de su propia exposición. Es una aproximación:
-   con slots de suma cero, subir a un hotel desplaza a otro (interferencia). Interpretamos $\tau$
-   como "efecto dada la competencia de la lista".
-2. **Positividad.** $0 < e(z) = P(T = 1 \mid Z = z) < 1$. Se verifica con la propensión estimada
-   (@sec-overlap).
-3. **Intercambiabilidad condicional (Backdoor).** $Y(t) \perp T \mid Z$. Con $R = 1$ el orden
-   aleatorio la garantiza por diseño, salvo la asociación residual que documentamos. Con $R = 0$
-   vale solo si $Z$ bloquea todo camino trasero; el DAG predice que $U$ lo impide, y el benchmark lo
-   contrasta.
-
-## Diseño muestral y plan experimental
-
-- **Muestra.** De `{python} n(R["fase0"]["filas_train_csv"], 0)` filas y
-  `{python} n(R["fase0"]["busquedas_train_csv"], 0)` búsquedas de `train.csv`
-  [@liu2013expedia], tomamos `{python} n(R["fase0"]["muestra_busquedas"], 0)` búsquedas
-  **completas** (`{python} n(R["fase0"]["muestra_filas"], 0)` filas), estratificadas por
-  `random_bool` y con semilla fija. Se muestrea por búsqueda para no romper las listas.
-- **Partición.** 80/20 agrupada por búsqueda (ninguna lista queda partida) y estratificada por
-  `random_bool`; validación cruzada `StratifiedGroupKFold(5)` dentro de Train. La partición depende
-  solo del identificador de búsqueda y de la semilla, así que se fija antes de transformar los datos:
-  cercas de Tukey, cuantiles de winsorización y medianas de imputación se ajustan **solo con Train**
-  (tests marcados `leakage` en el Quality Gate).
-- **Nivel de significación y potencia.** Fijamos $\alpha = 0{,}05$ a priori. Con $n$ en miles, casi
-  todo contraste rechaza; por eso reportamos, junto con cada p-valor, el tamaño de efecto y el
-  **efecto mínimo detectable** con potencia $1 - \beta = 0{,}80$:
-  $\text{MDE} = (z_{1-\alpha/2} + z_{1-\beta})\,\sqrt{1/n_1 + 1/n_2}$ en unidades de desvío.
-
-# Datos y auditoría de calidad {#sec-datos}
-
-```{python}
-#| label: tbl-centinelas
-#| tbl-cap: "Centinelas (0 = sin dato): distorsión antes y después de pasarlos a faltante."
-cen = pd.DataFrame(F1["centinelas"]).T[["pct_filas", "media_antes", "media_despues", "desvio_antes", "desvio_despues", "sesgo_media_pct"]]
-cen.columns = ["% filas", "media antes", "media después", "DE antes", "DE después", "sesgo de la media (%)"]
-tabla(cen, 3)
-```
-
-**Hallazgos de la auditoría forense** (detalle en el notebook, 1.2):
-
-- **Centinelas.** Tres variables codifican "sin dato" con 0 (@tbl-centinelas). El caso más grave es
-  `prop_log_historical_price`: el 0 aparece en el
-  `{python} n(F1["centinelas"]["prop_log_historical_price"]["pct_filas"], 1)` % de las filas y su
-  desvío cae de `{python} n(F1["centinelas"]["prop_log_historical_price"]["desvio_antes"], 3)` a
-  `{python} n(F1["centinelas"]["prop_log_historical_price"]["desvio_despues"], 3)` al tratarlo.
-- **Desplazamiento de escala del precio.** El `{python} n(F1["escala_precio_pct"]["por_estadia"], 1)` %
-  de las reservas de dos o más noches tiene el precio por estadía, no por noche, y la proporción varía
-  entre sitios. Se neutraliza con el precio relativo a la mediana de la búsqueda.
-- **Valores extremos.** `{python} n(F1["outliers_precio"]["filas"], 0)` filas
-  (`{python} n(F1["outliers_precio"]["pct"], 3)` %) caen fuera de las cercas extremas de Tukey sobre
-  el log del precio, `{python} ic(F1["outliers_precio"]["cerca_inf"], F1["outliers_precio"]["cerca_sup"], 2)` USD
-  (ajustadas en Train), o a más de 10 veces la mediana de su
-  búsqueda.
-- **Slots estructurales.** Las posiciones `{python} ", ".join(str(s) for s in F1["slots_especiales"])`
-  casi nunca están en el dataset: las ocupan listados que Kaggle no publica.
-- **Selección del dataset.** Ninguna búsqueda tiene cero clics, y el 94 % de las búsquedas con orden
-  del algoritmo tiene una reserva, contra el 13 % con orden aleatorio. Es el colisionador natural de
-  la @sec-trampas.
-
-```{python}
-#| label: tbl-faltantes
-#| tbl-cap: "Faltantes: porcentaje, mayor dependencia con variables observadas y tratamiento (medianas ajustadas solo con Train)."
-mec = {
-    "prop_location_score2": ("MAR", "mediana por país + indicador"),
-    "orig_destination_distance": ("MAR", "mediana por par de países + indicador"),
-    "prop_review_score": ("MNAR estructural", "mediana por estrellas + indicador"),
-    "visitor_hist_starrating": ("MNAR estructural", "no se imputa (indicador)"),
-    "srch_query_affinity_score": ("MNAR estructural", "no se imputa (indicador)"),
-}
-fal = pd.DataFrame(
-    {
-        "% faltante": [F1["faltantes_pct"][v] for v in mec],
-        "máx. |efecto|": [F1["mcar_max_efecto"][v] for v in mec],
-        "mecanismo": [m[0] for m in mec.values()],
-        "tratamiento": [m[1] for m in mec.values()],
-    },
-    index=list(mec),
-)
-tabla(fal, 2)
-```
-
-**Mecanismo de los faltantes.** Sea $R_j = 1\{X_j \text{ falta}\}$. Bajo MCAR, $R_j$ es
-independiente de toda variable observada. Lo contrastamos variable por variable (χ² o Mann-Whitney
-con Bonferroni, y tamaño de efecto) y en forma conjunta con el test de Little
-[@little1988mcar]: $d^2$ = `{python} n(LT["d2"], 1)` con `{python} LT["gl"]` gl,
-`{python} pv(LT["p_valor"])` (`{python} LT["patrones"]` patrones de faltantes). **Se rechaza MCAR.**
-Las variables con dependencia apreciable de lo observado se tratan como MAR (imputación por grupo
-con indicador); las MNAR estructurales no se imputan, porque imputar un historial que no existe
-inventaría información (@tbl-faltantes).
-
-# Fase 1: inferencia clásica y ANOVA
-
-**Contraste 1: sesgo de posición en el clic (pareado, orden aleatorio).** Para cada búsqueda
-$s$ con $R = 1$, $D_s = \overline{\text{CTR}}_{\text{top-5}, s} - \overline{\text{CTR}}_{\text{resto}, s}$.
-$H_0: \mu_D = 0$ frente a $H_1: \mu_D \neq 0$; t de Student pareado, con Wilcoxon de resguardo.
-
-- *t*(`{python} n(c1["gl"], 0)`) = `{python} n(c1["valor"], 2)`, `{python} pv(c1["p_valor"])`;
-  $\bar D$ = `{python} n(c1["diferencia"], 4)` (IC 95 % `{python} ic(*c1["ic95"], 4)`);
-  $d_z$ = `{python} n(c1["efecto"], 3)`; Wilcoxon `{python} pv(c1["extra"]["wilcoxon_p"])`.
-- **Se rechaza $H_0$.** La tasa de clic del top-5 es `{python} n(c1["ctr_top5"] / c1["ctr_resto"], 2)`
-  veces la del resto. El MDE con $n$ = `{python} n(c1["n"][0], 0)` búsquedas es $d_z$ =
-  `{python} n(c1["mde_dz"], 3)`, muy por debajo del efecto observado. Es el arco $T \to M$ del DAG.
-
-**Contraste 2: gasto por reserva, usuarios recurrentes vs. nuevos (Welch).** Sobre el log del
-gasto, $H_0: \mu_{\text{rec}} = \mu_{\text{nue}}$. Usamos Welch aunque Levene no rechaza, porque los
-grupos están muy desbalanceados (`{python} n(c2["n"][0], 0)` vs. `{python} n(c2["n"][1], 0)`).
-
-- *t*(`{python} n(c2["gl"], 1)`) = `{python} n(c2["valor"], 3)`, `{python} pv(c2["p_valor"])`;
-  cociente de medias geométricas `{python} n(c2["cociente_geom"], 3)` (IC 95 %
-  `{python} ic(*c2["ic_cociente"], 3)`); $g$ de Hedges = `{python} n(c2["efecto"], 3)`;
-  Mann-Whitney `{python} pv(c2b["p_valor"])`.
-- **No se rechaza $H_0$.** No es evidencia de igualdad: la muestra no distingue diferencias menores
-  que $g$ = `{python} n(c2["mde_g"], 3)` (MDE con potencia 0,80).
-
-**ANOVA de un factor: log del precio por noche según estrellas (4 grupos).**
-$H_0: \mu_{1\text{-}2} = \mu_3 = \mu_4 = \mu_5$.
-
-- **Normalidad.** Con $n$ grande, Shapiro-Wilk rechaza ante desvíos irrelevantes: su potencia
-  tiende a 1 para cualquier alternativa fija, mientras que el estadístico F depende de las medias
-  muestrales, cuya distribución se acerca a la normal por el TCL (la asimetría de $\bar x$ decae
-  como $\gamma_1/\sqrt{n}$). Evaluamos asimetría, curtosis y Q-Q por grupo: asimetrías dentro de
-  $[-1, 1]$ y colas algo pesadas (notebook, 1.8).
-- **Homocedasticidad.** Levene (Brown-Forsythe) *F*(`{python} an["levene"]["gl"][0]`;
-  `{python} n(an["levene"]["gl"][1], 0)`) = `{python} n(an["levene"]["valor"], 2)`,
-  `{python} pv(an["levene"]["p_valor"])`: **se rechaza** la igualdad de varianzas.
-- **Inferencia principal: ANOVA de Welch** [@welch1951anova]: *F*(`{python} n(an["welch"]["gl"][0], 0)`;
-  `{python} n(an["welch"]["gl"][1], 1)`) = `{python} n(an["welch"]["valor"], 1)`,
-  `{python} pv(an["welch"]["p_valor"])`, $\eta^2$ = `{python} n(an["welch"]["efecto"], 3)`.
-  Kruskal-Wallis coincide: $H(3)$ = `{python} n(an["kruskal"]["valor"], 1)`,
-  $\varepsilon^2$ = `{python} n(an["kruskal"]["efecto"], 3)`.
-- **Post-hoc.** Games-Howell [@games1976posthoc] como principal (varianzas desiguales); Tukey HSD y
-  Bonferroni como comparación: las tres coinciden en todos los pares. Un hotel de 5 estrellas cuesta
-  `{python} n(F1["posthoc_cociente_5_vs_12"], 2)` veces uno de 1-2 estrellas (medias geométricas).
-
-![Sesgo de posición: tasa de clic por posición con orden del algoritmo y aleatorio (IC 95 %), y precio relativo por categoría.](figures/f1_ctr_posicion.png){#fig-ctr}
-
-![ANOVA del log precio por estrellas: distribuciones, Q-Q por grupo y medias con IC 95 %.](figures/f1_anova.png){#fig-anova}
-
-# Fase 2: Gauss-Markov y PCA
-
-El modelo de referencia es $\log(\text{precio por noche}) = \beta_0 + \sum_{k} \beta_k X_k + \varepsilon$
-sobre `{python} n(F2["mco"]["n"], 0)` reservas de Train. Estimado por MCO: $R^2$ =
-`{python} n(F2["mco"]["r2"], 3)`, $R^2$ ajustado = `{python} n(F2["mco"]["r2_aj"], 3)`,
-*F*(`{python} F2["mco"]["gl"][0]`; `{python} n(F2["mco"]["gl"][1], 0)`) = `{python} n(F2["mco"]["F"], 1)`.
-La especificación ingenua sobre el precio crudo fracasa: $R^2$ = `{python} n(F2["ingenuo"]["r2"], 4)`,
-con una sola observación de distancia de Cook `{python} n(F2["ingenuo"]["cook_max"], 3)` (> 0,5)
-que domina el ajuste (BITÁCORA, Entrada 3).
-
-| Supuesto | Prueba y resultado | Remediación |
-|---|---|---|
-| Homocedasticidad | Breusch-Pagan [@breusch1979bp] LM = `{python} n(F2["gauss_markov"]["bp_lm"], 1)` (gl `{python} F2["gauss_markov"]["bp_gl"]`), `{python} pv(F2["gauss_markov"]["bp_p"])`; White `{python} pv(F2["gauss_markov"]["white_p"])` | Errores HC3 [@mackinnon1985hc3] |
-| Normalidad | Jarque-Bera = `{python} n(F2["gauss_markov"]["jb"], 1)`, `{python} pv(F2["gauss_markov"]["jb_p"])`; curtosis `{python} n(F2["gauss_markov"]["curtosis"], 2)` | TCL para t y F; Huber [@huber1964robust] de resguardo |
-| Independencia | Durbin-Watson = `{python} n(F2["gauss_markov"]["durbin_watson"], 3)` (orden temporal) | Ninguna |
-| Atípicos y apalancamiento | `{python} F2["influencia"]["outlier_y"]` con $\lvert r_i \rvert > 3$; `{python} F2["influencia"]["alto_leverage"]` con $h_{ii} > 2(p+1)/n$ | Se conservan: cola pesada real |
-| Influyentes | `{python} F2["influencia"]["influyente_4n"]` con $D_i > 4/n$; `{python} F2["influencia"]["influyente_05"]` con $D_i > 0{,}5$ (máx. `{python} n(F2["influencia"]["cook_max"], 4)`) [@cook1977influence] | Huber coincide con MCO sin influyentes |
-| Multicolinealidad | VIF máx. `{python} n(F2["vif_max_modelo"], 2)` (modelo) y `{python} n(F2["vif_max_ampliado"], 2)` (Fase 3) | Ninguna: ningún VIF supera 5 |
-
-: Auditoría de Gauss-Markov del MCO de referencia. {#tbl-gm}
-
-![Diagnóstico de residuos: residuos vs. ajustados, Q-Q y dispersión por cuantil de ŷ.](figures/f2_residuos.png){#fig-residuos}
-
-**PCA sin fuga.** Estandarización y descomposición espectral se ajustan **solo con Train**; Test se
-proyecta con la misma rotación. Kaiser ($\lambda_k > 1$) retiene `{python} F2["pca"]["n_kaiser"]`
-componentes (`{python} n(F2["pca"]["pct_acum"][F2["pca"]["n_kaiser"] - 1], 1)` % de la varianza);
-el codo sugiere 2. PC1 ordena los hoteles de económicos a premium (estrellas, precio histórico,
-reseñas); PC2 captura la buena ubicación a buen precio. En Test, los hoteles reservados se separan
-por PC2 y no por PC1: el usuario premia la oferta conveniente más que la categoría (@fig-pca).
-
-![Scree plot, varianza explicada acumulada y cargas de PC1 y PC2 (ajustado en Train).](figures/f2_pca.png){#fig-pca}
-
-# Fase 3: torneo predictivo
-
-Cuatro familias, misma partición y CV agrupada; PR-AUC como métrica de selección (prevalencia
-≈ 2 %) y umbral elegido en Train por máximo F1.
-
-```{python}
-#| label: tbl-torneo
-#| tbl-cap: "Desempeño en Test (umbral elegido en Train por máximo F1)."
-t = pd.DataFrame(F3["test"]).T[["ROC_AUC", "PR_AUC", "Brier", "Precision", "Recall", "F1", "F1_macro", "F1_ponderado"]]
-tabla(t.astype(float), 3)
-```
-
-- **Logística regularizada.** La grilla elige penalización `{python} F3["logit_params"]["logisticregression__penalty"].upper()`
-  con $C$ = `{python} F3["logit_params"]["logisticregression__C"]`. Los odds ratios (@tbl-or) salen
-  de una logística sin penalizar con errores por clúster de búsqueda; son **asociativos**, no
-  causales.
-- **Naive Bayes gaussiano.** Ordena aceptablemente (ROC-AUC `{python} n(F3["test"]["Naive Bayes"]["ROC_AUC"], 3)`)
-  pero sus probabilidades son inutilizables (Brier `{python} n(F3["test"]["Naive Bayes"]["Brier"], 3)`):
-  la independencia condicional $P(X \mid Y) = \prod_j P(X_j \mid Y)$ se viola (precio y precio
-  histórico correlacionan dentro de cada clase), cuenta varias veces la misma evidencia y empuja las
-  probabilidades a 0 o a 1 [@niculescu2005calibration].
-- **CART.** Sin restricciones, el árbol (`{python} n(F3["arbol_libre"]["hojas"], 0)` hojas) memoriza
-  Train (PR-AUC `{python} n(F3["arbol_libre"]["pr_auc_train"], 3)`) y fracasa en Test
-  (`{python} n(F3["arbol_libre"]["pr_auc_test"], 3)`). Con poda por complejidad
-  $R_\alpha(T) = R(T) + \alpha\lvert T \rvert$ y $\alpha_{\text{opt}}$ por CV queda en
-  `{python} F3["arbol_podado"]["hojas"]` hojas y profundidad `{python} F3["arbol_podado"]["profundidad"]`;
-  la regla raíz separa por posición.
-- **Random Forest** [@breiman2001rf]. Búsqueda aleatoria sobre los cinco hiperparámetros
-  (`n_estimators` = `{python} F3["rf_params"]["n_estimators"]`, `max_depth` =
-  `{python} F3["rf_params"]["max_depth"]`, `min_samples_leaf` = `{python} F3["rf_params"]["min_samples_leaf"]`,
-  `max_features` = `{python} F3["rf_params"]["max_features"]`). El error OOB (PR-AUC
-  `{python} n(F3["oob_pr_auc"], 3)`) converge con la CV. Un holdout cronológico (último 20 % del
-  período) da PR-AUC `{python} n(F3["cronologico"]["pr_auc"], 3)`, cerca del aleatorio.
-
-```{python}
-#| label: tbl-or
-#| tbl-cap: "Odds ratios de la logística sin penalizar (Train, errores por clúster de búsqueda): las 12 variables con menor p-valor."
-lo = pd.DataFrame(F3["logit_or"]).T[["OR", "IC95_inf", "IC95_sup", "p"]].astype(float)
-lo["p"] = lo["p"].map(pv)
-tabla(lo, 3)
-```
-
-![Curvas ROC y PR y diagramas de confiabilidad en Test.](figures/f3_evaluacion.png){#fig-eval}
-
-**MDI vs. permutación.** El MDI suma reducciones de impureza en cada split. Una variable continua
-con muchos valores distintos ofrece muchos más cortes candidatos que una dummy, así que gana splits
-por azar, sobre todo en nodos profundos con pocas observaciones, y acumula importancia aunque no
-generalice [@strobl2007mdi]. Además se calcula en Train. La importancia por permutación mide cuánto
-cae la PR-AUC **en Test** al romper la relación de una variable con $Y$, así que no premia los
-cortes espurios. En nuestros datos, el MDI correlaciona con la cardinalidad de las variables
-($\rho$ = `{python} n(F3["rho_cardinalidad_mdi"], 2)`); por permutación, la variable más importante
-es `{python} top_perm` ($\Delta$PR-AUC = `{python} n(imp[top_perm]["Permutación (ΔPR-AUC)"], 3)`).
-
-![Importancia por MDI (Train) vs. permutación (Test).](figures/f3_importancias.png){#fig-imp}
-
-# Fase 4: inferencia causal
-
-## DAG e identificación
-
-![DAG con el orden del algoritmo (izquierda) y con orden aleatorio (derecha, cirugía de grafo de do(T)).](figures/f4_dag.png){#fig-dag}
-
-**Demostración Backdoor.** Con $R = 0$, todo camino trasero entre $T$ e $Y$ entra a $T$ por
-$Z$ o por $U$. $Z$ bloquea los caminos $T \leftarrow Z \to Y$ y no abre ninguno nuevo: no contiene
-colisionadores ni descendientes de $T$ (el clic $M$ y la selección $S$ quedan fuera del ajuste).
-Pero $T \leftarrow U \to Y$ queda abierto: **Backdoor no se cumple si $U$ existe**. Con $R = 1$, la
-cirugía de grafo elimina los arcos que entran a $T$ salvo $R \to T$ y el conjunto vacío alcanza. Lo
-verifican 12 pruebas de d-separación (`tests/test_dag.py`).
-
-## DoWhy en cuatro pasos
-
-*Model* (`CausalModel` con el DAG y el clic como mediador) → *Identify* (`identify_effect`, Backdoor
-con $Z$; DoWhy excluye el mediador) → *Estimate* (regresión lineal backdoor e IPW) → *Refute*
-(@sec-refut) [@sharma2020dowhy].
-
-```{python}
-#| label: tbl-ate
-#| tbl-cap: "Efecto del top-5 sobre P(reserva) en escala absoluta (DoWhy) y sesgo de confusión del ingenuo."
-a = pd.DataFrame(F4["ate_dowhy"]).T[["ingenuo (Y ~ T)", "regresión backdoor", "IPW", "tasa base P(Y|T=0)", "sesgo de confusión (ingenuo − regresión)", "sesgo relativo %"]]
-a.columns = ["ingenuo Y ~ T", "regresión backdoor", "IPW", "tasa base", "sesgo (ingenuo − regresión)", "sesgo (%)"]
-tabla(a.astype(float), 4)
-```
-
-Con el orden del algoritmo, el coeficiente ingenuo de $Y \sim T$ supera al ajustado: el sesgo de
-confusión es **positivo** (el algoritmo pone arriba a hoteles que se reservarían igual) y equivale al
-`{python} n(F4["ate_dowhy"]["R = 0 (algoritmo)"]["sesgo relativo %"], 1)` % del efecto ajustado. Las
-magnitudes absolutas **no** son comparables entre estratos, porque la selección del dataset infla
-la tasa base del orden del algoritmo.
-
-## Positividad y overlap {#sec-overlap}
-
-```{python}
-#| label: tbl-overlap
-#| tbl-cap: "Diagnóstico de positividad: propensión estimada ê(z) por grupo, fracción fuera de [0,01; 0,99], peso máximo y tamaño efectivo de Kish."
-ov = pd.DataFrame(OV)[["R = 0 (algoritmo)", "R = 1 (aleatorio)"]].loc[["ps_p01_T1", "ps_p99_T1", "ps_p01_T0", "ps_p99_T0", "pct_fuera_T1", "pct_fuera_T0", "peso_max", "ess_T1", "n_T1", "ess_T0", "n_T0"]]
-ov.index = ["ê p1 (top-5)", "ê p99 (top-5)", "ê p1 (resto)", "ê p99 (resto)", "% fuera de [0,01; 0,99] (top-5)", "% fuera (resto)", "peso IPW máximo", "ESS top-5", "n top-5", "ESS resto", "n resto"]
-tabla(ov.astype(float), 3)
-```
-
-El IPW identifica $\tau$ solo si se cumple la positividad [@rosenbaum1983propensity]. Las
-propensiones del top-5 y del resto se superponen en todo su rango y casi ninguna unidad cae fuera de
-$[0{,}01;\,0{,}99]$ (@tbl-overlap, @fig-overlap). El IPW de Hájek da
-`{python} n(ipw0["ATE"], 4)` (IC 95 % bootstrap por búsqueda `{python} ic(ipw0["IC95_inf"], ipw0["IC95_sup"], 4)`),
-y excluyendo las unidades sin overlap [@crump2009overlap], `{python} n(ipw0r["ATE"], 4)`
-`{python} ic(ipw0r["IC95_inf"], ipw0r["IC95_sup"], 4)`: el recorte no cambia la estimación. El IC
-fija la propensión estimada, lo que lo hace conservador [@hirano2003propensity]. **La positividad
-no es el problema de este trabajo; $U$ sí**: ningún reponderado por lo observado corrige la
-confusión que revela el benchmark.
-
-![Overlap de la propensión por grupo en cada estrato (zonas recortadas sombreadas) y estimadores del ATE con IC 95 % (orden del algoritmo).](figures/f4_overlap.png){#fig-overlap}
-
-## Escala relativa: observacional vs. cuasi-experimento
-
-```{python}
-#| label: tbl-or-intra
-#| tbl-cap: "OR intra-búsqueda del top-5 (logit condicional, ecuación 2) y diferencia de probabilidad con efectos fijos (MPL-EF)."
-o = pd.DataFrame(OR_TAB).T
-o2 = pd.DataFrame({
-    "OR intra": o["OR intra"].astype(float).map(lambda v: n(v, 3)),
-    "IC 95 %": o["OR IC95"].map(lambda v: ic(*v, 3)),
-    "búsquedas informativas": o["búsquedas informativas"].map(lambda v: n(v, 0)),
-    "Δp (MPL-EF)": o["MPL-EF (Δp)"].astype(float).map(lambda v: n(v, 4)),
-})
-md(o2)
-```
-
-![OR intra-búsqueda: observacional (orden del algoritmo) vs. benchmark (orden aleatorio).](figures/f4_or_comparacion.png){#fig-or}
-
-La brecha entre el OR ingenuo del algoritmo y el benchmark es de `{python} n(F4["brecha_logor"], 3)`
-en log-odds; el ajuste por $Z$ explica el `{python} n(F4["pct_explicado_Z"], 1)` %. El resto es
-compatible con la confusión no observada $U$. La sensibilidad con $T$ = top-4 del dataset (los
-slots fijos no publicados no cuentan) da OR = `{python} n(F4["sens_top4"]["or"], 3)`
-`{python} ic(*F4["sens_top4"]["ic"], 3)`.
-
-## Robustez de la conclusión central
-
-La afirmación "el observacional ajustado sobreestima el efecto causal" se sometió a tres pruebas
-(notebook, 4.3 bis), sobre las búsquedas con una reserva:
-
-1. **Balance de poblaciones.** La mayor |SMD| entre búsquedas del algoritmo y aleatorias es
-   `{python} n(R4["smd_max_sin_ponderar"], 3)`; con pesos de odds baja a
-   `{python} n(R4["smd_max_ponderado"], 3)` (tamaño efectivo `{python} n(R4["ess"], 0)` de
-   `{python} n(R4["n_R0"], 0)`). Re-ponderado, el cociente de OR es
-   `{python} n(TR["R=0 ponderado a la composición de R=1"]["cociente OR"], 3)`: la brecha no es una
-   diferencia de población.
-2. **No colapsabilidad del OR.** En diferencia de riesgos (efecto marginal promedio del logit de
-   elección), el top-5 suma `{python} n(TR["sin ponderar"]["AME R=0 (p.p.)"], 2)` p.p. con el
-   algoritmo contra `{python} n(TR["sin ponderar"]["AME R=1 (p.p.)"], 2)` p.p. con orden aleatorio.
-3. **Incertidumbre.** Wald de igualdad de log-OR: $z$ = `{python} n(TR["sin ponderar"]["Wald z"], 2)`,
-   `{python} pv(TR["sin ponderar"]["p (Wald)"])`. Bootstrap percentil por búsqueda con
-   `{python} R4["B"]` réplicas (@tbl-robustez): ninguna réplica muestra un cociente ≤ 1.
-
-```{python}
-#| label: tbl-robustez
-#| tbl-cap: "Bootstrap por búsqueda (IC 95 % percentil): OR, efectos marginales (AME) y diferencia de riesgos con efectos fijos (DR-EF)."
-b = pd.DataFrame(RB).T[["IC95_inf", "mediana", "IC95_sup"]].astype(float)
-tabla(b, 4)
-```
-
-![Robustez: balance antes y después de re-ponderar y distribución bootstrap de los cocientes.](figures/f4_robustez.png){#fig-robustez}
-
-## Mediador: el clic como paso del embudo
-
-Reservar implica hacer clic, así que la identidad
-$\mathrm{RR}_Y = \mathrm{RR}_{\text{clic}} \times \mathrm{RR}_{\text{conversión}\mid\text{clic}}$
-descompone el efecto. Con orden aleatorio, $\mathrm{RR}_{\text{clic}}$ =
-`{python} n(EMB["R = 1 (aleatorio)"]["RR clic"], 2)` `{python} EMB["R = 1 (aleatorio)"]["RR clic IC95"].replace(".", ",")`
-y $\mathrm{RR}_{\text{conversión}\mid\text{clic}}$ =
-`{python} n(EMB["R = 1 (aleatorio)"]["RR conversión|clic"], 2)` (descriptivo: condiciona en un
-colisionador). El `{python} n(EMB["R = 1 (aleatorio)"]["% del log-RR vía clic"], 0)` % del efecto en
-escala log opera a través de más clics.
-
-**Trampa del mediador, demostrada.** Con el orden del algoritmo, el efecto total ajustado por $Z$ es
-$\Delta p$ = `{python} n(F4["mediador"]["efecto total (ajuste Z)"]["Δp"], 4)`. Si además se ajusta
-por el clic, cae a `{python} n(F4["mediador"]["ajustando además por el clic (M)"]["Δp"], 4)`: el
-modelo concluye que la posición casi no importa, porque bloquea el canal por el que opera. Ajustar
-por $M$ estima solo el efecto directo y subestima el impacto total de la política.
-
-## Trampas de selección y del colisionador {#sec-trampas}
-
-```{python}
-#| label: tbl-trampas
-#| tbl-cap: "Trampas demostradas: ajustar por el mediador, condicionar en la selección S y en el colisionador C."
-m = pd.DataFrame(F4["mediador"]).T
-m2 = pd.DataFrame({"Δp": m["Δp"].astype(float).map(lambda v: n(v, 4)), "IC 95 %": m["IC95"].map(lambda v: ic(*v, 4)), "p": m["p"].astype(float).map(pv)})
-s_ = pd.DataFrame(F4["seleccion_sim"]).T
-s2 = pd.DataFrame({"Δp": s_["Δp (MPL-EF)"].astype(float).map(lambda v: n(v, 4)), "IC 95 %": s_["Δp IC95"].map(lambda v: ic(*v, 4)), "p": "—"})
-s2.index = ["simulación: " + i for i in s2.index]
-c_ = pd.DataFrame(F4["colisionador_C"]).T
-c2_ = pd.DataFrame({"Δp": c_["Δp ingenuo"].astype(float).map(lambda v: n(v, 4)), "IC 95 %": c_["Δp IC95"].map(lambda v: ic(*v, 4)), "p": "—"})
-c2_.index = ["datos R = 1: " + i for i in c2_.index]
-md(pd.concat([m2, s2, c2_]))
-```
-
-- **Colisionador natural (selección $S$).** En una simulación con verdad conocida, el OR
-  intra-búsqueda se recupera igual con y sin el filtro "≥ 1 evento por lista"
-  (`{python} n(F4["seleccion_sim"]["todas las listas"]["OR intra"], 3)` en ambos casos), mientras que
-  la diferencia absoluta se duplica: por eso el estimando principal es relativo.
-- **Colisionador simulado $C$** ($T \to C \leftarrow Y$). Condicionar en $C$ induce una asociación
-  espuria (sesgo de Berkson): sobre los datos con orden aleatorio, la $\Delta p$ ingenua pasa de
-  `{python} n(F4["colisionador_C"]["todas las filas (R = 1)"]["Δp ingenuo"], 4)` a
-  `{python} n(F4["colisionador_C"]["condicionando en C = 1"]["Δp ingenuo"], 4)`, y en la simulación
-  con verdad conocida el signo se invierte. La única regla segura es no condicionar.
-
-## Refutaciones {#sec-refut}
-
-```{python}
-#| label: tbl-refut
-#| tbl-cap: "Refutaciones de DoWhy sobre la regresión backdoor (orden del algoritmo)."
-rf_ = pd.DataFrame(F4["refutaciones"]).T[["ATE original", "ATE refutado", "p", "pasa"]]
-rf_["ATE original"] = rf_["ATE original"].astype(float).map(lambda v: n(v, 4))
-rf_["ATE refutado"] = rf_["ATE refutado"].astype(float).map(lambda v: n(v, 4))
-rf_["p"] = rf_["p"].astype(float).map(pv)
-rf_["pasa"] = rf_["pasa"].map({True: "sí", False: "no"})
-md(rf_)
-```
-
-- **Causa común aleatoria:** agregar al DAG una variable independiente no mueve el ATE: la
-  estimación no depende de detalles accidentales del conjunto de ajuste.
-- **Placebo:** con $T$ permutado, el ATE cae a ≈ 0 y no se rechaza que sea nulo: el efecto no es un
-  artefacto del procedimiento.
-- **Subconjunto del 80 %:** el ATE queda dentro del IC original: la estimación es estable.
-
-Las tres miden **estabilidad**, no validez: no detectan la confusión por $U$. Esa la revela el
-benchmark con orden aleatorio, que es la refutación más exigente del trabajo. La sensibilidad a un
-$U$ simulado (notebook, 4.6) muestra que una confusión de fuerza moderada alcanza para anular el
-efecto absoluto de $R = 0$.
-
-## Double Machine Learning y CATE
-
-DML [@chernozhukov2018dml] estima con modelos de ruido no lineales (Random Forest)
-$\hat m(W, X) = \mathbb{E}[Y \mid W, X]$ y $\hat e(W, X) = P(T = 1 \mid W, X)$ con *cross-fitting*
-por búsqueda, y regresa el residuo de $Y$ sobre el residuo de $T$:
-
-$$
-Y - \hat m(W, X) = \tau(X)\,\big(T - \hat e(W, X)\big) + \varepsilon .
-$$ {#eq-dml}
-
-La ortogonalidad de Neyman hace que los errores de $\hat m$ y $\hat e$ afecten a $\hat\tau$ solo en
-segundo orden. `LinearDML` [@battocchi2019econml] estima un ATE de `{python} n(d0["ATE"], 4)`
-`{python} ic(*d0["IC95"], 4)` con el orden del algoritmo y de `{python} n(d1["ATE"], 4)`
-`{python} ic(*d1["IC95"], 4)` con orden aleatorio; relativos a sus tasas base, los cocientes son
-`{python} n(d0["ATE"] / d0["tasa_base"], 2)` y `{python} n(d1["ATE"] / d1["tasa_base"], 2)`: el
-mismo patrón de sobreestimación que el logit condicional.
-
-![CATE del top-5 (Causal Forest DML, orden del algoritmo) según estrellas, precio relativo, ubicación y usuario recurrente, con bandas de IC 95 %.](figures/f4_cate.png){#fig-cate}
-
-```{python}
-#| label: tbl-het
-#| tbl-cap: "Heterogeneidad con orden aleatorio: LinearDML, τ(x) = θ₀ + xᵀθ (R = 1)."
-h = pd.DataFrame(F4["het_R1"]).T.astype(float)
-h["p"] = h["p"].map(pv)
-tabla(h, 4)
-```
-
-El Causal Forest [@wager2018causalforest; @athey2019grf] sobre los datos del algoritmo sugiere que
-el slot rinde más para hoteles baratos para su búsqueda y bien ubicados (@fig-cate). La
-heterogeneidad **se confirma con orden aleatorio**: los coeficientes del LinearDML de $R = 1$ tienen
-el mismo signo (@tbl-het), así que no es un artefacto de $U$. @fig-cate-seg cuantifica el efecto
-por segmento.
-
-![CATE del top-5 por segmento de hotel (terciles de precio relativo y de ubicación), con IC 95 %: orden aleatorio (LinearDML) y orden del algoritmo (Causal Forest).](figures/f4_cate_segmentos.png){#fig-cate-seg}
-
-# Ensayo crítico: capacidad predictiva vs. palanca causal
-
-**¿Si la posición es la variable más importante del Random Forest, puede la dirección usarla como
-palanca?** En la Fase 3, la posición es la variable con mayor importancia por permutación en Test y
-la regla raíz del árbol podado. La tentación es leer el OR ingenuo (`{python} n(ori, 2)`) como lo que
-gana un hotel al subirlo. La Fase 4 muestra por qué es un error.
-
-1. **Gran parte de esa capacidad predictiva es selección, no causa.** El algoritmo pone arriba a los
-   hoteles que se iban a reservar igual, por atributos que observamos y por un desempeño histórico
-   que no. Para *predecir*, la posición es útil justamente porque resume todo eso. Para
-   *intervenir*, solo cuenta el efecto que queda cuando la selección se rompe: el orden aleatorio da
-   un OR de `{python} n(orb, 2)`.
-2. **La palanca existe, pero es más chica y heterogénea.** Mover un hotel al top-5 sí aumenta sus
-   reservas, y más si es barato para su búsqueda y está bien ubicado.
-3. **Cuándo una variable muy predictiva no tiene poder causal, o tiene el signo opuesto:**
-   - cuando es un **proxy de confusores** (la posición resume $U$);
-   - cuando es **consecuencia del resultado o un colisionador** ($C$, o el clic si se condiciona en
-     él): condicionar en $C$ puede invertir el signo del efecto;
-   - cuando hay **selección de la muestra** sobre el resultado ($S$): `random_bool` es la segunda
-     variable más predictiva del Random Forest y no es una palanca de negocio, sino la huella de
-     cómo el proveedor seleccionó cada estrato.
-
-   El mismo dato da tres respuestas distintas según qué se condiciona: el modelo que "controla" por
-   el clic concluye que la posición no importa; el que condiciona en $C$, que perjudica; el que
-   ajusta por $Z$ con el orden del algoritmo, que importa más de lo que importa.
-
-**Conclusión del ensayo.** La importancia predictiva responde "¿qué variables ayudan a adivinar
-$Y$?"; la palanca causal responde "¿qué pasa con $Y$ si muevo $X$?". Solo el DAG, la identificación
-y, cuando existe, un experimento, permiten pasar de una a la otra [@pearl2009causality;
-@hernan2020whatif].
-
-# Recomendaciones de negocio cuantificadas
-
-```{python}
-#| label: tbl-escenarios
-#| tbl-cap: "Valuación del slot por escenarios (por 1.000 exposiciones en el top-5; búsquedas con al menos un clic)."
-e = pd.DataFrame(ESC).T[["Δp por exposición", "gasto por reserva (USD)", "desplazamiento de otra reserva", "reservas incrementales / 1.000", "USD incrementales / 1.000"]]
-e.columns = ["Δp por exposición", "gasto por reserva (USD)", "fracción desplazada", "reservas / 1.000", "USD / 1.000"]
-tabla(e.astype(float), 3)
-```
-
-```{python}
-#| label: tbl-segmentos
-#| tbl-cap: "Efecto causal por segmento con orden aleatorio (LinearDML, R = 1): reservas y USD incrementales por 1.000 exposiciones (gasto mediano, sin desplazamiento)."
-g = pd.DataFrame(NEG).T[["reservas incrementales / 1.000", "IC95_inf reservas", "IC95_sup reservas", "USD incrementales / 1.000", "relativo a todos"]]
-g.columns = ["reservas / 1.000", "IC 95 % inf.", "IC 95 % sup.", "USD / 1.000", "relativo a todos"]
-tabla(g.astype(float), 2)
-```
-
-1. **Valuar el slot con el efecto causal, en un rango.** Cada 1.000 exposiciones en el top-5 valen
-   entre `{python} n(ESC["conservador"]["USD incrementales / 1.000"], 0)` y
-   `{python} n(ESC["optimista"]["USD incrementales / 1.000"], 0)` USD de gasto incremental
-   (@tbl-escenarios), según el efecto supuesto, el gasto por reserva y cuánto de la reserva ganada se
-   le quita a otro hotel de la lista. Sirve para ordenar decisiones y negociar contratos de
-   posicionamiento, no para presupuestar: la escala absoluta depende de la selección del dataset.
-2. **No pagar el sesgo.** Una valuación con datos del algoritmo, aun ajustada, sobrestima el OR del
-   slot en `{python} pct(ora / orb - 1, 0)`. Un contrato de posicionamiento pago calculado así
-   sobreprecia el inventario en esa proporción.
-3. **Asignar la exposición por segmento.** El slot rinde
-   `{python} n(NEG["barato y bien ubicado"]["relativo a todos"], 2)` veces el promedio con hoteles
-   baratos para su búsqueda y bien ubicados, y `{python} n(NEG["caro y mal ubicado"]["relativo a todos"], 2)`
-   veces con hoteles caros y mal ubicados (@tbl-segmentos). Reasignar 1.000 exposiciones del segundo
-   grupo al primero suma `{python} n(REA["reservas_por_1000"], 2)` reservas incrementales, unos
-   `{python} n(REA["usd_por_1000"], 0)` USD con el gasto mediano. Los IC 95 % de los dos segmentos
-   extremos no se superponen entre sí
-   (`{python} ic(NEG["barato y bien ubicado"]["IC95_inf reservas"], NEG["barato y bien ubicado"]["IC95_sup reservas"], 1)`
-   contra `{python} ic(NEG["caro y mal ubicado"]["IC95_inf reservas"], NEG["caro y mal ubicado"]["IC95_sup reservas"], 1)`
-   reservas por 1.000); los de los segmentos intermedios sí se superponen con el promedio, así que
-   la recomendación se apoya en los extremos.
-4. **Experimentar en forma continua.** El orden aleatorio fue la única fuente de verdad que permitió
-   detectar el sesgo. Mantener una fracción chica de tráfico con orden aleatorio funciona como
-   auditoría permanente del valor causal del ranking; su costo es la conversión que se pierde en ese
-   tráfico, y su beneficio, no sobrepagar ni sobrevender el slot.
-5. **Límites.** Todo vale para búsquedas con al menos un clic. Con slots de suma cero, el efecto
-   neto para la plataforma es menor que la suma de efectos individuales (el escenario conservador
-   supone que la mitad de las reservas ganadas son desplazadas).
-
-# Limitaciones y amenazas a la validez
-
-- **Validez interna.** (i) Aleatorización imperfecta: con $R = 1$ queda una asociación residual
-  posición-atributos; se declara y se ajusta, sin forzar una explicación. (ii) Confusión por $U$ en
-  $R = 0$: cuantificada por la brecha con el benchmark, no eliminada. (iii) SUTVA: el estimando es
-  "efecto dada la competencia de la lista".
-- **Validez externa.** La población es "búsquedas con al menos un clic" de 2012-2013; el efecto
-  sobre el tráfico total no está identificado. La escala absoluta del estrato del algoritmo está
-  inflada por el sobremuestreo de compras.
-- **Validez de constructo.** $T$ se define sobre la posición en pantalla; la sensibilidad con el
-  top-4 del dataset da el mismo OR.
-- **Validez de la conclusión estadística.** Con $n$ grande todo es significativo: reportamos
-  tamaños de efecto, MDE e IC bootstrap por búsqueda, no solo p-valores. Los IC de los CATE por
-  segmento son anchos para los segmentos intermedios.
-- **Confidencialidad.** Los resultados publicados podrían considerarse "model parameters" según las
-  reglas de Kaggle: es un riesgo asumido y documentado (BITÁCORA, Entrada 1).
-
-# Conclusiones
-
-1. **El slot del top-5 tiene efecto causal positivo sobre la reserva**: con orden aleatorio, OR
-   intra-búsqueda `{python} n(orb, 2)` `{python} ic(*ic_bench, 2)`. La exposición opera sobre todo a
-   través de más clics.
-2. **El dato observacional del algoritmo lo sobreestima aun después de ajustar** por todo lo
-   observable (cociente de OR `{python} n(RB["cociente_OR"]["mediana"], 2)`, IC bootstrap que no
-   incluye 1). El ajuste por $Z$ explica la mitad del sesgo; la otra mitad es confusión no
-   observada. Backdoor con lo observable no alcanza en este sistema.
-3. **El efecto es heterogéneo y la heterogeneidad es causal**: el slot rinde más con hoteles baratos
-   para su búsqueda y bien ubicados, y el orden aleatorio lo confirma.
-4. **La variable más predictiva no es una palanca de la misma magnitud.** Un modelo predictivo
-   excelente puede recomendar políticas equivocadas si se lee como causal.
-5. **Recomendación:** valuar y asignar el slot con el efecto causal por segmento y sostener una
-   fracción de tráfico con orden aleatorio como auditoría.
-
-# Referencias {.unnumbered}
-
-::: {#refs}
-:::
-
-{{< pagebreak >}}
-
-# Anexo A: uso de inteligencia artificial generativa {.appendix}
-
-**Herramienta.** Claude Code [@anthropic2026claudecode], asistente de programación agéntico de
-Anthropic (modelo Claude Opus 5.5), usado desde VS Code entre el 11 y el 13/11/2026.
-
-**Cómo trabajamos con el agente.** El asistente trabajó dentro del repositorio con permisos para
-leer y escribir archivos y ejecutar comandos (Python, `pytest`, `ruff`, Quarto, `git` y `gh`). Cada
-fase empezó con un prompt de diseño de Verónica (Project Lead) que fijaba el objetivo, los criterios
-de aceptación y lo que el asistente no podía decidir solo (datos, publicación, merges). El asistente
-propuso el diseño, escribió el código, los tests, el notebook y los borradores; ejecutó todo
-localmente y cerró cada fase con una lista de "qué revisar". Verónica revisó cada incremento, aprobó
-o pidió cambios, y esas revisiones quedaron registradas como decisiones con autor. En la sesión de
-cierre (13/11) el asistente trabajó en modo autónomo sobre una auditoría previa contra el enunciado
-y la rúbrica (`docs/estado_cierre.md`).
-
-**Prompts de diseño principales** (detalle en `docs/ia_log.md`):
-
-1. Brief del TPI: leer enunciado y rúbrica, armar el repositorio, proponer datasets y roles, sin
-   descargar datos antes de la aprobación.
-2. Contrato de datos, test de `random_bool` y DAG borrador, todavía sin datos.
-3. Descarga verificada, confidencialidad con mitigaciones testeadas y plan B listo para activar.
-4. Un prompt por fase: diseño, ejecución, cierre con "qué revisar" y guía de defensa por rol.
-5. Revisiones de Verónica que cambiaron el análisis: contrastar $Z_c \to T$ antes de llamarla
-   confusor, transcribir las definiciones de Kaggle, y la revisión de robustez de la conclusión
-   central (balance, diferencia de riesgos, bootstrap con 1000 réplicas, embudo del clic).
-6. Prompt de cierre (13/11), transcripto en el recuadro de abajo como ejemplo.
-
-**Errores y alucinaciones detectados.** El registro documenta 32 errores en las Fases 0-5 y los de
-la sesión de cierre, cada uno con el test o la guarda que lo refuta o previene. Ejemplos:
-
-| Error del asistente | Cómo se detectó | Test o guarda determinística |
-|---|---|---|
-| Afirmó de memoria que `random_bool` define un experimento puro | Verificación en los datos: la asociación posición-atributos persiste con $R = 1$ | `xfail` estricto en el test del contrato de datos |
-| Traía de memoria el signo de `compN_rate` | Verónica transcribió la definición de Kaggle | Test del contrato sobre el dominio de `compN_inv` |
-| RANSAC con el umbral por defecto (MAD de $Y$, no de los residuos) | Coeficientes inestables vs. MCO | Umbral corregido; Entrada 3 |
-| Logit condicional sin converger, con un número plausible | Revisión de la salida del optimizador | Guarda que lanza error y test contra el Newton de statsmodels |
-| Redactó un resultado antes de ver el output | Cotejo de cada número contra un output | Todo número del informe se lee de `resultados.json` |
-| Imputación y winsorización ajustadas con toda la muestra (fuga Train/Test), detectado en la auditoría de cierre | Auditoría contra la regla "todo se ajusta en Train" | Test que perturba Test sobre la muestra real, más 4 tests `leakage` |
-| Esperaba que truncar la propensión no sesgara el IPW | El test con verdad conocida falló | Test con verdad conocida: excluir no sesga, truncar sí |
-
-**Declaración de alcance y auditoría humana.** El asistente escribió el código y los borradores de
-texto; las decisiones de diseño, las aprobaciones y la revisión final son del equipo y constan con
-autor en el registro. Ningún número de este informe se tomó del texto del asistente: todos salen de
-`models/resultados.json`, que genera el notebook ejecutado de punta a punta. Los controles
-automáticos (tests, guardas de convergencia, chequeo de confidencialidad) atraparon errores de
-cómputo; las objeciones de fondo (comparabilidad de poblaciones, no colapsabilidad, incertidumbre de
-un cociente, el clic como paso del embudo) vinieron de la revisión humana. Lucía y Antonella no
-ejecutaron el trabajo técnico; sus roles se mantienen para la defensa oral, como declara la
-BITÁCORA.
-
-**Prompt de cierre (13/11/2026), texto completo.**
 
 ```{python}
 #| output: asis
-print("```text")
-print(Path("../docs/prompt_cierre.md").read_text("utf-8").strip().replace("✅", "OK").replace("⚠️", "parcial").replace("❌", "falta"))
-print("```")
+resumen = (
+    "Estimamos el efecto causal de que un recomendador exponga un hotel en los cinco primeros lugares de una "
+    "búsqueda sobre su probabilidad de reserva, con los datos de Expedia del desafío ICDM 2013. Una fracción de "
+    "las búsquedas se mostró en orden aleatorio, lo que nos permite contrastar empíricamente el supuesto de "
+    "identificación por ajuste (criterio Backdoor) contra un benchmark cuasi-experimental. Combinamos inferencia "
+    "clásica, diagnóstico de Gauss-Markov y PCA, un torneo predictivo calibrado y estimación causal con DoWhy, "
+    "logit condicional por búsqueda y Double Machine Learning. Con orden aleatorio, el top-5 multiplica por "
+    f"{n(orb, 2)} las chances de ser el hotel reservado de la lista (OR intra-búsqueda, IC 95\\,\\% {ic(*icb, 2)}). Con "
+    f"el orden del algoritmo, la comparación ingenua da {n(ori, 2)} y el ajuste por todos los confusores observados, "
+    f"{n(ora, 2)}: el ajuste explica el {n(F4['pct_explicado_Z'], 0)}\\,\\% del sesgo y el resto es compatible con "
+    f"confusión no observada (cociente de OR {n(RB['cociente_OR']['mediana'], 2)}, IC bootstrap "
+    f"{ic(RB['cociente_OR']['IC95_inf'], RB['cociente_OR']['IC95_sup'], 2)}). El efecto es heterogéneo: "
+    f"{n(bb['reservas incrementales / 1.000'], 1)} reservas incrementales cada 1.000 exposiciones para hoteles "
+    f"baratos y bien ubicados frente a {n(mm['reservas incrementales / 1.000'], 1)} para hoteles caros y mal "
+    "ubicados. La variable más predictiva del mejor modelo no es una palanca de la misma magnitud: valuar el slot "
+    "con datos del algoritmo lo sobreestima."
+)
+encabezado = rf"""
+\twocolumn[{{%
+\begin{{center}}
+{{\LARGE\bfseries ¿El top-5 vende, o solo muestra lo que se vendería igual?\par}}
+\vspace{{0.4em}}
+{{\large Retorno causal de un algoritmo de recomendación de hoteles\par}}
+\vspace{{0.9em}}
+{{\normalsize Verónica Ana López Marsico \quad Lucía Báez \quad Antonella Robiollio\par}}
+\vspace{{0.35em}}
+{{\small Pontificia Universidad Católica Argentina, Facultad de Ingeniería y Ciencias Agrarias, Licenciatura en Ciencia de Datos\par}}
+{{\small Estadística Aplicada y Modelos de Regresión (EAyMR 2026) \textperiodcentered{{}} Profesor: Ivan Gonzalo Vilaboa\par}}
+{{\small 18 de noviembre de 2026\par}}
+\end{{center}}
+\vspace{{0.2em}}
+\begin{{center}}
+\begin{{minipage}}{{0.88\textwidth}}
+\small\noindent\textbf{{Resumen.}} {resumen}\par
+\smallskip\noindent\textbf{{Palabras clave:}} inferencia causal; criterio Backdoor; Double Machine Learning; sistemas de recomendación; sesgo de posición; experimento natural.
+\end{{minipage}}
+\end{{center}}
+\vspace{{1.2em}}
+}}]
+\renewcommand{{\thefootnote}}{{\fnsymbol{{footnote}}}}
+\footnotetext[1]{{\raggedright Código, notebook ejecutado y tests: \url{{https://github.com/verolopezmar/TPI_Estadistica-avanzada-}}. App interactiva: \texttt{{<URL\_APP>}}. Toda cifra del texto se lee de \path{{models/resultados.json}}, generado por el notebook \path{{notebooks/TP_Integrador_Final.ipynb}}; sus secciones se citan como NB~x.y.}}
+\renewcommand{{\thefootnote}}{{\arabic{{footnote}}}}
+"""
+print("```{=latex}\n" + encabezado + "\n```")
 ```
 
-# Anexo B: reproducibilidad y Quality Gate {.appendix}
+# Introducción
 
-- **Entorno.** Python 3.11; dependencias fijadas en `requirements.txt` (con el motivo de cada
-  versión fijada) y `app/requirements.txt`; semilla global `SEED = 42` (`src/tpi/config.py`).
-- **Datos.** `python data/download_data.py` descarga `data.zip` de Kaggle (requiere aceptar las
-  reglas de la competencia), verifica hashes contra `data/manifiesto.json` y genera la muestra
-  determinística. Ningún dato se versiona (`tests/test_confidencialidad.py`).
-- **Ejecución.** `python -m nbconvert --to notebook --execute --inplace notebooks/TP_Integrador_Final.ipynb`
-  regenera figuras, `models/resultados.json` y los artefactos de la app; `quarto render report/informe.qmd`
-  regenera este informe.
-- **Quality Gate (CI en cada PR):** `ruff check` y `ruff format --check` (PEP 8), tests de no-fuga
-  (`pytest -m leakage`), la suite completa de `pytest` y la construcción de la imagen Docker de la
-  app. El veredicto de QA (`[APROBADO]` o `[BLOQUEADO]`) se deja en cada PR antes del merge a `main`.
-- **App.** `streamlit run app/app.py` o `docker build -t tpi-eaymr-app . && docker run -p 8501:8501 tpi-eaymr-app`;
-  el enlace público del deploy figura en el README del repositorio.
+Un buscador de hoteles muestra unos 25 resultados por búsqueda, pero la atención del usuario se
+concentra en los primeros. Los slots superiores son un recurso escaso y de suma cero, y el
+recomendador elige quién los ocupa: suele elegir hoteles que se reservarían igual. La pregunta
+operativa es si el slot **causa** reservas o solo las **predice**, porque de eso depende cuánto
+vale un posicionamiento pago y a quién conviene asignarlo. Formalmente, buscamos
+$P(Y \mid do(T = 1)) - P(Y \mid do(T = 0))$ y no $P(Y \mid T = 1) - P(Y \mid T = 0)$
+[@pearl2009causality].
+
+La dificultad es la confusión: el ranker usa atributos del hotel que también causan la reserva, y
+algunos no los observamos. El dataset ofrece una salida poco común: una fracción de las búsquedas
+se mostró en orden aleatorio [@kaggle2013expedia]. Contribuimos tres cosas: (i) contrastamos
+empíricamente el supuesto Backdoor, comparando el efecto estimado con el orden del algoritmo
+contra el benchmark aleatorio; (ii) cuantificamos qué parte del sesgo corrige el ajuste por lo
+observable; (iii) traducimos la heterogeneidad del efecto (CATE) en una regla de asignación del
+slot con valor esperado en reservas y dólares. Agregamos dos preguntas propias: qué tan aleatorio es
+el orden aleatorio y cómo condiciona la selección del dataset lo que se puede estimar.
+
+# Datos y auditoría
+
+Usamos `train.csv` de la competencia [@liu2013expedia]: `{python} n(F0["filas_train_csv"], 0)` filas
+búsqueda × hotel en `{python} n(F0["busquedas_train_csv"], 0)` búsquedas. Trabajamos con
+`{python} n(F0["muestra_busquedas"], 0)` búsquedas completas (`{python} n(F0["muestra_filas"], 0)`
+filas), muestreadas por búsqueda y estratificadas por `random_bool`, con semilla fija. La partición
+80/20 es agrupada por búsqueda y estratificada por `random_bool`. Como depende solo del
+identificador y de la semilla, la fijamos antes de transformar: cercas, cuantiles de winsorización y
+medianas de imputación se ajustan solo con Train, y un test verifica que perturbar Test no cambia
+ninguna fila de Train. Los datos son confidenciales según las reglas de la competencia: no están en
+el repositorio y la aplicación usa solo agregados.
+
+```{python}
+#| output: asis
+nombres = {"prop_review_score": "Puntaje de reseñas", "prop_starrating": "Estrellas", "prop_log_historical_price": "Log precio histórico"}
+filas = [[nombres[k], n(v["pct_filas"], 1), f"{n(v['media_antes'], 2)} $\\to$ {n(v['media_despues'], 2)}",
+          f"{n(v['desvio_antes'], 2)} $\\to$ {n(v['desvio_despues'], 2)}"] for k, v in F1["centinelas"].items()]
+tabla(["Variable", r"\% filas", "Media", "Desvío"], filas,
+      "Centinelas (0 = sin dato): distorsión antes y después de pasarlos a faltante con indicador.",
+      "tbl:centinelas", "@{}lrrr@{}")
+```
+
+La auditoría encontró cinco anomalías con génesis distinta (NB 1.2-1.3):
+
+- **Centinelas.** Tres variables codifican "sin dato" con 0; tratarlos como valores sesga medias y
+  desvíos (Tabla \ref{tbl:centinelas}).
+- **Escala del precio.** El `{python} n(F1["escala_precio_pct"]["por_estadia"], 1)`\ % de las reservas de dos o
+  más noches informa el precio por estadía y no por noche, con proporciones distintas entre sitios.
+  Lo neutralizamos con el precio relativo a la mediana de la búsqueda.
+- **Extremos.** `{python} n(F1["outliers_precio"]["filas"], 0)` filas caen fuera de las cercas extremas
+  de Tukey sobre el log del precio (`{python} ic(F1["outliers_precio"]["cerca_inf"], F1["outliers_precio"]["cerca_sup"], 2)` USD) o a
+  más de diez veces la mediana de su búsqueda.
+- **Slots estructurales.** Las posiciones `{python} ", ".join(str(s) for s in F1["slots_especiales"])` casi
+  nunca están en los datos: las ocupan listados que Kaggle no publica.
+- **Selección.** Ninguna búsqueda tiene cero clics, y con el orden del algoritmo casi todas terminan en
+  reserva: el dataset está seleccionado sobre el mediador y, en ese estrato, sobre el resultado.
+
+**Faltantes.** Para $R_j = 1\{X_j \text{ falta}\}$, MCAR implica $R_j \perp X_{\text{obs}}$. Lo
+contrastamos variable por variable ($\chi^2$ o Mann-Whitney con Bonferroni, más tamaño de efecto) y en
+forma conjunta con el test de Little [@little1988mcar]: $d^2$ = `{python} n(LT["d2"], 0)` con
+`{python} LT["gl"]` gl, `{python} pvi(LT["p_valor"])`. **Se rechaza MCAR.** Las variables con dependencia
+apreciable de lo observado (por ejemplo `location_score2`, con |SMD| =
+`{python} n(F1["mcar_max_efecto"]["prop_location_score2"], 2)`) se tratan como MAR: mediana por grupo
+ajustada en Train más un indicador. Las ausencias estructurales (historial del usuario y afinidad, con
+`{python} n(F1["faltantes_pct"]["visitor_hist_starrating"], 1)`\ % y
+`{python} n(F1["faltantes_pct"]["srch_query_affinity_score"], 1)`\ % de faltantes) son MNAR por
+construcción y no se imputan: se representan con un indicador.
+
+**Exploración.** El precio relativo de los hoteles reservados está corrido a la izquierda del de los
+no reservados, y crece con la categoría (Figura \ref{fig:eda}). Spearman y Pearson difieren a lo
+sumo en `{python} n(F1["eda"]["max_dif_spearman_pearson"], 3)`, así que las relaciones son
+aproximadamente monótonas y lineales en estas escalas. La variable más asociada a la posición es
+`location_score2` ($\rho$ = `{python} n(F1["eda"]["rho_pos_loc2"], 3)`: mejor ubicado, más arriba), y
+estrellas y precio histórico correlacionan `{python} n(F1["eda"]["rho_estrellas_hist"], 2)`, un bloque
+calidad-precio que auditamos con VIF en la Fase 2.
+
+```{python}
+#| output: asis
+figura("fig_eda", "Exploración: densidad del precio relativo según reserva, precio relativo por categoría y correlaciones de Spearman (triángulo inferior) y Pearson (superior).", "fig:eda", ancho=True)
+```
+
+**Competidores ($Z_c$).** Una variable es confusor solo si el ranking la usa ($Z_c \to T$) y además
+afecta la reserva ($Z_c \to Y$). Contrastamos las dos flechas por separado: la primera, con la
+interacción $Z_c \times R$ en un logit de $T$ condicional a la calidad (si el orden aleatorio
+rompe la asociación, el algoritmo la usaba); la segunda, con el efecto sobre la reserva en el estrato
+aleatorio (Tabla \ref{tbl:zc}).
+
+```{python}
+#| output: asis
+zc = F1["zc"]
+clase = {"comp_saldo": "Confusor", "comp_n_info": "Confusor (débil en $T$)", "comp_diff_max": "Se excluye"}
+filas = [[f"\\texttt{{{k.replace('_', chr(92) + '_')}}}", f"{n(v['razon_OR_T_R1/R0'], 3)} ({pv(v['p_interaccion'])})",
+          f"{n(v['OR_booking_bool'], 3)} ({pv(v['p_booking_bool'])})", clase[k]] for k, v in zc.items()]
+tabla(["Variable", r"$Z_c\to T$: razón de OR", r"$Z_c\to Y$: OR", "Clase"], filas,
+      "Clasificación de las variables de competidores: razón de OR de la interacción con $R$ en el logit de $T$ y OR sobre la reserva con orden aleatorio.",
+      "tbl:zc", "@{}llll@{}", ancho=True, sep="8pt")
+```
+
+# Métodos
+
+## Marco formal
+
+```{python}
+#| output: asis
+tabla(["Símbolo", "Variable", "Rol"], [
+    ["$Y_{is}$", r"\texttt{booking\_bool}", "Resultado: el hotel $i$ es el reservado en $s$"],
+    ["$T_{is}$", r"$1\{\texttt{position}\le 5\}$", "Tratamiento: exposición en el top-5"],
+    ["$M_{is}$", r"\texttt{click\_bool}", "Mediador; colisionador con $I$"],
+    ["$Z$", "calidad, precio, competidores, contexto, usuario", "Confusores observados"],
+    ["$U$, $I$", "desempeño histórico; intención", "Latentes"],
+    ["$R_s$", r"\texttt{random\_bool}", "Asignación: 1 = orden aleatorio"],
+    ["$S_s$", "inclusión en el dataset", r"Selección (desc.\ de $M$ y de $Y$)"],
+    ["$C$", "``destacado'' simulado", r"Colisionador $T\to C\leftarrow Y$"],
+], "Variables y roles en el DAG. La unidad es el par búsqueda $s$ $\\times$ hotel $i$; la unidad independiente para la inferencia es la búsqueda.",
+   "tbl:roles", "@{}l>{\\raggedright\\arraybackslash}p{0.33\\columnwidth}>{\\raggedright\\arraybackslash}p{0.38\\columnwidth}@{}")
+```
+
+Con resultados potenciales $Y_{is}(t)$, los estimandos son el efecto promedio
+$\tau = \mathbb{E}[Y(1) - Y(0)]$, el condicional $\tau(x) = \mathbb{E}[Y(1) - Y(0) \mid X = x]$ y su
+promedio por segmento $\tau_S = \mathbb{E}[\tau(X) \mid X \in S]$ (Tabla \ref{tbl:roles}). Como la
+selección del dataset infla la escala absoluta de forma distinta en cada estrato, el estimando
+principal es relativo y dentro de la búsqueda: el odds ratio condicional $\psi = e^{\gamma}$ del
+logit condicional de McFadden [@mcfadden1974conditional],
+\begin{equation}
+P\Big(Y_{is}=1 \,\Big|\, \textstyle\sum_{j\in s} Y_{js}=1\Big)
+ = \frac{\exp(\gamma T_{is} + Z_{is}^{\top}\delta)}{\sum_{j\in s}\exp(\gamma T_{js} + Z_{js}^{\top}\delta)},
+\label{eq:clogit}
+\end{equation}
+que condiciona en el número de reservas de la lista: el término de cada búsqueda (intención,
+destino, fecha) se cancela, y $\psi$ no depende de cuántas listas con compra seleccionó el
+proveedor, por la misma lógica que en los estudios caso-control [@prentice1979casecontrol]. La
+identificación descansa en tres supuestos: SUTVA, que es una aproximación porque los slots son de
+suma cero; positividad, $0 < e(z) = P(T = 1 \mid Z = z) < 1$; e intercambiabilidad condicional,
+$Y(t) \perp T \mid Z$.
+
+```{python}
+#| output: asis
+figura("fig_dag", "DAG estructural. Izquierda: orden del algoritmo ($R=0$); $Z$ bloquea los caminos traseros por $Z$ pero no $T\\leftarrow U\\to Y$. Derecha: orden aleatorio ($R=1$), cirugía de grafo de $do(T)$. Nodos grises: latentes; $S$ y $C$: colisionadores.", "fig:dag", ancho=True)
+```
+
+**Identificación.** En el DAG (Figura \ref{fig:dag}), todo camino trasero entre $T$ e $Y$ entra a
+$T$ por $Z$ o por $U$. Ajustar por $Z$ bloquea los primeros sin abrir caminos nuevos, porque $Z$ no
+contiene colisionadores ni descendientes de $T$; el clic y la selección quedan fuera del ajuste.
+$T \leftarrow U \to Y$, en cambio, queda abierto: con el orden del algoritmo, Backdoor no se cumple
+si $U$ existe. Con $R = 1$, la intervención elimina los arcos que entran a $T$ salvo $R \to T$ y el
+conjunto vacío alcanza. Doce pruebas de d-separación lo verifican (`tests/test_dag.py`). La
+comparación entre estratos es, entonces, un contraste empírico del supuesto Backdoor.
+
+## Estimadores
+
+- **DoWhy en cuatro pasos** [@sharma2020dowhy]: modelo con el DAG, identificación Backdoor
+  (que excluye el mediador), estimación por regresión lineal con ajuste y por IPW, y refutación.
+  El IPW es el estimador normalizado de Hájek, con la propensión $\hat e(z)$ de una logística
+  escalada sobre $Z$:
+  $$\hat\tau_{\text{IPW}} = \frac{\sum_i T_i Y_i/\hat e_i}{\sum_i T_i/\hat e_i} - \frac{\sum_i (1-T_i) Y_i/(1-\hat e_i)}{\sum_i (1-T_i)/(1-\hat e_i)}.$$
+  Como resguardo, excluimos las unidades con $\hat e \notin [0{,}01; 0{,}99]$ [@crump2009overlap].
+- **Logit condicional** (ecuación \ref{eq:clogit}), estimado por Newton-Raphson con errores robustos
+  por búsqueda, y un modelo lineal de probabilidad con efectos fijos de búsqueda para la escala
+  absoluta.
+- **Double Machine Learning** [@chernozhukov2018dml]: predecimos $Y$ y $T$ desde $(W, X)$ con
+  Random Forest y *cross-fitting* por búsqueda, y regresamos $Y - \hat m$ sobre
+  $\tau(X)(T - \hat e)$. Por la ortogonalidad de Neyman, los errores de $\hat m$ y $\hat e$ entran
+  solo en segundo orden. Usamos `LinearDML` y `CausalForestDML` [@battocchi2019econml; @wager2018causalforest]
+  con $X$ = estrellas, precio relativo, ubicación y usuario recurrente.
+- **Incertidumbre y robustez:** bootstrap percentil por búsqueda ($B = `{python} R4["B"]`$),
+  las tres refutaciones de DoWhy y simulaciones con verdad conocida de la selección $S$ y del
+  colisionador $C$.
+
+## Inferencia, regresión y predicción
+
+Fijamos $\alpha = 0{,}05$ a priori y reportamos, junto con cada p-valor, el tamaño de efecto y el
+efecto mínimo detectable con potencia $0{,}80$,
+$\text{MDE} = (z_{1-\alpha/2} + z_{1-\beta})\sqrt{1/n_1 + 1/n_2}$ en desvíos. Los contrastes se hacen
+sobre unidades independientes (búsquedas o reservas), no sobre filas. Con $n$ en miles, Shapiro-Wilk
+rechaza ante desvíos irrelevantes; como $t$ y $F$ dependen de medias cuya asimetría decae como
+$\gamma_1/\sqrt n$, evaluamos la normalidad con asimetría, curtosis y Q-Q. Ante varianzas desiguales
+usamos Welch [@welch1951anova] y Games-Howell [@games1976posthoc], con Kruskal-Wallis, Tukey y
+Bonferroni de resguardo. El modelo lineal de referencia es
+$\log(\text{precio}) = \beta_0 + \sum_k \beta_k X_k + \varepsilon$, estimado por MCO; contrastamos la
+homocedasticidad con Breusch-Pagan [@breusch1979bp] y White, y usamos errores HC3 [@mackinnon1985hc3]
+y Huber [@huber1964robust] como resguardo. El PCA se ajusta solo con Train. El
+torneo compara una logística regularizada, Naive Bayes, CART podado y Random Forest
+[@breiman2001rf] con `StratifiedGroupKFold(5)` por búsqueda, PR-AUC como métrica de selección
+(la prevalencia de reservas ronda el 2\ %) y el umbral de decisión elegido en Train. Implementamos
+los modelos con statsmodels [@seabold2010statsmodels] y scikit-learn [@pedregosa2011sklearn].
+
+# Resultados
+
+## Inferencia clásica y supuestos
+
+```{python}
+#| output: asis
+g = GM
+filas = [
+    ["Clic top-5 $-$ resto (pareado)", f"$t({m(c1['gl'], 0)})={m(c1['valor'], 2)}$", pv(c1["p_valor"]), f"$d_z={m(c1['efecto'], 3)}$"],
+    ["Gasto: recurrentes $-$ nuevos", f"$t({m(c2['gl'], 1)})={m(c2['valor'], 2)}$", pv(c2["p_valor"]), f"$g={m(c2['efecto'], 3)}$"],
+    ["Levene (Brown-Forsythe)", f"$F({an['levene']['gl'][0]};{m(an['levene']['gl'][1], 0)})={m(an['levene']['valor'], 1)}$", pv(an["levene"]["p_valor"]), f"razón var.\\ {n(an['levene']['efecto'], 2)}"],
+    ["ANOVA de Welch", f"$F({m(an['welch']['gl'][0], 0)};{m(an['welch']['gl'][1], 0)})={m(an['welch']['valor'], 0)}$", pv(an["welch"]["p_valor"]), f"$\\eta^2={m(an['welch']['efecto'], 3)}$"],
+    ["Kruskal-Wallis", f"$H(3)={m(an['kruskal']['valor'], 0)}$", pv(an["kruskal"]["p_valor"]), f"$\\varepsilon^2={m(an['kruskal']['efecto'], 3)}$"],
+    [r"\midrule Breusch-Pagan", f"$LM={m(g['bp_lm'], 1)}$ ({g['bp_gl']} gl)", pv(g["bp_p"]), "se rechaza"],
+    ["White", f"$LM={m(g['white_lm'], 1)}$", pv(g["white_p"]), "se rechaza"],
+    ["Jarque-Bera", f"$JB={m(g['jb'], 0)}$", pv(g["jb_p"]), f"curtosis {n(g['curtosis'], 2)}"],
+    ["Durbin-Watson", f"$d={m(g['durbin_watson'], 3)}$", "---", "sin autocorr."],
+]
+tabla(["Contraste", "Estadístico", "p", "Efecto"], filas,
+      "Contrastes de la Fase 1 (arriba) y diagnóstico de Gauss-Markov del MCO (abajo); $\\alpha=0{,}05$ fijado a priori. Estadístico con sus grados de libertad, p-valor exacto y tamaño de efecto.", "tbl:tests",
+      "@{}llll@{}", ancho=True, sep="9pt")
+```
+
+Con orden aleatorio, la tasa de clic del top-5 es
+`{python} n(c1["ctr_top5"] / c1["ctr_resto"], 2)` veces la del resto de su lista (Tabla \ref{tbl:tests};
+diferencia `{python} n(c1["diferencia"], 4)`, IC 95\ % `{python} ic(*c1["ic95"], 4)`; Wilcoxon de
+resguardo, `{python} pvi(c1["extra"]["wilcoxon_p"])`). El efecto observado supera con holgura el MDE
+($d_z$ = `{python} n(c1["mde_dz"], 3)`): es el arco $T \to M$ del DAG (Figura \ref{fig:ctr}). En el
+segundo contraste **no se rechaza $H_0$**. Eso no prueba que los gastos sean iguales: la muestra no
+detecta efectos menores que $g$ = `{python} n(c2["mde_g"], 3)`, y el cociente de medias geométricas es
+`{python} n(c2["cociente_geom"], 3)` `{python} ic(*c2["ic_cociente"], 3)`.
+
+```{python}
+#| output: asis
+figura("fig_ctr", "Tasa de clic por posición con el orden del algoritmo y con orden aleatorio (IC 95\\,\\%). Con orden aleatorio, la caída es efecto de la posición; la brecha entre curvas es selección del algoritmo.", "fig:ctr")
+```
+
+En el ANOVA del log del precio por noche según categoría (cuatro grupos, al menos
+`{python} n(F1["anova_supuestos"]["n_min"], 0)` reservas por grupo), Shapiro rechaza en todos los
+grupos, pero las asimetrías van de `{python} n(F1["anova_supuestos"]["asimetria_min"], 2)` a
+`{python} n(F1["anova_supuestos"]["asimetria_max"], 2)`, dentro de $[-1, 1]$, y la curtosis en exceso
+de `{python} n(F1["anova_supuestos"]["curtosis_min"], 2)` a `{python} n(F1["anova_supuestos"]["curtosis_max"], 2)`:
+colas algo pesadas y simétricas, que el TCL absorbe con estos tamaños (Figura \ref{fig:anova}).
+Levene rechaza la homocedasticidad, así que la inferencia principal es el ANOVA de Welch,
+que rechaza $H_0: \mu_{1\text{-}2} = \mu_3 = \mu_4 = \mu_5$. Kruskal-Wallis y los post-hoc de
+Games-Howell, Tukey y Bonferroni coinciden en todos los pares. Un hotel de cinco estrellas cuesta
+`{python} n(F1["posthoc_cociente_5_vs_12"], 2)` veces uno de una o dos (medias geométricas).
+
+```{python}
+#| output: asis
+figura("fig_anova", "Q-Q del log del precio por noche (estandarizado) en cada categoría del ANOVA.", "fig:anova")
+```
+
+## Gauss-Markov y PCA
+
+El MCO de referencia sobre `{python} n(F2["mco"]["n"], 0)` reservas de Train alcanza
+$R^2$ = `{python} n(F2["mco"]["r2"], 3)` ($\bar R^2$ = `{python} n(F2["mco"]["r2_aj"], 3)`;
+*F*(`{python} F2["mco"]["gl"][0]`; `{python} n(F2["mco"]["gl"][1], 0)`) = `{python} n(F2["mco"]["F"], 0)`).
+La especificación ingenua sobre el precio crudo falla: $R^2$ = `{python} n(F2["ingenuo"]["r2"], 4)`,
+y una sola observación con distancia de Cook `{python} n(F2["ingenuo"]["cook_max"], 2)` domina el
+ajuste. Se rechazan la homocedasticidad y la normalidad de los residuos (Tabla \ref{tbl:tests};
+Figura \ref{fig:residuos}). Como los coeficientes siguen insesgados, corregimos la varianza con HC3 y
+usamos Huber como resguardo ante colas pesadas. Hay `{python} INF["outlier_y"]` residuos
+estudentizados con $|r_i| > 3$, `{python} INF["alto_leverage"]` puntos con $h_{ii} > 2(p+1)/n$ y
+`{python} INF["influyente_4n"]` con $D_i > 4/n$ [@cook1977influence], pero ninguno con $D_i > 0{,}5$
+(máximo `{python} n(INF["cook_max"], 4)`). Los influyentes se concentran donde el precio está en la
+escala equivocada; Huber coincide con MCO sin influyentes, así que no los eliminamos. El VIF máximo
+es `{python} n(F2["vif_max_ampliado"], 2)`: no hay multicolinealidad que resolver.
+
+```{python}
+#| output: asis
+figura("fig_residuos", "Diagnóstico del MCO: residuos vs.\\ ajustados (celdas con al menos 10 observaciones) y Q-Q de los residuos.", "fig:residuos")
+```
+
+```{python}
+#| output: asis
+car = PCA["cargas"]
+pc1 = sorted(car, key=lambda k: -car[k]["PC1"])[:3]
+pc2 = sorted(car, key=lambda k: -car[k]["PC2"])[:2]
+nom = lambda k: k.replace("_", r"\_")
+print(
+    f"El PCA, ajustado solo con Train, retiene {PCA['n_kaiser']} componentes por Kaiser "
+    f"({n(PCA['pct_acum'][PCA['n_kaiser'] - 1], 1)}\\ % de la varianza); el codo sugiere dos (Figura \\ref{{fig:pca}}). "
+    f"PC1 ({n(PCA['pct_acum'][0], 1)}\\ %) ordena los hoteles de económicos a premium: cargan sobre todo "
+    + ", ".join(f"\\texttt{{{nom(k)}}} ({n(car[k]['PC1'], 2)})" for k in pc1)
+    + f". PC2 representa la conveniencia: \\texttt{{{nom(pc2[0])}}} ({n(car[pc2[0]]['PC2'], 2)}) "
+    f"y \\texttt{{{nom(pc2[1])}}} ({n(car[pc2[1]]['PC2'], 2)}). Al proyectar Test a ciegas, los hoteles reservados se separan por "
+    "PC2 y no por PC1 (NB 2.5): el usuario premia la oferta conveniente más que la categoría."
+)
+```
+
+```{python}
+#| output: asis
+figura("fig_pca", "PCA ajustado en Train: autovalores con el criterio de Kaiser y varianza acumulada (izquierda); cargas de PC1 y PC2 (derecha).", "fig:pca")
+```
+
+## Torneo predictivo
+
+```{python}
+#| output: asis
+filas = [[k, n(v["ROC_AUC"], 3), n(v["PR_AUC"], 3), n(v["Brier"], 4), n(v["F1"], 3), n(v["F1_macro"], 3)] for k, v in T3.items()]
+tabla(["Modelo", "ROC", "PR", "Brier", "F1", "F1 mac."], filas,
+      "Desempeño en Test: AUC de las curvas ROC y precisión-recall, Brier y F1 (umbral elegido en Train por máximo F1). Precisión, recall y F1 ponderado, en NB~3.5.",
+      "tbl:torneo", "@{}lrrrrr@{}", sep="3.5pt")
+```
+
+```{python}
+#| output: asis
+filas = [[r"\texttt{" + k.removeprefix("prop_").replace("_", r"\_") + "}", n(v["OR"], 3), ic(v["IC95_inf"], v["IC95_sup"], 3),
+          pv(v["p"]).replace("p=", "").replace("p<", "<")]
+         for k, v in list(LO.items())[:8]]
+tabla(["Variable", "OR", "IC 95\\,\\%", "p"], filas,
+      "Odds ratios de la logística sin penalizar (Train, variables en sus unidades originales, errores robustos por búsqueda): las ocho variables con menor p-valor (sin el prefijo prop\_). Son asociaciones, no efectos causales.",
+      "tbl:or", "@{}lrrr@{}", sep="2.5pt")
+```
+
+El Random Forest gana en PR-AUC y Brier (Tabla \ref{tbl:torneo}, Figura \ref{fig:torneo}). La
+búsqueda aleatoria sobre los cinco hiperparámetros pedidos elige
+`n_estimators` = `{python} F3["rf_params"]["n_estimators"]`, `max_depth` =
+`{python} F3["rf_params"]["max_depth"]`, `min_samples_leaf` = `{python} F3["rf_params"]["min_samples_leaf"]`,
+`min_samples_split` = `{python} F3["rf_params"]["min_samples_split"]` y `max_features` =
+`{python} F3["rf_params"]["max_features"]`. El error OOB (PR-AUC `{python} n(F3["oob_pr_auc"], 3)`)
+converge con la CV, y un holdout cronológico da `{python} n(F3["cronologico"]["pr_auc"], 3)`. Sin
+restricciones, el árbol crece hasta `{python} n(F3["arbol_libre"]["hojas"], 0)` hojas y memoriza
+Train (PR-AUC `{python} n(F3["arbol_libre"]["pr_auc_train"], 2)` contra
+`{python} n(F3["arbol_libre"]["pr_auc_test"], 3)` en Test). La poda por complejidad
+$R_\alpha(T) = R(T) + \alpha|T|$, con $\alpha$ por CV, lo deja en
+`{python} F3["arbol_podado"]["hojas"]` hojas, con la regla raíz `position` $\le 4{,}5$: la posición
+es lo que más reduce la impureza, y el segundo corte en ambas ramas es `random_bool`, que separa
+estratos con tasas base muy distintas (Figura \ref{fig:cart}). Ninguno de los dos cortes es una
+palanca causal. En la
+logística, cada posición más abajo multiplica las chances de reserva por
+`{python} n(LO["position"]["OR"], 3)` (IC 95\ % `{python} ic(LO["position"]["IC95_inf"], LO["position"]["IC95_sup"], 3)`),
+y `location_score2` tiene un OR de `{python} n(LO["prop_location_score2"]["OR"], 2)` (Tabla
+\ref{tbl:or}); son asociaciones, no efectos. Naive Bayes ordena aceptablemente pero sus probabilidades no sirven: la independencia
+condicional se viola y el modelo empuja las probabilidades a los extremos [@niculescu2005calibration].
+El MDI correlaciona con la cardinalidad de las variables
+($\rho$ = `{python} n(F3["rho_cardinalidad_mdi"], 2)`), porque una variable continua ofrece muchos más
+cortes que una dummy y gana splits por azar en Train [@strobl2007mdi]. La permutación en Test no
+premia esos cortes: la variable más importante es `{python} top_perm`.
+
+Diseñamos dos sensibilidades no pedidas (NB 3.7). Primero, reemplazar las variables de hotel por las
+cuatro componentes principales de Train baja la PR-AUC de la logística de
+`{python} n(T3["Logística"]["PR_AUC"], 3)` a `{python} n(F3["pca_features_pr_auc"], 3)`: la compresión
+pierde información predictiva, así que mantenemos las variables originales. Segundo, en las búsquedas
+de Test con reserva, el hotel reservado está en el top-5 del Random Forest en el
+`{python} n(100 * F3["ranking_top5"]["R = 1"]["top-5 del modelo (Random Forest)"], 1)`\ % de los casos
+con orden aleatorio, contra el `{python} n(100 * F3["ranking_top5"]["R = 1"]["top-5 de Expedia"], 1)`\ %
+del top-5 mostrado. Con orden aleatorio, ese top-5 no debería anticipar nada: su acierto es el
+efecto causal de la posición, que el modelo hereda y mejora con los atributos del hotel.
+
+```{python}
+#| output: asis
+figura("fig_cart", "Árbol CART: PR-AUC en Train y validación según \\texttt{ccp\\_alpha} (izquierda) y primeros niveles del árbol podado con el $\\alpha$ elegido por CV (derecha). En cada nodo: regla de corte, proporción de filas y proporción de cada clase.", "fig:cart", ancho=True)
+```
+
+```{python}
+#| output: asis
+figura("fig_torneo", "Torneo predictivo en Test: curvas precisión-recall (línea punteada: prevalencia), diagrama de confiabilidad e importancia por MDI (Train) y por permutación (Test), relativas al máximo de cada criterio.", "fig:torneo", ancho=True)
+```
+
+## Efecto causal
+
+```{python}
+#| output: asis
+f = lambda x, lo=None, hi=None: n(x, 4) + (f" {ic(lo, hi, 4)}" if lo is not None else "")
+filas = [
+    ["Ingenuo $Y\\sim T$", f(A0["ingenuo (Y ~ T)"], *A0["ingenuo IC95"]), f(A1["ingenuo (Y ~ T)"], *A1["ingenuo IC95"])],
+    ["Regresión backdoor", f(A0["regresión backdoor"], *A0["regresión IC95"]), f(A1["regresión backdoor"], *A1["regresión IC95"])],
+    ["IPW de Hájek", f(ipw0["ATE"], ipw0["IC95_inf"], ipw0["IC95_sup"]), f(ipw1["ATE"], ipw1["IC95_inf"], ipw1["IC95_sup"])],
+    ["IPW recortado", f(ipw0r["ATE"], ipw0r["IC95_inf"], ipw0r["IC95_sup"]), f(ipw1r["ATE"], ipw1r["IC95_inf"], ipw1r["IC95_sup"])],
+    ["LinearDML", f(d0["ATE"], *d0["IC95"]), f(d1["ATE"], *d1["IC95"])],
+    ["Tasa base $P(Y\\mid T=0)$", n(A0["tasa base P(Y|T=0)"], 4), n(A1["tasa base P(Y|T=0)"], 4)],
+]
+tabla(["Estimador", "Algoritmo ($R=0$)", "Aleatorio ($R=1$)"], filas,
+      "Efecto del top-5 sobre $P(\\text{reserva})$ en escala absoluta (IC 95\\,\\%). Los niveles no son comparables entre estratos: la selección del dataset infla la tasa base del algoritmo.",
+      "tbl:ate", "@{}lll@{}", ancho=True, sep="12pt")
+```
+
+**Sesgo de confusión.** Con el orden del algoritmo, el coeficiente ingenuo supera al ajustado
+(Tabla \ref{tbl:ate}). El sesgo es positivo, porque el algoritmo pone arriba a hoteles que se
+reservarían igual, y equivale al `{python} n(A0["sesgo relativo %"], 1)`\ % del efecto de la regresión
+backdoor. La positividad [@rosenbaum1983propensity] se cumple: con $R = 0$, solo el
+`{python} n(OV["R = 0 (algoritmo)"]["pct_fuera_T0"], 3)`\ % del resto y el
+`{python} n(OV["R = 0 (algoritmo)"]["pct_fuera_T1"], 3)`\ % del top-5 tienen
+$\hat e \notin [0{,}01; 0{,}99]$, y el IPW recortado coincide con el completo (Figura
+\ref{fig:overlap}). El IC del IPW fija la propensión estimada, así que es conservador
+[@hirano2003propensity].
+
+```{python}
+#| output: asis
+figura("fig_overlap", "Overlap de la propensión estimada con el orden del algoritmo. Las líneas punteadas marcan el recorte en $[0{,}01; 0{,}99]$.", "fig:overlap")
+```
+
+**Observacional frente a benchmark.** En la escala relativa intra-búsqueda (Figura \ref{fig:or}),
+el top-5 multiplica las chances de reserva por `{python} n(orb, 2)` `{python} ic(*icb, 2)` con orden
+aleatorio, por `{python} n(ora, 2)` `{python} ic(*ica, 2)` con el orden del algoritmo ajustado por $Z$
+y por `{python} n(ori, 2)` sin ajuste. El ajuste explica el `{python} n(F4["pct_explicado_Z"], 1)`\ %
+de la brecha en log-odds; el resto es compatible con $U$ (conversión histórica del hotel,
+comisiones, inventario en tiempo real). La conclusión resiste tres objeciones (NB 4.3 bis):
+
+1. **Población.** Re-ponderando las búsquedas del algoritmo a la composición de las aleatorias (la
+   mayor |SMD| baja de `{python} n(R4["smd_max_sin_ponderar"], 3)` a `{python} n(R4["smd_max_ponderado"], 3)`),
+   el cociente de OR es `{python} n(TR["R=0 ponderado a la composición de R=1"]["cociente OR"], 2)`.
+2. **No colapsabilidad del OR.** En diferencia de riesgos, el efecto marginal promedio es
+   `{python} n(TR["sin ponderar"]["AME R=0 (p.p.)"], 2)` p.p. con el algoritmo contra
+   `{python} n(TR["sin ponderar"]["AME R=1 (p.p.)"], 2)` p.p. con orden aleatorio (cociente
+   `{python} n(RB["cociente_AME"]["mediana"], 2)`, IC `{python} ic(RB["cociente_AME"]["IC95_inf"], RB["cociente_AME"]["IC95_sup"], 2)`).
+3. **Incertidumbre.** Wald de igualdad de log-OR: $z$ = `{python} n(TR["sin ponderar"]["Wald z"], 2)`,
+   `{python} pvi(TR["sin ponderar"]["p (Wald)"])`. Bootstrap por búsqueda ($B = `{python} R4["B"]`$):
+   cociente de OR `{python} n(RB["cociente_OR"]["mediana"], 2)`
+   `{python} ic(RB["cociente_OR"]["IC95_inf"], RB["cociente_OR"]["IC95_sup"], 2)`, sin ninguna réplica
+   $\le 1$ (Figura \ref{fig:robustez}).
+
+```{python}
+#| output: asis
+figura("fig_robustez", "Distribución bootstrap por búsqueda ($B = 1000$) de los cocientes entre el efecto observacional ajustado y el benchmark, en OR y en efecto marginal promedio. La línea punteada marca la ausencia de sesgo.", "fig:robustez")
+```
+
+```{python}
+#| output: asis
+figura("fig_or", "OR intra-búsqueda del top-5 (logit condicional, IC 95\\,\\%, escala log). La línea punteada es el benchmark aleatorio ajustado.", "fig:or")
+```
+
+**Trampas del mediador y del colisionador.** Ajustar además por el clic reduce el efecto total de
+$\Delta p$ = `{python} n(MED["efecto total (ajuste Z)"]["Δp"], 4)` a
+`{python} n(MED["ajustando además por el clic (M)"]["Δp"], 4)`: el modelo concluiría que la
+posición casi no importa, porque bloquea el canal por el que opera. Con orden aleatorio, el clic es
+el paso obligatorio del embudo: $\mathrm{RR}_{\text{clic}}$ = `{python} n(EMB["R = 1 (aleatorio)"]["RR clic"], 2)`
+y el `{python} n(EMB["R = 1 (aleatorio)"]["% del log-RR vía clic"], 0)`\ % del efecto en escala log
+pasa por más clics. En una simulación con verdad conocida, filtrar listas con al menos un evento
+(como hace el dataset) deja el OR condicional intacto
+(`{python} n(F4["seleccion_sim"]["todas las listas"]["OR intra"], 3)` en ambos casos) y duplica la
+diferencia absoluta. Condicionar en un colisionador simulado $C$ ($T \to C \leftarrow Y$) induce
+sesgo de Berkson: sobre los datos aleatorios, la $\Delta p$ ingenua pasa de
+`{python} n(F4["colisionador_C"]["todas las filas (R = 1)"]["Δp ingenuo"], 4)` a
+`{python} n(F4["colisionador_C"]["condicionando en C = 1"]["Δp ingenuo"], 4)`, y en la simulación el
+signo se invierte (NB 4.5). La Tabla \ref{tbl:trampas} resume las tres demostraciones.
+
+```{python}
+#| output: asis
+S_, C_ = F4["seleccion_sim"], F4["colisionador_C"]
+fila = lambda nombre, v, lo, hi: [nombre, n(v, 4), ic(lo, hi, 4)]
+filas = [
+    fila("Ajuste por $Z$ (efecto total)", MED["efecto total (ajuste Z)"]["Δp"], *MED["efecto total (ajuste Z)"]["IC95"]),
+    fila("Ajuste por $Z$ y por el clic $M$", MED["ajustando además por el clic (M)"]["Δp"], *MED["ajustando además por el clic (M)"]["IC95"]),
+    [r"\midrule Simulación: todas las listas", n(S_["todas las listas"]["Δp (MPL-EF)"], 4), ic(*S_["todas las listas"]["Δp IC95"], 4)],
+    ["Simulación: solo listas con $S=1$", n(S_["solo listas con ≥ 1 evento (S = 1)"]["Δp (MPL-EF)"], 4), ic(*S_["solo listas con ≥ 1 evento (S = 1)"]["Δp IC95"], 4)],
+    [r"\midrule Orden aleatorio: todas las filas", n(C_["todas las filas (R = 1)"]["Δp ingenuo"], 4), ic(*C_["todas las filas (R = 1)"]["Δp IC95"], 4)],
+    ["Orden aleatorio: condicionando en $C=1$", n(C_["condicionando en C = 1"]["Δp ingenuo"], 4), ic(*C_["condicionando en C = 1"]["Δp IC95"], 4)],
+]
+tabla(["Especificación", r"$\Delta p$", "IC 95\\,\\%"], filas,
+      "Trampas demostradas: ajustar por el mediador (arriba), seleccionar sobre el colisionador $S$ en una simulación con verdad conocida, donde el OR condicional no cambia (medio), y condicionar en el colisionador simulado $C$ (abajo).",
+      "tbl:trampas", "@{}lrr@{}", sep="4pt")
+```
+
+**Refutaciones.** La estimación por regresión backdoor pasa las tres refutaciones de DoWhy. Con una
+causa común aleatoria, el ATE no se mueve (`{python} pvi(REF["Causa común aleatoria"]["p"])`). Con
+un placebo de $T$ permutado, cae a `{python} n(REF["Placebo (T permutado)"]["ATE refutado"], 4)`
+(`{python} pvi(REF["Placebo (T permutado)"]["p"])`). En submuestras del 80\ % queda en
+`{python} n(REF["Subconjunto 80 %"]["ATE refutado"], 4)`, dentro del IC original. Las tres miden
+estabilidad y no detectan $U$: eso lo hace el benchmark aleatorio. Para dimensionar cuánta confusión
+haría falta, simulamos un $U$ que invierte una fracción de $T$ y afecta a $Y$ con la misma fuerza
+(Tabla \ref{tbl:sensu}): una confusión moderada alcanza para anular el efecto absoluto con el orden
+del algoritmo, lo que refuerza la necesidad del benchmark.
+
+```{python}
+#| output: asis
+filas = [[n(100 * r["fuerza sobre T (fracción de T invertida)"], 0) + r"\,\%", n(100 * r["fuerza sobre Y"], 0) + r"\,\%",
+          n(r["ATE con U simulado"], 4), n(r["cambio %"], 1) + r"\,\%"] for r in F4["sens_u"]]
+tabla(["Fuerza sobre $T$", "Fuerza sobre $Y$", "ATE con $U$", "Cambio"], filas,
+      f"Sensibilidad a un confusor no observado simulado (regresión backdoor, orden del algoritmo; ATE original {n(A0['regresión backdoor'], 4)}).",
+      "tbl:sensu", "@{}rrrr@{}")
+```
+
+**Heterogeneidad.** El `LinearDML` con orden aleatorio muestra que el efecto baja con el precio
+relativo ($\theta$ = `{python} n(HET["log_precio_rel"]["θ (efecto de x sobre τ)"], 4)`,
+`{python} pvi(HET["log_precio_rel"]["p"])`) y sube con la ubicación
+($\theta$ = `{python} n(HET["prop_location_score2"]["θ (efecto de x sobre τ)"], 4)`,
+`{python} pvi(HET["prop_location_score2"]["p"])`). El Causal Forest sobre los datos del algoritmo
+[@athey2019grf] muestra el mismo orden de segmentos con niveles inflados (Figura \ref{fig:cate}):
+la heterogeneidad no es un artefacto de $U$. Las curvas de CATE del bosque (Figura
+\ref{fig:cate_curvas}) muestran la forma: el efecto cae a partir de precios relativos cercanos a la
+mediana de la búsqueda y crece de manera monótona con la ubicación. En estrellas y en usuario
+recurrente es casi plano (NB 4.7).
+
+```{python}
+#| output: asis
+figura("fig_cate_curvas", "CATE del top-5 (Causal Forest DML, orden del algoritmo) en función del precio relativo y de la ubicación, con bandas de IC 95\\,\\%. La línea punteada es el ATE de LinearDML.", "fig:cate_curvas")
+```
+
+```{python}
+#| output: asis
+figura("fig_cate", "CATE del top-5 por segmento (terciles de precio relativo y de ubicación), IC 95\\,\\%. Izquierda: orden aleatorio, LinearDML; derecha: orden del algoritmo, Causal Forest DML. La línea punteada es el promedio de cada muestra.", "fig:cate", ancho=True)
+```
+
+# Discusión
+
+## Capacidad predictiva frente a palanca causal
+
+La posición es la variable más importante del Random Forest y la regla raíz del árbol. Leída como
+palanca, el OR ingenuo (`{python} n(ori, 2)`) diría cuánto gana un hotel al subirlo; el benchmark
+dice `{python} n(orb, 2)`. La diferencia es selección: para predecir, la posición es útil justamente
+porque resume la calidad que el algoritmo ya vio, incluida la que no observamos. Una variable muy
+predictiva carece de poder causal, o lo tiene de signo opuesto, cuando es un proxy de confusores,
+cuando es consecuencia del resultado o un colisionador, o cuando la muestra está seleccionada sobre el
+resultado [@hernan2020whatif]. Los tres casos aparecen en estos datos: `random_bool` es la segunda
+variable más predictiva y no es una palanca, sino la huella del muestreo del proveedor; condicionar
+en $C$ invierte el signo; ajustar por el clic anula el efecto. Solo el DAG, la identificación y,
+cuando existe, un experimento, permiten pasar de la asociación a la intervención.
+
+## Implicancias de negocio
+
+```{python}
+#| output: asis
+orden = ["barato y bien ubicado", "barato para su búsqueda", "bien ubicado", "todos", "mal ubicado", "caro para su búsqueda", "caro y mal ubicado"]
+filas = [[s.capitalize(), n(NEG[s]["reservas incrementales / 1.000"], 1), ic(NEG[s]["IC95_inf reservas"], NEG[s]["IC95_sup reservas"], 1),
+          n(NEG[s]["USD incrementales / 1.000"], 0)] for s in orden]
+tabla(["Segmento", "Reservas", "IC 95\\,\\%", "USD"], filas,
+      f"Valor causal del slot por segmento con orden aleatorio (LinearDML): reservas y USD incrementales cada 1.000 exposiciones (gasto mediano de {n(F4['gasto_mediana'], 0)} USD, sin desplazamiento).",
+      "tbl:negocio", "@{}lrrr@{}")
+```
+
+```{python}
+#| output: asis
+filas = [[k.capitalize(), n(v["Δp por exposición"], 4), n(v["gasto por reserva (USD)"], 0), n(100 * v["desplazamiento de otra reserva"], 0) + r"\,\%",
+          n(v["reservas incrementales / 1.000"], 1), n(v["USD incrementales / 1.000"], 0)] for k, v in ESC.items()]
+tabla(["Escenario", r"$\Delta p$", "Gasto", "Desplaz.", "Reservas", "USD"], filas,
+      "Valuación del slot por escenarios (cada 1.000 exposiciones). Conservador: límite inferior del IC del benchmark, gasto mediano y mitad de las reservas desplazadas de otro hotel; optimista: diferencia de tasas sin ajuste y gasto medio.",
+      "tbl:escenarios", "@{}lrrrrr@{}", sep="3.5pt")
+```
+
+1. **Valuar con el efecto causal.** Una valuación con datos del algoritmo, aun ajustada, sobrestima el
+   OR del slot en un `{python} n(100 * (ora / orb - 1), 0)`\ %; un contrato de posicionamiento pago
+   calculado así sobreprecia el inventario en esa proporción. Bajo supuestos explícitos sobre el
+   efecto, el gasto y la fracción de reservas que se le quitan a otro hotel, 1.000 exposiciones en el
+   top-5 valen entre `{python} n(ESC["conservador"]["USD incrementales / 1.000"], 0)` y
+   `{python} n(ESC["optimista"]["USD incrementales / 1.000"], 0)` USD de gasto incremental (Tabla \ref{tbl:escenarios}).
+2. **Asignar por segmento.** El slot rinde `{python} n(bb["relativo a todos"], 2)` veces el promedio
+   con hoteles baratos y bien ubicados, y `{python} n(mm["relativo a todos"], 2)` veces con hoteles
+   caros y mal ubicados; los IC de esos dos segmentos no se superponen (Tabla \ref{tbl:negocio}).
+   Reasignar 1.000 exposiciones del segundo grupo al primero suma
+   `{python} n(REA["reservas_por_1000"], 1)` reservas, unos `{python} n(REA["usd_por_1000"], 0)` USD.
+3. **Experimentar en forma continua.** El orden aleatorio fue la única fuente que reveló el sesgo:
+   mantener una fracción chica de tráfico aleatorio funciona como auditoría permanente del valor
+   causal del ranking.
+
+## Limitaciones y amenazas a la validez
+
+- **Interna.** La aleatorización es imperfecta: con $R = 1$ persiste una asociación débil entre la
+  posición y algunos atributos, que declaramos y ajustamos. La confusión por $U$ en $R = 0$ queda
+  cuantificada, no eliminada. SUTVA es aproximado: el estimando es el efecto dada la competencia de
+  la lista.
+- **Externa.** La población son búsquedas con al menos un clic de 2012-2013; el efecto sobre el
+  tráfico total no está identificado.
+- **De constructo.** $T$ se define sobre la posición en pantalla; con el top-4 del dataset el OR es
+  `{python} n(F4["sens_top4"]["or"], 2)` `{python} ic(*F4["sens_top4"]["ic"], 2)`.
+- **Estadística.** Con $n$ grande todo es significativo; por eso reportamos tamaños de efecto, MDE e
+  IC por búsqueda. Los IC de los segmentos intermedios se superponen.
+- **Licencia.** Los resultados publicados podrían considerarse parámetros del modelo según las reglas
+  de Kaggle; es un riesgo asumido y documentado.
+
+# Conclusiones
+
+El slot del top-5 tiene un efecto causal positivo sobre la reserva, que opera sobre todo a través
+de más clics. El dato observacional del algoritmo lo sobreestima aun después de ajustar por todo lo
+observable: el ajuste corrige la mitad del sesgo y la otra mitad es confusión no observada, de modo
+que el criterio Backdoor con las variables disponibles no alcanza en este sistema. El efecto es
+heterogéneo, y esa heterogeneidad se confirma con orden aleatorio. Recomendamos valuar y asignar el
+slot con el efecto causal por segmento y sostener una fracción de tráfico con orden aleatorio como
+auditoría. Más en general, un modelo predictivo excelente puede recomendar políticas equivocadas si
+su importancia de variables se lee como causal.
+
+# Declaración de uso de IA generativa {.unnumbered}
+
+Usamos Claude Code [@anthropic2026claudecode] (Anthropic, modelo Claude Opus 5.5) como asistente de
+programación dentro del repositorio. El asistente propuso diseños, escribió código, tests y
+borradores de texto, y ejecutó el pipeline; el equipo definió los objetivos de cada fase, tomó y
+aprobó las decisiones y revisó cada incremento antes de integrarlo. Registramos 37 errores del
+asistente, cada uno con el test o la guarda que lo refuta: afirmaciones de memoria sin fuente
+primaria (la definición de `random_bool`, el signo de `compN_rate`), estimadores mal parametrizados
+(RANSAC por defecto, un logit condicional sin converger), resultados redactados antes de ver el
+output, y una fuga Train/Test en la preparación que detectamos en la auditoría de cierre y
+corregimos con un test que perturba Test y exige que Train no cambie. Ninguna cifra de este informe
+proviene del texto del asistente: todas se leen de `models/resultados.json`, generado por el notebook
+ejecutado. Los prompts, las decisiones y el detalle de cada error están en `docs/ia_log.md`.
