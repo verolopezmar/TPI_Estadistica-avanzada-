@@ -300,7 +300,20 @@
    11,
    17,
    23
-  ]
+  ],
+  "eda": {
+   "max_dif_spearman_pearson": 0.02957971741693488,
+   "rho_pos_loc2": -0.17158531603431468,
+   "rho_reserva_pos": -0.13600962115799764,
+   "rho_estrellas_hist": 0.619605726569211
+  },
+  "anova_supuestos": {
+   "asimetria_min": -0.21332676708698273,
+   "asimetria_max": 0.31388524174690247,
+   "curtosis_min": 0.4907402992248535,
+   "curtosis_max": 1.6133928298950195,
+   "n_min": 1252
+  }
  },
  "fase2": {
   "ingenuo": {
@@ -404,7 +417,49 @@
     97.83094410365926,
     100.0
    ],
-   "n_kaiser": 4
+   "n_kaiser": 4,
+   "cargas": {
+    "prop_starrating": {
+     "PC1": 0.441,
+     "PC2": -0.003
+    },
+    "prop_review_score": {
+     "PC1": 0.351,
+     "PC2": -0.226
+    },
+    "prop_location_score1": {
+     "PC1": 0.248,
+     "PC2": 0.547
+    },
+    "prop_location_score2": {
+     "PC1": 0.153,
+     "PC2": 0.479
+    },
+    "prop_log_historical_price": {
+     "PC1": 0.468,
+     "PC2": 0.026
+    },
+    "log_precio": {
+     "PC1": 0.47,
+     "PC2": -0.105
+    },
+    "log_precio_rel": {
+     "PC1": 0.387,
+     "PC2": -0.303
+    },
+    "promotion_flag": {
+     "PC1": 0.063,
+     "PC2": 0.379
+    },
+    "prop_brand_bool": {
+     "PC1": 0.001,
+     "PC2": -0.413
+    },
+    "comp_n_info": {
+     "PC1": 0.065,
+     "PC2": 0.041
+    }
+   }
   }
  },
  "fase3": {
@@ -418,7 +473,7 @@
     "F1": 0.21618037135278514,
     "F1_macro": 0.5957764029906961,
     "F1_ponderado": 0.9589217140687651,
-    "umbral": 0.10899061365761807,
+    "umbral": 0.1089921236440343,
     "F1 con umbral 0,5": 0.0
    },
    "Naive Bayes": {
@@ -692,15 +747,15 @@
      0.1032,
      0.1078
     ],
-    "regresión backdoor": 0.09611309999776727,
+    "regresión backdoor": 0.0961130999977668,
     "regresión IC95": [
      0.0944,
      0.0978
     ],
-    "IPW": 0.08903360390432116,
+    "IPW": 0.08903360390432119,
     "tasa base P(Y|T=0)": 0.020646848055910764,
-    "sesgo de confusión (ingenuo − regresión)": 0.00936632756222408,
-    "sesgo relativo %": 9.745110252860082
+    "sesgo de confusión (ingenuo − regresión)": 0.009366327562224552,
+    "sesgo relativo %": 9.74511025286062
    },
    "R = 1 (aleatorio)": {
     "ingenuo (Y ~ T)": 0.010542381070104734,
@@ -708,15 +763,15 @@
      0.0096,
      0.0115
     ],
-    "regresión backdoor": 0.009205514575912694,
+    "regresión backdoor": 0.009205514575913037,
     "regresión IC95": [
      0.0086,
      0.0099
     ],
-    "IPW": 0.007852280023036293,
+    "IPW": 0.007852280023036291,
     "tasa base P(Y|T=0)": 0.0036898787187316577,
-    "sesgo de confusión (ingenuo − regresión)": 0.0013368664941920405,
-    "sesgo relativo %": 14.522452636054785
+    "sesgo de confusión (ingenuo − regresión)": 0.001336866494191697,
+    "sesgo relativo %": 14.522452636050511
    }
   },
   "or_intra": {
@@ -867,23 +922,23 @@
   },
   "refutaciones": {
    "Causa común aleatoria": {
-    "ATE original": 0.09611309999776727,
-    "ATE refutado": 0.0961130645966356,
-    "p": 0.48475118125099936,
+    "ATE original": 0.0961130999977668,
+    "ATE refutado": 0.09611306459663568,
+    "p": 0.48475118148926877,
     "criterio": "estable si p > 0,05",
     "pasa": true
    },
    "Placebo (T permutado)": {
-    "ATE original": 0.09611309999776727,
-    "ATE refutado": -0.00016984355875652342,
-    "p": 0.41638031280092447,
+    "ATE original": 0.0961130999977668,
+    "ATE refutado": -0.00016984355875603632,
+    "p": 0.4163803128011607,
     "criterio": "pasa si ATE ≈ 0 y p > 0,05 (no se rechaza que el placebo sea nulo)",
     "pasa": true
    },
    "Subconjunto 80 %": {
-    "ATE original": 0.09611309999776727,
-    "ATE refutado": 0.09620121918941124,
-    "p": 0.44261428172383505,
+    "ATE original": 0.0961130999977668,
+    "ATE refutado": 0.09620121918941174,
+    "p": 0.44261428172324185,
     "criterio": "pasa si queda en el IC original [0.0944; 0.0978]",
     "pasa": true
    }
@@ -892,42 +947,42 @@
    {
     "fuerza sobre T (fracción de T invertida)": 0.01,
     "fuerza sobre Y": 0.01,
-    "ATE con U simulado": 0.08926482029167944,
-    "cambio %": -7.12523028208113
+    "ATE con U simulado": 0.08926482029167797,
+    "cambio %": -7.125230282082196
    },
    {
     "fuerza sobre T (fracción de T invertida)": 0.02,
     "fuerza sobre Y": 0.02,
-    "ATE con U simulado": 0.08005857718102578,
-    "cambio %": -16.703782124512088
+    "ATE con U simulado": 0.08005857718102286,
+    "cambio %": -16.70378212451473
    },
    {
     "fuerza sobre T (fracción de T invertida)": 0.05,
     "fuerza sobre Y": 0.05,
-    "ATE con U simulado": 0.050123241764200355,
-    "cambio %": -47.849729365336536
+    "ATE con U simulado": 0.05012324176419883,
+    "cambio %": -47.849729365337865
    },
    {
     "fuerza sobre T (fracción de T invertida)": 0.1,
     "fuerza sobre Y": 0.1,
-    "ATE con U simulado": -0.014722110352609199,
-    "cambio %": -115.3174857048115
+    "ATE con U simulado": -0.014722110352613973,
+    "cambio %": -115.31748570481656
    }
   ],
   "dml": {
    "R = 0": {
-    "ATE": 0.0832905081177272,
+    "ATE": 0.08329050811772719,
     "IC95": [
-     0.07885043272112283,
-     0.08773058351433158
+     0.07885043272112278,
+     0.08773058351433159
     ],
     "tasa_base": 0.0202119792950456
    },
    "R = 1": {
     "ATE": 0.007346734909237421,
     "IC95": [
-     0.005907130672042026,
-     0.008786339146432816
+     0.005907130672042015,
+     0.008786339146432827
     ],
     "tasa_base": 0.0036581174198405814
    }
@@ -1137,7 +1192,7 @@
   },
   "ipw": {
    "R = 0 (algoritmo) | IPW de DoWhy": {
-    "ATE": 0.08903360390432116,
+    "ATE": 0.08903360390432119,
     "IC95_inf": NaN,
     "IC95_sup": NaN,
     "ee_bootstrap": NaN,
@@ -1165,7 +1220,7 @@
     "B": NaN
    },
    "R = 1 (aleatorio) | IPW de DoWhy": {
-    "ATE": 0.007852280023036293,
+    "ATE": 0.007852280023036291,
     "IC95_inf": NaN,
     "IC95_sup": NaN,
     "ee_bootstrap": NaN,
@@ -1195,179 +1250,179 @@
   },
   "cate_segmentos": {
    "barato y bien ubicado": {
-    "τ R=1 (LinearDML)": 0.011010909411324625,
-    "IC95_inf R=1": 0.008114370396996673,
-    "IC95_sup R=1": 0.013907448425652575,
+    "τ R=1 (LinearDML)": 0.01101090941132462,
+    "IC95_inf R=1": 0.00811437039699666,
+    "IC95_sup R=1": 0.013907448425652578,
     "τ R=0 (Causal Forest)": 0.11915316873661887,
     "IC95_inf R=0": 0.08091621643951337,
     "IC95_sup R=0": 0.15739012103372435,
     "hoteles R=1": 14176,
     "hoteles R=0": 14407,
-    "relativo a todos (R=1)": 1.4987487022949544,
-    "relativo a todos (R=0)": 1.422084137773735
+    "relativo a todos (R=1)": 1.4987487022949537,
+    "relativo a todos (R=0)": 1.4220841377737352
    },
    "barato para su búsqueda": {
     "τ R=1 (LinearDML)": 0.008962729215136096,
-    "IC95_inf R=1": 0.006859820152349033,
-    "IC95_sup R=1": 0.011065638277923158,
+    "IC95_inf R=1": 0.006859820152349027,
+    "IC95_sup R=1": 0.011065638277923165,
     "τ R=0 (Causal Forest)": 0.09959804986353138,
     "IC95_inf R=0": 0.05759360299944883,
     "IC95_sup R=0": 0.1416024967276139,
     "hoteles R=1": 48704,
     "hoteles R=0": 49959,
     "relativo a todos (R=1)": 1.2199608841019707,
-    "relativo a todos (R=0)": 1.1886952597727836
+    "relativo a todos (R=0)": 1.1886952597727838
    },
    "bien ubicado": {
-    "τ R=1 (LinearDML)": 0.009256608789458214,
-    "IC95_inf R=1": 0.0068589479893303735,
-    "IC95_sup R=1": 0.011654269589586054,
+    "τ R=1 (LinearDML)": 0.00925660878945821,
+    "IC95_inf R=1": 0.0068589479893303605,
+    "IC95_sup R=1": 0.011654269589586059,
     "τ R=0 (Causal Forest)": 0.09395940345351547,
     "IC95_inf R=0": 0.059624696639107966,
     "IC95_sup R=0": 0.12829411026792298,
     "hoteles R=1": 48700,
     "hoteles R=0": 49893,
-    "relativo a todos (R=1)": 1.2599622694728527,
-    "relativo a todos (R=0)": 1.1213984375126627
+    "relativo a todos (R=1)": 1.2599622694728523,
+    "relativo a todos (R=0)": 1.1213984375126629
    },
    "todos": {
     "τ R=1 (LinearDML)": 0.007346734909237421,
-    "IC95_inf R=1": 0.005907130672042026,
-    "IC95_sup R=1": 0.008786339146432816,
-    "τ R=0 (Causal Forest)": 0.08378770676899083,
-    "IC95_inf R=0": 0.04474773647963514,
-    "IC95_sup R=0": 0.12282767705834652,
+    "IC95_inf R=1": 0.005907130672042015,
+    "IC95_sup R=1": 0.008786339146432827,
+    "τ R=0 (Causal Forest)": 0.08378770676899082,
+    "IC95_inf R=0": 0.044747736479635127,
+    "IC95_sup R=0": 0.1228276770583465,
     "hoteles R=1": 146111,
     "hoteles R=0": 149878,
     "relativo a todos (R=1)": 1.0,
     "relativo a todos (R=0)": 1.0
    },
    "mal ubicado": {
-    "τ R=1 (LinearDML)": 0.006163664892240463,
-    "IC95_inf R=1": 0.004475491442632361,
-    "IC95_sup R=1": 0.007851838341848565,
+    "τ R=1 (LinearDML)": 0.006163664892240465,
+    "IC95_inf R=1": 0.0044754914426323586,
+    "IC95_sup R=1": 0.00785183834184857,
     "τ R=0 (Causal Forest)": 0.07661226156312058,
     "IC95_inf R=0": 0.03684029429168651,
     "IC95_sup R=0": 0.11638422883455464,
     "hoteles R=1": 48730,
     "hoteles R=0": 50374,
-    "relativo a todos (R=1)": 0.838966557033462,
-    "relativo a todos (R=0)": 0.9143615993017506
+    "relativo a todos (R=1)": 0.8389665570334622,
+    "relativo a todos (R=0)": 0.9143615993017509
    },
    "caro para su búsqueda": {
-    "τ R=1 (LinearDML)": 0.005571095916145504,
-    "IC95_inf R=1": 0.003856380261953606,
-    "IC95_sup R=1": 0.007285811570337402,
+    "τ R=1 (LinearDML)": 0.005571095916145505,
+    "IC95_inf R=1": 0.0038563802619536007,
+    "IC95_sup R=1": 0.007285811570337409,
     "τ R=0 (Causal Forest)": 0.06096577198818977,
     "IC95_inf R=0": 0.02694956457128836,
     "IC95_sup R=0": 0.09498197940509118,
     "hoteles R=1": 48702,
     "hoteles R=0": 49960,
-    "relativo a todos (R=1)": 0.7583090971665091,
-    "relativo a todos (R=0)": 0.7276219190039072
+    "relativo a todos (R=1)": 0.7583090971665092,
+    "relativo a todos (R=0)": 0.7276219190039073
    },
    "caro y mal ubicado": {
-    "τ R=1 (LinearDML)": 0.004160179030511681,
-    "IC95_inf R=1": 0.0021585296962848867,
-    "IC95_sup R=1": 0.006161828364738475,
+    "τ R=1 (LinearDML)": 0.0041601790305116826,
+    "IC95_inf R=1": 0.0021585296962848845,
+    "IC95_sup R=1": 0.00616182836473848,
     "τ R=0 (Causal Forest)": 0.049381194895679194,
     "IC95_inf R=0": 0.016115437934653212,
     "IC95_sup R=0": 0.08264695185670518,
     "hoteles R=1": 14621,
     "hoteles R=0": 15194,
-    "relativo a todos (R=1)": 0.5662623031737374,
-    "relativo a todos (R=0)": 0.5893608597240518
+    "relativo a todos (R=1)": 0.5662623031737376,
+    "relativo a todos (R=0)": 0.5893608597240519
    }
   },
   "het_R1": {
    "prop_starrating": {
-    "θ (efecto de x sobre τ)": 0.0006407028724925684,
+    "θ (efecto de x sobre τ)": 0.000640702872492569,
     "IC95_inf": -0.00117238383638421,
-    "IC95_sup": 0.0024537895813693464,
-    "p": 0.48855690563464127
+    "IC95_sup": 0.0024537895813693477,
+    "p": 0.4885569056346408
    },
    "log_precio_rel": {
     "θ (efecto de x sobre τ)": -0.004879897543589054,
-    "IC95_inf": -0.008519629225587551,
-    "IC95_sup": -0.0012401658615905577,
-    "p": 0.008594343225942278
+    "IC95_inf": -0.008519629225587553,
+    "IC95_sup": -0.0012401658615905564,
+    "p": 0.0085943432259423
    },
    "prop_location_score2": {
-    "θ (efecto de x sobre τ)": 0.012361029610118122,
-    "IC95_inf": 0.001216627272083659,
-    "IC95_sup": 0.02350543194815258,
-    "p": 0.0297102425126338
+    "θ (efecto de x sobre τ)": 0.012361029610118115,
+    "IC95_inf": 0.0012166272720836643,
+    "IC95_sup": 0.023505431948152564,
+    "p": 0.029710242512633735
    },
    "usuario_recurrente": {
     "θ (efecto de x sobre τ)": 0.0123181329162718,
-    "IC95_inf": 1.0184241238960987e-05,
-    "IC95_sup": 0.024626081591304638,
-    "p": 0.04981073132880916
+    "IC95_inf": 1.0184241238952313e-05,
+    "IC95_sup": 0.024626081591304645,
+    "p": 0.04981073132880936
    }
   },
   "negocio_segmentos": {
    "barato y bien ubicado": {
-    "Δp por exposición": 0.011010909411324625,
-    "reservas incrementales / 1.000": 11.010909411324624,
-    "IC95_inf reservas": 8.114370396996673,
-    "IC95_sup reservas": 13.907448425652575,
-    "USD incrementales / 1.000": 2458.405623296985,
-    "relativo a todos": 1.4987487022949544
+    "Δp por exposición": 0.01101090941132462,
+    "reservas incrementales / 1.000": 11.010909411324619,
+    "IC95_inf reservas": 8.11437039699666,
+    "IC95_sup reservas": 13.907448425652579,
+    "USD incrementales / 1.000": 2458.405623296984,
+    "relativo a todos": 1.4987487022949537
    },
    "barato para su búsqueda": {
     "Δp por exposición": 0.008962729215136096,
     "reservas incrementales / 1.000": 8.962729215136095,
-    "IC95_inf reservas": 6.859820152349033,
-    "IC95_sup reservas": 11.065638277923158,
+    "IC95_inf reservas": 6.859820152349027,
+    "IC95_sup reservas": 11.065638277923165,
     "USD incrementales / 1.000": 2001.108453395952,
     "relativo a todos": 1.2199608841019707
    },
    "bien ubicado": {
-    "Δp por exposición": 0.009256608789458214,
-    "reservas incrementales / 1.000": 9.256608789458214,
-    "IC95_inf reservas": 6.858947989330374,
-    "IC95_sup reservas": 11.654269589586054,
-    "USD incrementales / 1.000": 2066.722942726194,
-    "relativo a todos": 1.2599622694728527
+    "Δp por exposición": 0.00925660878945821,
+    "reservas incrementales / 1.000": 9.25660878945821,
+    "IC95_inf reservas": 6.85894798933036,
+    "IC95_sup reservas": 11.65426958958606,
+    "USD incrementales / 1.000": 2066.722942726193,
+    "relativo a todos": 1.2599622694728523
    },
    "todos": {
     "Δp por exposición": 0.007346734909237421,
     "reservas incrementales / 1.000": 7.346734909237421,
-    "IC95_inf reservas": 5.907130672042026,
-    "IC95_sup reservas": 8.786339146432816,
+    "IC95_inf reservas": 5.907130672042015,
+    "IC95_sup reservas": 8.786339146432827,
     "USD incrementales / 1.000": 1640.3054224717987,
     "relativo a todos": 1.0
    },
    "mal ubicado": {
-    "Δp por exposición": 0.006163664892240463,
-    "reservas incrementales / 1.000": 6.163664892240463,
-    "IC95_inf reservas": 4.475491442632361,
-    "IC95_sup reservas": 7.851838341848565,
-    "USD incrementales / 1.000": 1376.1613927744831,
-    "relativo a todos": 0.838966557033462
+    "Δp por exposición": 0.006163664892240465,
+    "reservas incrementales / 1.000": 6.163664892240464,
+    "IC95_inf reservas": 4.475491442632358,
+    "IC95_sup reservas": 7.85183834184857,
+    "USD incrementales / 1.000": 1376.1613927744836,
+    "relativo a todos": 0.8389665570334622
    },
    "caro para su búsqueda": {
-    "Δp por exposición": 0.005571095916145504,
-    "reservas incrementales / 1.000": 5.571095916145504,
-    "IC95_inf reservas": 3.856380261953606,
-    "IC95_sup reservas": 7.285811570337402,
-    "USD incrementales / 1.000": 1243.858523991919,
-    "relativo a todos": 0.7583090971665091
+    "Δp por exposición": 0.005571095916145505,
+    "reservas incrementales / 1.000": 5.571095916145505,
+    "IC95_inf reservas": 3.8563802619536007,
+    "IC95_sup reservas": 7.285811570337409,
+    "USD incrementales / 1.000": 1243.8585239919191,
+    "relativo a todos": 0.7583090971665092
    },
    "caro y mal ubicado": {
-    "Δp por exposición": 0.004160179030511681,
-    "reservas incrementales / 1.000": 4.160179030511681,
-    "IC95_inf reservas": 2.158529696284887,
-    "IC95_sup reservas": 6.161828364738475,
-    "USD incrementales / 1.000": 928.843126437251,
-    "relativo a todos": 0.5662623031737374
+    "Δp por exposición": 0.0041601790305116826,
+    "reservas incrementales / 1.000": 4.160179030511682,
+    "IC95_inf reservas": 2.1585296962848846,
+    "IC95_sup reservas": 6.16182836473848,
+    "USD incrementales / 1.000": 928.8431264372514,
+    "relativo a todos": 0.5662623031737376
    }
   },
   "reasignacion": {
    "desde": "caro y mal ubicado",
    "hacia": "barato y bien ubicado",
-   "reservas_por_1000": 6.850730380812943,
-   "usd_por_1000": 1529.562496859734
+   "reservas_por_1000": 6.850730380812936,
+   "usd_por_1000": 1529.5624968597324
   }
  }
 }

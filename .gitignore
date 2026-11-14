@@ -19,7 +19,23 @@ access_token
 .env
 .streamlit/secrets.toml
 
-# Salidas de Quarto
+# Salidas de Quarto y temporales de LaTeX
+report/*.tex
+!report/before-body.tex
+*.aux
+*.log
+*.out
+*.toc
+*.lof
+*.lot
+*.bbl
+*.bcf
+*.blg
+*.run.xml
+*.fls
+*.fdb_latexmk
+*.synctex.gz
+.Rhistory
 report/_freeze/
 report/*_files/
 report/.quarto/
@@ -30,6 +46,9 @@ report/.quarto/
 Thumbs.db
 desktop.ini
 .vscode/settings.json
+
+# Figuras de exploración del notebook (regenerables)
+notebooks/figuras/
 
 # Paquete de entrega (se arma localmente; no se versiona)
 entrega/

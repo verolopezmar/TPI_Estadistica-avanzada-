@@ -49,14 +49,13 @@ Detalle en el [informe](report/informe.pdf) y en el notebook (Fase 4).
 
 | Entregable | Dónde |
 |---|---|
-| App (Diagnóstico + PCA, What-Is, What-If y copiloto bonus) | Enlace público: ver [Deploy](#deploy-en-streamlit-community-cloud) · código en [`app/`](app/) · plan B: [Docker](#plan-b-contenedor-docker) |
+| App (Diagnóstico + PCA, What-Is, What-If y copiloto bonus) | Enlace público: `<URL_APP>` (pendiente; ver [Deploy](#deploy-en-streamlit-community-cloud)) · código en [`app/`](app/) · plan B: [Docker](#plan-b-contenedor-docker) |
 | Notebook maestro (Restart & Run All, con salidas) | [`notebooks/TP_Integrador_Final.ipynb`](notebooks/TP_Integrador_Final.ipynb) |
-| Informe técnico (Quarto, PDF y HTML) | [`report/informe.pdf`](report/informe.pdf) · [`report/informe.html`](report/informe.html) · fuente [`report/informe.qmd`](report/informe.qmd) |
+| Informe (paper a dos columnas, Quarto → PDF) | [`report/informe.pdf`](report/informe.pdf) · fuente [`report/informe.qmd`](report/informe.qmd) |
 | Diapositivas de la defensa (PDF, 12 slides) | [`report/slides.pdf`](report/slides.pdf) |
-| Bitácora de ingeniería (5 entradas firmadas) | [`BITACORA.md`](BITACORA.md) |
+| Bitácora de ingeniería (5 entradas) | [`BITACORA.md`](BITACORA.md) |
 | Registro de uso de IA | [`docs/ia_log.md`](docs/ia_log.md) |
 | Guion de la defensa y banco de preguntas | [`docs/defensa.md`](docs/defensa.md) |
-| Matriz de trazabilidad contra enunciado y rúbrica | [`docs/estado_cierre.md`](docs/estado_cierre.md) |
 
 ## Pipeline
 
@@ -99,34 +98,29 @@ $T \leftarrow U \to Y$: Backdoor no se cumple. Con orden aleatorio ($R = 1$), el
 alcanza. El clic es mediador (no se ajusta) y $S$ y $C$ son colisionadores (no se condiciona en
 ellos). 12 pruebas de d-separación en [`tests/test_dag.py`](tests/test_dag.py).
 
-## Equipo y roles Scrum
+## Equipo
 
-| Integrante | Rol Scrum |
-|---|---|
-| Verónica López Marsico | 👑 Project Lead & Scrum Master (Product Owner) |
-| Lucía Báez | ⚙️ Backend & ML / Causal Engineer |
-| Antonella Robiollio | 🎨 Frontend & UI/UX Engineer + 🔍 QA & Validation Engineer |
+Verónica Ana López Marsico, Lucía Báez y Antonella Robiollio (roles Scrum: Project Lead & Scrum Master; Backend & ML / Causal; Frontend & UI/UX + QA). El análisis, las decisiones y las revisiones fueron del equipo en conjunto.
 
-**Organización real del trabajo (desde el 12/11/2026):** Verónica ejecuta y valida todo el trabajo
-con asistencia de Claude Code, incluidos los veredictos `[APROBADO]`/`[BLOQUEADO]` de los PRs. Los
-roles de la tabla se mantienen para la defensa oral. Cada PR registra quién lo revisó realmente
-(ver [`BITACORA.md`](BITACORA.md) y [`docs/ia_log.md`](docs/ia_log.md)).
+Uso de IA (Claude Code) documentado en [`docs/ia_log.md`](docs/ia_log.md) y en la Entrada 5 de la
+[`BITACORA.md`](BITACORA.md).
 
 ## Estructura del repositorio
 
 ```
-├── app/               App Streamlit (app.py, logica.py, copiloto.py) y requirements mínimos
-├── data/              Script de descarga, manifiestos con hashes (los datos no se versionan)
-├── docs/              Bitácora complementaria: DAG, IA, defensa, trazabilidad, enunciado y rúbrica
-├── models/            Solo agregados: resultados.json, artefactos_app.json, rf_app.joblib
-├── notebooks/         TP_Integrador_Final.ipynb (+ fuente jupytext .py)
-├── report/            Informe y slides en Quarto (qmd → PDF/HTML), figuras y bibliografía
-├── scripts/           Automatización de GitHub y regeneración de cifras del README
-├── src/tpi/           Lógica reutilizable: auditoría, inferencia, regresión, modelos, causal, DAG
-├── tests/             pytest: no-fuga, supuestos, estimadores con verdad conocida, app, datos
-├── .github/           Quality Gate (CI) y plantilla de PR con checklist de QA
-├── Dockerfile         Plan B de deploy de la app
-└── BITACORA.md        Cuaderno de laboratorio (5 entradas)
+├── app/                    App Streamlit (app.py, logica.py, copiloto.py) y requirements fijados
+├── data/                   Descarga reproducible y manifiestos con hashes (los datos no se versionan)
+├── docs/                   Registro de IA, guion de defensa, enunciado y rúbrica
+├── models/                 Solo agregados: resultados.json, artefactos_app.json, rf_app.joblib
+├── notebooks/              TP_Integrador_Final.ipynb (notebook maestro, ejecutado)
+├── report/                 Paper (informe.qmd → PDF), slides, figuras (fig_*.pdf) y bibliografía
+├── scripts/cifras_readme.py  Regenera las cifras de este README desde resultados.json
+├── src/tpi/                Lógica reutilizable: auditoría, inferencia, regresión, modelos, causal, DAG
+├── tests/                  pytest: no-fuga, supuestos, estimadores con verdad conocida, app, datos
+├── .github/                Quality Gate (CI) y plantilla de PR con checklist de QA
+├── .streamlit/config.toml  Configuración de la app (Streamlit Cloud y Docker)
+├── Dockerfile              Plan B de deploy de la app
+└── BITACORA.md             Cuaderno de laboratorio (5 entradas)
 ```
 
 ## Reproducción paso a paso (Windows / PowerShell)
@@ -154,7 +148,7 @@ python -m nbconvert --to notebook --execute --inplace notebooks/TP_Integrador_Fi
 python scripts/cifras_readme.py       # cifras del README desde resultados.json
 
 # 5. Informe y diapositivas
-quarto render report/informe.qmd      # PDF y HTML
+quarto render report/informe.qmd      # paper en PDF
 quarto render report/slides.qmd       # PDF (beamer)
 
 # 6. App local
@@ -197,7 +191,7 @@ Render o Hugging Face Spaces. El CI construye la imagen en cada PR.
 ## Confidencialidad de los datos
 
 Las reglas de la competencia declaran confidenciales los datos y los "resulting model parameters".
-Decisión de Verónica (12/11/2026): seguir con Expedia con mitigaciones verificadas por tests.
+Decisión del equipo (12/11/2026): seguir con Expedia con mitigaciones verificadas por tests.
 
 - Ningún archivo de datos en el repo (`tests/test_confidencialidad.py`).
 - El crudo queda fuera del repo y de OneDrive.
@@ -211,7 +205,7 @@ El riesgo residual está documentado en la BITÁCORA (Entradas 1 y 4).
 Ramas por fase → Pull Request a `main` con el checklist de la plantilla → CI (Quality Gate:
 `ruff`, `pytest -m leakage`, `pytest`, build de Docker) → veredicto de QA `[APROBADO]` o
 `[BLOQUEADO]` en el PR → merge con "Create a merge commit". Issues agrupados en un milestone por
-fase. Scripts de GitHub en [`scripts/github/`](scripts/github/).
+fase.
 
 ## Referencias principales
 

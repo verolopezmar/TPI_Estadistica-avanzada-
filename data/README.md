@@ -47,4 +47,7 @@ python data/download_plan_b.py
 $env:TPI_DATASET = "online_shoppers"   # todo el pipeline pasa a usar el contrato del plan B
 ```
 
-Ver [`docs/plan_b.md`](../docs/plan_b.md).
+El plan B usa el dataset *Online Shoppers Purchasing Intention* (UCI #468) con un tratamiento
+semisintético cuyo efecto verdadero se conoce (columna `tau_real`, mecanismo en `src/tpi/plan_b.py`),
+para validar el pipeline causal con verdad conocida. Quedó evaluado y probado
+(`tests/test_contrato.py`), pero no se activó: el análisis usa Expedia.

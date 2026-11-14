@@ -20,7 +20,7 @@ DoWhy en la Fase 4):
     I   (latente) intención de compra del usuario en esa sesión
     C   (simulado en la Fase 4) "destacado en el reporte de hoteles más vendidos": T -> C <- Y
 
-Los arcos se justifican uno por uno en docs/dag_borrador.md.
+Los arcos se justifican uno por uno en la BITÁCORA (Entrada 4).
 """
 
 from __future__ import annotations
@@ -172,17 +172,25 @@ ETIQUETAS = {
 COLORES = {"T": "#4C72B0", "Y": "#55A868", "M": "#DD8452", "C": "#C44E52", "R": "#8172B3"}
 
 
-def dibujar_dag(g: nx.DiGraph, ax, titulo: str = "") -> None:
+def dibujar_dag(
+    g: nx.DiGraph,
+    ax,
+    titulo: str = "",
+    node_size: int = 2600,
+    font_size: float = 7,
+    arrowsize: int = 14,
+    titulo_size: float = 10,
+) -> None:
     """Dibuja el DAG con posiciones fijas (sin depender del binario de Graphviz)."""
     colores = [COLORES.get(n, "#BBBBBB" if n in LATENTES else "#DADDE3") for n in g.nodes]
-    nx.draw_networkx_nodes(g, POSICIONES, ax=ax, node_color=colores, node_size=2600)
-    nx.draw_networkx_labels(g, POSICIONES, labels=ETIQUETAS, ax=ax, font_size=7)
+    nx.draw_networkx_nodes(g, POSICIONES, ax=ax, node_color=colores, node_size=node_size)
+    nx.draw_networkx_labels(g, POSICIONES, labels=ETIQUETAS, ax=ax, font_size=font_size)
     latentes = [e for e in g.edges if e[0] in LATENTES]
     otros = [e for e in g.edges if e[0] not in LATENTES]
-    kw = {"ax": ax, "node_size": 2600, "arrowsize": 14, "width": 1.1}
+    kw = {"ax": ax, "node_size": node_size, "arrowsize": arrowsize, "width": 0.6 + node_size / 5000}
     nx.draw_networkx_edges(g, POSICIONES, edgelist=otros, **kw)
     nx.draw_networkx_edges(g, POSICIONES, edgelist=latentes, style="dashed", alpha=0.6, **kw)
-    ax.set_title(titulo, fontsize=10)
+    ax.set_title(titulo, fontsize=titulo_size)
     ax.axis("off")
 
 
